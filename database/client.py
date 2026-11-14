@@ -1,6 +1,6 @@
 """Supabase connection and shared helpers for the CareerBridge data layer.
 
-Every domain module imports from here. Nothing outside db/ should talk to
+Every domain module imports from here. Nothing outside database/ should talk to
 Supabase directly.
 """
 

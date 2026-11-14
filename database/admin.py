@@ -1,6 +1,6 @@
 """Setup, demo data and reporting.
 
-Tables are created by running db/schema.sql in the Supabase SQL Editor
+Tables are created by running database/schema.sql in the Supabase SQL Editor
 (the Python client cannot run DDL). Use health_check() to confirm it worked.
 """
 

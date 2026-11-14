@@ -1,8 +1,8 @@
 """Shared data shapes for the CareerBridge data layer.
 
 These are the contract between modules: the parser, job finder, matcher,
-learning and assessment code all build these objects, and db/ validates them
-before saving. Allowed values match the CHECK constraints in db/schema.sql.
+learning and assessment code all build these objects, and database/ validates them
+before saving. Allowed values match the CHECK constraints in database/schema.sql.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
-# ---- Allowed values (keep in sync with db/schema.sql) ----------------------
+# ---- Allowed values (keep in sync with database/schema.sql) ----------------------
 Modality = Literal["text", "hands_on", "both"]
 ProfileSource = Literal["resume", "manual"]
 SkillCategory = Literal["technical", "interpersonal", "domain"]

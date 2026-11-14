@@ -1,5 +1,5 @@
 """
-CareerBridge: end-to-end test of the db/ data layer against Supabase.
+CareerBridge: end-to-end test of the database/ data layer against Supabase.
 
 Walks the full product flow with a throwaway user, skill and job, checks every
 integrity rule, then deletes everything it created (including stored files).
@@ -15,8 +15,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from db import DBError, admin, jobs, learning, mastery, profiles, resumes, users  # noqa: E402
-from db.client import run, table  # noqa: E402
+from database import DBError, admin, jobs, learning, mastery, profiles, resumes, users  # noqa: E402
+from database.client import run, table  # noqa: E402
 
 TAG = uuid.uuid4().hex[:8]
 SKILL = f"CBTest RAG {TAG}"

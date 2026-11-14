@@ -1,4 +1,4 @@
-# CareerBridge data layer (`db/`)
+# CareerBridge data layer (`database/`)
 
 All database and file-storage access goes through this package. Other modules
 never write SQL or call Supabase directly. Every function returns plain dicts
@@ -6,7 +6,7 @@ or lists and raises `DBError` with a message that is safe to show in the UI.
 
 ## Setup
 
-1. Run `db/schema.sql` once in the Supabase SQL Editor (creates 18 tables,
+1. Run `database/schema.sql` once in the Supabase SQL Editor (creates 18 tables,
    integrity triggers and the private `careerbridge-private` bucket).
 2. Create `.env` in the repo root (never commit it):
    ```
@@ -19,7 +19,7 @@ or lists and raises `DBError` with a message that is safe to show in the UI.
 ## Quick start
 
 ```python
-from db import users, profiles, jobs, learning, mastery, resumes, admin, DBError
+from database import users, profiles, jobs, learning, mastery, resumes, admin, DBError
 
 user    = users.create_user("ana@example.com", "Ana")
 goal    = users.create_goal(user["id"], "Software Engineer, AI Applications")
@@ -66,7 +66,7 @@ Skills can be passed by name, alias or UUID; new names are added to the shared
 ## Demo data
 
 ```python
-from db import admin
+from database import admin
 ids = admin.seed_demo_data()     # synthetic persona, 3 jobs, RAG gap, frozen RAG rubric
 admin.delete_demo_data()         # removes the persona and everything it owns
 ```

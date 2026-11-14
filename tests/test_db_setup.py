@@ -162,7 +162,7 @@ def finish():
         print(f"{len(failed)} check(s) failed:")
         for name, _, detail in failed:
             print(f"  - {name.strip()}: {detail}")
-        print("\nCommon fixes: run db/schema.sql in the Supabase SQL Editor; "
+        print("\nCommon fixes: run database/schema.sql in the Supabase SQL Editor; "
               "check SUPABASE_URL and use the secret key.")
         return 1
     print(f"All {len(results)} checks passed. Database is ready.")
