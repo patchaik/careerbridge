@@ -1,4 +1,4 @@
-import { draftResume, exportResume } from "../lib/api/resumes";
+import { critiqueResume, draftResume, exportResume } from "../lib/api/resumes";
 import { useAsyncAction } from "./useAsync";
 
 export function useResumeDraft() {
@@ -7,4 +7,8 @@ export function useResumeDraft() {
 
 export function useResumeExport() {
   return useAsyncAction(exportResume);
+}
+
+export function useResumeCritique() {
+  return useAsyncAction(critiqueResume);
 }

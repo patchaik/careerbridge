@@ -3,8 +3,11 @@ import type { CandidateProfile } from "../types";
 import { mockConfirmProfile, mockParseManualSkills, mockParseResume } from "../mock/handlers";
 import { apiRequest } from "./client";
 
-export async function parseResume(file: File): Promise<{ workflowId: string }> {
-  if (USE_MOCKS) return { workflowId: mockParseResume() };
+export async function parseResume(
+  file: File,
+  simulateFailure = false,
+): Promise<{ workflowId: string }> {
+  if (USE_MOCKS) return { workflowId: mockParseResume(simulateFailure) };
   // Real backend: multipart upload, see docs/API_CONTRACT.md for POST /onboarding/parse
   const body = new FormData();
   body.append("file", file);

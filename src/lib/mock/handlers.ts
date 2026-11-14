@@ -6,19 +6,23 @@ import type {
   AssessmentAttempt,
   CandidateProfile,
   CandidateSkillEvidence,
+  InterestAnalysis,
   KnowledgeCheckQuestion,
   LearningPath,
   LearningResource,
   ProgressMilestone,
+  ResumeCritique,
   ResumeDraft,
   SkillAnalysis,
   TutorMessage,
   WellbeingCheckIn,
 } from "../types";
 import {
+  demoInterestAnalysis,
   demoJobPostings,
   demoProfile,
   demoProgressMilestones,
+  demoResumeCritique,
   demoResumeDraft,
   demoResumeSkills,
   demoSkillAnalysis,
@@ -32,9 +36,14 @@ import {
 } from "./fixtures";
 import { getMockWorkflow, startMockWorkflow } from "./workflow";
 
-export function mockParseResume(): string {
+export function mockParseResume(simulateFailure = false): string {
   return startMockWorkflow<{ profile: CandidateProfile }>(
-    () => ({ profile: demoProfile }),
+    () => {
+      if (simulateFailure) {
+        throw new Error("We couldn't read that file. Try a different PDF/DOCX, or enter your skills manually.");
+      }
+      return { profile: demoProfile };
+    },
     [800, 1800],
   );
 }
@@ -137,6 +146,16 @@ export async function mockDraftResume(): Promise<ResumeDraft> {
 export async function mockExportResume(): Promise<{ success: true; filename: string }> {
   await mockDelay(600, 1200);
   return { success: true, filename: "resume-updated.docx" };
+}
+
+export async function mockAnalyzeInterests(): Promise<InterestAnalysis> {
+  await mockDelay(500, 1100);
+  return demoInterestAnalysis;
+}
+
+export async function mockGetResumeCritique(): Promise<ResumeCritique> {
+  await mockDelay(600, 1300);
+  return demoResumeCritique;
 }
 
 export async function mockWellbeingCheckIn(

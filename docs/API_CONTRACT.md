@@ -77,6 +77,75 @@ Approve the (possibly edited) extracted profile.
 
 ---
 
+## POST /interests/analyze
+
+Cluster the candidate's skills (technical / interpersonal / domain) and infer interests, each
+tied back to the résumé excerpt it came from. Used by `/interests`.
+
+**Request**
+```json
+{ "profile_id": "profile_demo_1" }
+```
+
+**Response**
+```json
+{
+  "clusters": [
+    {
+      "id": "cluster_backend",
+      "category": "technical",
+      "label": "Backend development",
+      "skills": ["Java", "Spring Boot", "REST APIs"],
+      "source_excerpt": "Built and maintained REST APIs with Spring Boot and Spring Data."
+    }
+  ],
+  "interests": [
+    {
+      "id": "interest_backend_systems",
+      "label": "Building backend systems",
+      "source_excerpt": "5 years building backend services in Java across two teams."
+    }
+  ]
+}
+```
+
+`category` is one of `technical`, `interpersonal`, `domain`. The candidate selects which
+clusters/interests to build on client-side — this endpoint only surfaces evidence, it never
+decides on the candidate's behalf.
+
+---
+
+## POST /resumes/critique
+
+Section-by-section résumé feedback. Used by `/critique`. Never returns an overall score.
+
+**Request**
+```json
+{ "profile_id": "profile_demo_1" }
+```
+
+**Response**
+```json
+{
+  "items": [
+    {
+      "id": "crit_summary_1",
+      "section": "Summary",
+      "severity": "important",
+      "finding": "No summary section found at the top of the résumé.",
+      "rationale": "A 2-3 line summary helps a reviewer place your experience before reading the details.",
+      "suggested_rewrite": "Backend developer with 5 years building Java/Spring Boot services and REST APIs, now exploring applied-AI tooling."
+    }
+  ]
+}
+```
+
+`section` is one of `Summary`, `Experience`, `Skills`, `Projects`, `Formatting`. `severity` is
+one of `strength`, `suggestion`, `important`. `suggested_rewrite` is `null` when there's nothing
+to rewrite (e.g. a `strength` item).
+
+---
+
 ## POST /goals
 
 Create the target role + preferences.

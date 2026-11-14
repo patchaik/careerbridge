@@ -7,6 +7,7 @@ import type {
   AssessmentProjectQuestion,
   CandidateProfile,
   CandidateSkillEvidence,
+  InterestAnalysis,
   JobPosting,
   JobSkillRequirement,
   KnowledgeCheckQuestion,
@@ -14,6 +15,7 @@ import type {
   LearningResource,
   MarketSkill,
   ProgressMilestone,
+  ResumeCritique,
   ResumeDraft,
   RubricVersion,
   SkillAnalysis,
@@ -66,7 +68,7 @@ export const demoResumeSkills: CandidateSkillEvidence[] = [
 
 export const demoProfile: CandidateProfile = {
   id: "profile_demo_1",
-  targetRole: "Software Engineer — AI Applications",
+  targetRole: null,
   location: "Remote",
   level: "Mid-level",
   workMode: "remote",
@@ -493,3 +495,101 @@ export const demoProgressMilestones: ProgressMilestone[] = [
   { id: "pm4", title: "Independent assessment passed", completedAt: "2026-11-12T15:30:00Z", status: "complete" },
   { id: "pm5", title: "Résumé evidence approved", completedAt: null, status: "upcoming" },
 ];
+
+export const demoInterestAnalysis: InterestAnalysis = {
+  clusters: [
+    {
+      id: "cluster_backend",
+      category: "technical",
+      label: "Backend development",
+      skills: ["Java", "Spring Boot", "REST APIs"],
+      sourceExcerpt: "Built and maintained REST APIs with Spring Boot and Spring Data.",
+    },
+    {
+      id: "cluster_infra",
+      category: "technical",
+      label: "Data & infrastructure",
+      skills: ["Oracle", "Docker"],
+      sourceExcerpt: "Containerized services with Docker; wrote and tuned PL/SQL against an Oracle 19c database.",
+    },
+    {
+      id: "cluster_collab",
+      category: "interpersonal",
+      label: "Cross-team collaboration",
+      skills: ["Collaboration"],
+      sourceExcerpt: "Designed and documented REST APIs consumed by 3 internal teams.",
+    },
+  ],
+  interests: [
+    {
+      id: "interest_backend_systems",
+      label: "Building backend systems",
+      sourceExcerpt: "5 years building backend services in Java across two teams.",
+    },
+    {
+      id: "interest_api_design",
+      label: "API design for other teams",
+      sourceExcerpt: "Designed and documented REST APIs consumed by 3 internal teams.",
+    },
+    {
+      id: "interest_data_tuning",
+      label: "Performance & data tuning",
+      sourceExcerpt: "Wrote and tuned PL/SQL against an Oracle 19c database.",
+    },
+  ],
+};
+
+export const demoResumeCritique: ResumeCritique = {
+  items: [
+    {
+      id: "crit_summary_1",
+      section: "Summary",
+      severity: "important",
+      finding: "No summary section found at the top of the résumé.",
+      rationale: "A 2-3 line summary helps a reviewer place your experience before reading the details.",
+      suggestedRewrite:
+        "Backend developer with 5 years building Java/Spring Boot services and REST APIs, now exploring applied-AI tooling.",
+    },
+    {
+      id: "crit_experience_1",
+      section: "Experience",
+      severity: "strength",
+      finding: "Experience bullets describe concrete systems you built and who used them.",
+      rationale: "Specific, verifiable statements like this are more credible than general duty descriptions.",
+      suggestedRewrite: null,
+    },
+    {
+      id: "crit_experience_2",
+      section: "Experience",
+      severity: "suggestion",
+      finding: "Most bullets describe responsibilities, not outcomes.",
+      rationale: "A reviewer weighs impact more heavily than duties — pairing each bullet with a result is more persuasive.",
+      suggestedRewrite:
+        "Designed and documented REST APIs consumed by 3 internal teams, reducing integration time for new consumers.",
+    },
+    {
+      id: "crit_skills_1",
+      section: "Skills",
+      severity: "suggestion",
+      finding: "Skills are listed without any indication of depth or recency.",
+      rationale: "Grouping by proficiency or recency helps a reviewer quickly gauge fit for a role.",
+      suggestedRewrite: "Core: Java, Spring Boot, REST APIs (5 yrs). Also: Oracle, Docker (3+ yrs).",
+    },
+    {
+      id: "crit_projects_1",
+      section: "Projects",
+      severity: "important",
+      finding: "No personal or side projects listed.",
+      rationale: "For roles asking about applied-AI or newer tooling, a small project is often the only evidence you have until you complete one here.",
+      suggestedRewrite: null,
+    },
+    {
+      id: "crit_formatting_1",
+      section: "Formatting",
+      severity: "strength",
+      finding: "Consistent date formatting and section ordering throughout.",
+      rationale: "Consistent formatting reads as careful and professional, and nothing here needs to change.",
+      suggestedRewrite: null,
+    },
+  ],
+};

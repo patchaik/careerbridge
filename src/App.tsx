@@ -2,7 +2,10 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
 import { JourneyProvider } from "./context/JourneyContext";
 import { ComingSoonPage } from "./pages/ComingSoonPage";
+import { CritiquePage } from "./pages/CritiquePage";
+import { InterestsPage } from "./pages/InterestsPage";
 import { LandingPage } from "./pages/LandingPage";
+import { StartPage } from "./pages/StartPage";
 
 function App() {
   return (
@@ -13,9 +16,9 @@ function App() {
             <Route path="/" element={<LandingPage />} />
 
             {/* Profile */}
-            <Route path="/start" element={<ComingSoonPage phase="Phase 3 (Profile)" />} />
-            <Route path="/interests" element={<ComingSoonPage phase="Phase 3 (Profile)" />} />
-            <Route path="/critique" element={<ComingSoonPage phase="Phase 3 (Profile)" />} />
+            <Route path="/start" element={<StartPage />} />
+            <Route path="/interests" element={<InterestsPage />} />
+            <Route path="/critique" element={<CritiquePage />} />
 
             {/* Direction + Skills */}
             <Route path="/target" element={<ComingSoonPage phase="Phase 4 (Direction + Skills)" />} />

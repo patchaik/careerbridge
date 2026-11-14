@@ -18,12 +18,53 @@ export interface CandidateSkillEvidence {
 
 export interface CandidateProfile {
   id: string;
-  targetRole: string;
+  targetRole: string | null;
   location: string | null;
   level: string | null;
   workMode: "remote" | "hybrid" | "onsite" | null;
   skills: CandidateSkillEvidence[];
   confirmedAt: string | null;
+}
+
+// --- /interests (POST /interests/analyze) ---
+
+export type InterestCategory = "technical" | "interpersonal" | "domain";
+
+export interface SkillCluster {
+  id: string;
+  category: InterestCategory;
+  label: string;
+  skills: string[];
+  sourceExcerpt: string;
+}
+
+export interface InferredInterest {
+  id: string;
+  label: string;
+  sourceExcerpt: string;
+}
+
+export interface InterestAnalysis {
+  clusters: SkillCluster[];
+  interests: InferredInterest[];
+}
+
+// --- /critique (POST /resumes/critique) ---
+
+export type CritiqueSeverity = "strength" | "suggestion" | "important";
+export type ResumeSection = "Summary" | "Experience" | "Skills" | "Projects" | "Formatting";
+
+export interface CritiqueItem {
+  id: string;
+  section: ResumeSection;
+  severity: CritiqueSeverity;
+  finding: string;
+  rationale: string;
+  suggestedRewrite: string | null;
+}
+
+export interface ResumeCritique {
+  items: CritiqueItem[];
 }
 
 export interface JobPosting {
