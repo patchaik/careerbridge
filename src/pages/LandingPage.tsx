@@ -3,8 +3,18 @@ import { JourneyStepper } from "../components/features/landing/JourneyStepper";
 import { LandingFooter } from "../components/features/landing/LandingFooter";
 import { SkillBridgePreview } from "../components/features/landing/SkillBridgePreview";
 import { ValueProps } from "../components/features/landing/ValueProps";
+import { useAuth } from "../context/AuthContext";
+import { MAIN_PATH, useJourney } from "../context/JourneyContext";
 
 export function LandingPage() {
+  const { isSignedIn } = useAuth();
+  const { furthestStepIndex } = useJourney();
+  const getStartedTo = !isSignedIn
+    ? "/signin"
+    : furthestStepIndex === 0
+      ? "/start"
+      : MAIN_PATH[furthestStepIndex];
+
   return (
     <>
       <section className="mx-auto max-w-5xl px-4 py-16 sm:py-24">
@@ -19,7 +29,7 @@ export function LandingPage() {
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
-                to="/start"
+                to={getStartedTo}
                 className="inline-flex items-center justify-center rounded-lg bg-primary-600 px-5 py-3 text-base font-medium text-white transition-colors hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
               >
                 Get started

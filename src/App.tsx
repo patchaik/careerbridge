@@ -1,46 +1,96 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
+import { Protected, ProtectedBranch } from "./components/routing/Protected";
+import { AuthProvider } from "./context/AuthContext";
 import { JourneyProvider } from "./context/JourneyContext";
 import { ComingSoonPage } from "./pages/ComingSoonPage";
 import { CritiquePage } from "./pages/CritiquePage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { InterestsPage } from "./pages/InterestsPage";
 import { LandingPage } from "./pages/LandingPage";
+import { SignInPage } from "./pages/SignInPage";
+import { SignUpPage } from "./pages/SignUpPage";
 import { StartPage } from "./pages/StartPage";
+
+function AppLayout() {
+  return (
+    <AppShell>
+      <Outlet />
+    </AppShell>
+  );
+}
 
 function App() {
   return (
-    <JourneyProvider>
-      <BrowserRouter>
-        <AppShell>
+    <AuthProvider>
+      <JourneyProvider>
+        <BrowserRouter>
           <Routes>
-            <Route path="/" element={<LandingPage />} />
+            {/* Standalone auth screens — no top nav */}
+            <Route path="/signin" element={<SignInPage />} />
+            <Route path="/signup" element={<SignUpPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-            {/* Profile */}
-            <Route path="/start" element={<StartPage />} />
-            <Route path="/interests" element={<InterestsPage />} />
-            <Route path="/critique" element={<CritiquePage />} />
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<LandingPage />} />
 
-            {/* Direction + Skills */}
-            <Route path="/target" element={<ComingSoonPage phase="Phase 4 (Direction + Skills)" />} />
-            <Route path="/recommendations" element={<ComingSoonPage phase="Phase 4 (Direction + Skills)" />} />
-            <Route path="/skills" element={<ComingSoonPage phase="Phase 4 (Direction + Skills)" />} />
+              {/* Profile */}
+              <Route path="/start" element={<Protected index={1}><StartPage /></Protected>} />
+              <Route path="/interests" element={<Protected index={2}><InterestsPage /></Protected>} />
+              <Route path="/critique" element={<Protected index={3}><CritiquePage /></Protected>} />
 
-            {/* Learn */}
-            <Route path="/courses" element={<ComingSoonPage phase="Phase 5 (Learn)" />} />
-            <Route path="/learn" element={<ComingSoonPage phase="Phase 5 (Learn)" />} />
-            <Route path="/arena" element={<ComingSoonPage phase="Phase 5 (Learn)" />} />
+              {/* Direction + Skills */}
+              <Route
+                path="/target"
+                element={<Protected index={4}><ComingSoonPage phase="Phase 4 (Direction + Skills)" /></Protected>}
+              />
+              <Route
+                path="/recommendations"
+                element={<ProtectedBranch><ComingSoonPage phase="Phase 4 (Direction + Skills)" /></ProtectedBranch>}
+              />
+              <Route
+                path="/skills"
+                element={<Protected index={5}><ComingSoonPage phase="Phase 4 (Direction + Skills)" /></Protected>}
+              />
 
-            {/* Prove + Progress */}
-            <Route path="/assessment" element={<ComingSoonPage phase="Phase 6 (Prove + Progress)" />} />
-            <Route path="/resume" element={<ComingSoonPage phase="Phase 6 (Prove + Progress)" />} />
-            <Route path="/jobs" element={<ComingSoonPage phase="Phase 6 (Prove + Progress)" />} />
-            <Route path="/progress" element={<ComingSoonPage phase="Phase 6 (Prove + Progress)" />} />
+              {/* Learn */}
+              <Route
+                path="/courses"
+                element={<Protected index={6}><ComingSoonPage phase="Phase 5 (Learn)" /></Protected>}
+              />
+              <Route
+                path="/learn"
+                element={<Protected index={7}><ComingSoonPage phase="Phase 5 (Learn)" /></Protected>}
+              />
+              <Route
+                path="/arena"
+                element={<Protected index={8}><ComingSoonPage phase="Phase 5 (Learn)" /></Protected>}
+              />
 
-            <Route path="*" element={<ComingSoonPage phase="a later phase" />} />
+              {/* Prove + Progress */}
+              <Route
+                path="/assessment"
+                element={<Protected index={9}><ComingSoonPage phase="Phase 6 (Prove + Progress)" /></Protected>}
+              />
+              <Route
+                path="/resume"
+                element={<Protected index={10}><ComingSoonPage phase="Phase 6 (Prove + Progress)" /></Protected>}
+              />
+              <Route
+                path="/jobs"
+                element={<Protected index={11}><ComingSoonPage phase="Phase 6 (Prove + Progress)" /></Protected>}
+              />
+              <Route
+                path="/progress"
+                element={<Protected index={12}><ComingSoonPage phase="Phase 6 (Prove + Progress)" /></Protected>}
+              />
+
+              <Route path="*" element={<ComingSoonPage phase="a later phase" />} />
+            </Route>
           </Routes>
-        </AppShell>
-      </BrowserRouter>
-    </JourneyProvider>
+        </BrowserRouter>
+      </JourneyProvider>
+    </AuthProvider>
   );
 }
 

@@ -20,6 +20,59 @@ only `src/lib/api/*.ts` needs to change to point at it (set `VITE_USE_MOCKS=fals
 
 ---
 
+## POST /auth/signin
+
+Mock only for now — the frontend's `AuthProvider` never does real account verification;
+any syntactically valid email/password succeeds. Replace with real auth when the backend
+is ready; the response shape should stay the same.
+
+**Request**
+```json
+{ "email": "jane.doe@example.com", "password": "••••••••" }
+```
+
+**Response**
+```json
+{
+  "user": { "id": "user_1", "full_name": "Jane Doe", "username": "jane.doe", "email": "jane.doe@example.com" },
+  "token": "mock_token_1"
+}
+```
+
+**Errors**: `401` for invalid credentials (not used by the mock, which always succeeds).
+
+---
+
+## POST /auth/signup
+
+**Request**
+```json
+{ "full_name": "Jane Doe", "username": "jane_doe", "email": "jane.doe@example.com", "password": "••••••••" }
+```
+
+**Response**: same shape as `/auth/signin`.
+
+**Errors**: `409` if the email or username is already taken (not used by the mock).
+
+---
+
+## POST /auth/forgot-password
+
+Always returns success regardless of whether the email exists, to avoid leaking account
+existence.
+
+**Request**
+```json
+{ "email": "jane.doe@example.com" }
+```
+
+**Response**
+```json
+{ "success": true }
+```
+
+---
+
 ## POST /onboarding/parse
 
 Extract résumé or manual skill evidence. Async — returns a workflow id.

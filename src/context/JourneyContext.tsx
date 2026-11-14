@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type {
   AssessmentAttempt,
   CandidateProfile,
@@ -8,14 +8,27 @@ import type {
 
 const STORAGE_KEY = "careerbridge:journey";
 
-export type JourneyStepId =
-  | "about"
-  | "profile"
-  | "direction"
-  | "skills"
-  | "learn"
-  | "prove"
-  | "progress";
+// Canonical forward order of the main journey. A page's index here is both
+// its nav-lock threshold and its route-guard threshold — see
+// src/components/routing/Protected.tsx. "/recommendations" is a side branch
+// off "/target" and isn't part of this list (see TARGET_INDEX).
+export const MAIN_PATH = [
+  "/",
+  "/start",
+  "/interests",
+  "/critique",
+  "/target",
+  "/skills",
+  "/courses",
+  "/learn",
+  "/arena",
+  "/assessment",
+  "/resume",
+  "/jobs",
+  "/progress",
+] as const;
+
+export const TARGET_INDEX = MAIN_PATH.indexOf("/target");
 
 interface JourneyState {
   profile: CandidateProfile | null;
@@ -27,6 +40,7 @@ interface JourneyState {
   assessmentAttempt: AssessmentAttempt | null;
   resumeDraft: ResumeDraft | null;
   wellbeingEnabled: boolean;
+  furthestStepIndex: number;
 }
 
 const initialState: JourneyState = {
@@ -39,6 +53,7 @@ const initialState: JourneyState = {
   assessmentAttempt: null,
   resumeDraft: null,
   wellbeingEnabled: true,
+  furthestStepIndex: 0,
 };
 
 function loadState(): JourneyState {
@@ -60,7 +75,6 @@ function saveState(state: JourneyState) {
 }
 
 interface JourneyContextValue extends JourneyState {
-  unlockedSteps: Set<JourneyStepId>;
   setProfile: (profile: CandidateProfile | null) => void;
   setLostJobToAI: (value: boolean) => void;
   setSelectedSkills: (skills: string[]) => void;
@@ -70,6 +84,8 @@ interface JourneyContextValue extends JourneyState {
   setAssessmentAttempt: (attempt: AssessmentAttempt | null) => void;
   setResumeDraft: (draft: ResumeDraft | null) => void;
   setWellbeingEnabled: (enabled: boolean) => void;
+  /** Extends progress to `index` — never moves it backwards, even if called with a smaller value. */
+  advanceFurthestStep: (index: number) => void;
   resetJourney: () => void;
 }
 
@@ -80,21 +96,8 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => saveState(state), [state]);
 
-  const unlockedSteps = useMemo(() => {
-    const steps = new Set<JourneyStepId>(["about", "profile"]);
-    if (state.profile) steps.add("direction");
-    if (state.targetRole) steps.add("skills");
-    if (state.chosenSkill) steps.add("learn");
-    if (state.learningPath) {
-      steps.add("prove");
-      steps.add("progress");
-    }
-    return steps;
-  }, [state.profile, state.targetRole, state.chosenSkill, state.learningPath]);
-
   const value: JourneyContextValue = {
     ...state,
-    unlockedSteps,
     setProfile: (profile) => setState((s) => ({ ...s, profile })),
     setLostJobToAI: (lostJobToAI) => setState((s) => ({ ...s, lostJobToAI })),
     setSelectedSkills: (selectedSkills) => setState((s) => ({ ...s, selectedSkills })),
@@ -104,6 +107,8 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
     setAssessmentAttempt: (assessmentAttempt) => setState((s) => ({ ...s, assessmentAttempt })),
     setResumeDraft: (resumeDraft) => setState((s) => ({ ...s, resumeDraft })),
     setWellbeingEnabled: (wellbeingEnabled) => setState((s) => ({ ...s, wellbeingEnabled })),
+    advanceFurthestStep: (index) =>
+      setState((s) => ({ ...s, furthestStepIndex: Math.max(s.furthestStepIndex, index) })),
     resetJourney: () => setState(initialState),
   };
 

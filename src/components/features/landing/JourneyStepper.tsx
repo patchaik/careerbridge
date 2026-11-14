@@ -12,7 +12,7 @@ interface Stage {
 }
 
 const stages: Stage[] = [
-  { n: 1, name: "Profile", line: "Upload résumé · Interests · Résumé critique", icon: UserRound },
+  { n: 1, name: "Profile", line: "Upload résumé · Interests · Résumé critique · Learning morale", icon: UserRound },
   { n: 2, name: "Direction", line: "Target role & AI outlook · Role ideas", icon: Compass },
   { n: 3, name: "Skills", line: "Skill gap analysis", icon: GitCompare },
   { n: 4, name: "Learn", line: "Courses · AI tutor · Build Arena", icon: GraduationCap },

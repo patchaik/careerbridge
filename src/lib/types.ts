@@ -1,6 +1,20 @@
 // Core data model, mirroring the FastAPI backend's Pydantic schemas.
 // JSON over the wire uses snake_case; src/lib/api/ converts to the camelCase shapes below.
 
+// --- Auth (mock only — real auth comes from the backend later) ---
+
+export interface AuthUser {
+  id: string;
+  fullName: string;
+  username: string;
+  email: string;
+}
+
+export interface AuthSession {
+  user: AuthUser;
+  token: string;
+}
+
 export type SkillCategory = "technical" | "interpersonal";
 
 export type EvidenceStatus =
