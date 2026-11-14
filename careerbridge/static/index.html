@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CareerBridge · Resume analysis</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">CAREERBRIDGE</p>
+      <h1>Start with your experience.</h1>
+      <p>Upload your resume to discover the skills you already have. You can review and edit every skill before confirming.</p>
+    </header>
+
+    <section class="card" aria-labelledby="upload-title">
+      <p class="step">01 &nbsp; YOUR RESUME</p>
+      <h2 id="upload-title">Upload your resume</h2>
+      <p>Choose a text-based PDF or DOCX, up to 5 MB.</p>
+      <form id="upload-form">
+        <label for="resume">Resume file</label>
+        <input id="resume" type="file" accept=".pdf,.docx" required>
+        <button id="upload-button" type="submit">Analyze resume <span aria-hidden="true">→</span></button>
+      </form>
+      <p class="privacy">Your resume is sent to the configured AI provider for analysis.</p>
+    </section>
+
+    <section id="progress" class="progress" role="status" aria-live="polite" hidden></section>
+
+    <section id="review" class="card" aria-labelledby="review-title" hidden>
+      <p class="step">02 &nbsp; REVIEW YOUR SKILLS</p>
+      <h2 id="review-title">Make it yours.</h2>
+      <p>Review the extracted skills and their resume excerpts. You can edit, remove, or add skills before confirming.</p>
+      <form id="skills-form">
+        <div id="skills"></div>
+        <button class="secondary" id="add-skill" type="button">+ Add a skill</button>
+        <div class="actions"><button id="confirm-button" type="submit">Confirm skills <span aria-hidden="true">→</span></button></div>
+      </form>
+    </section>
+  </main>
+</body>
+</html>
