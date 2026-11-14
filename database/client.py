@@ -49,7 +49,7 @@ def get_client():
     try:
         from supabase import create_client
     except ImportError as exc:
-        raise DBError("Install the client: pip install -r db_requirements.txt") from exc
+        raise DBError("Install the client: pip install -r requirements.txt") from exc
     return create_client(url, key)
 
 

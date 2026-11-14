@@ -13,8 +13,9 @@ or lists and raises `DBError` with a message that is safe to show in the UI.
    SUPABASE_URL=https://<project>.supabase.co
    SUPABASE_KEY=<secret / service_role key>
    ```
-3. `pip install -r db_requirements.txt`
-4. `python3 database_tests/test_db_setup.py`, then `python3 database_tests/test_db_layer.py`
+3. `pip install -r requirements.txt` (root-level, shared with the rest of the backend)
+4. `python database_tests/test_db_setup.py`, then `python database_tests/test_db_layer.py`
+   (use `py` instead of `python` on Windows if `python` isn't on your PATH)
 
 ## Quick start
 
