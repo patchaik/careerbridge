@@ -26,8 +26,11 @@ export function TopNav() {
   return (
     <header className="border-b border-neutral-200 bg-white">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
-        <Link to="/" className="flex-shrink-0">
-          <Logo variant="compact" className="h-7 w-auto" />
+        <Link
+          to="/"
+          className="flex-shrink-0 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+        >
+          <Logo variant="horizontal" />
         </Link>
         <nav aria-label="Journey groups" className="overflow-x-auto">
           <ol className="flex items-center gap-1 sm:gap-2">

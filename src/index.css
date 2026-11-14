@@ -3,20 +3,20 @@
 @theme {
   --font-sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
 
-  /* Primary — deep indigo */
+  /* Primary — indigo #3730A3 (brand action color) */
   --color-primary-50: #eef2ff;
   --color-primary-100: #e0e7ff;
   --color-primary-200: #c7d2fe;
   --color-primary-300: #a5b4fc;
   --color-primary-400: #818cf8;
-  --color-primary-500: #6366f1;
-  --color-primary-600: #4f46e5;
-  --color-primary-700: #4338ca;
-  --color-primary-800: #3730a3;
-  --color-primary-900: #312e81;
-  --color-primary-950: #1e1b4b;
+  --color-primary-500: #4f46e5;
+  --color-primary-600: #3730a3;
+  --color-primary-700: #312e81;
+  --color-primary-800: #27215f;
+  --color-primary-900: #1e1b4b;
+  --color-primary-950: #14123a;
 
-  /* Accent — teal */
+  /* Accent — teal (secondary, non-brand use only) */
   --color-accent-50: #f0fdfa;
   --color-accent-100: #ccfbf1;
   --color-accent-200: #99f6e4;
@@ -52,7 +52,7 @@
   --color-warning-800: #92400e;
   --color-warning-900: #78350f;
 
-  /* Danger */
+  /* Danger (semantic alerts/badges — unrelated to brand color) */
   --color-danger-50: #fff1f2;
   --color-danger-100: #ffe4e6;
   --color-danger-200: #fecdd3;
@@ -64,7 +64,7 @@
   --color-danger-800: #9f1239;
   --color-danger-900: #881337;
 
-  /* Neutral */
+  /* Neutral — slate, navy #1E293B at the 800 step */
   --color-neutral-50: #f8fafc;
   --color-neutral-100: #f1f5f9;
   --color-neutral-200: #e2e8f0;
@@ -76,38 +76,18 @@
   --color-neutral-800: #1e293b;
   --color-neutral-900: #0f172a;
   --color-neutral-950: #020617;
-
-  /* Brand — International Orange (bridge mark) */
-  --color-brand-50: #fdf3f1;
-  --color-brand-100: #fbe2dd;
-  --color-brand-200: #f6c5bb;
-  --color-brand-300: #eea296;
-  --color-brand-400: #de7868;
-  --color-brand-500: #cb4f3e;
-  --color-brand-600: #c0362c;
-  --color-brand-700: #a12c23;
-  --color-brand-800: #82241d;
-  --color-brand-900: #5e1a16;
-}
-
-/* Bridge pathway walking-dot animation (landing page). Disabled via motion-safe: in markup. */
-@keyframes bridge-walk-x {
-  from { left: 2%; opacity: 0; }
-  10% { opacity: 1; }
-  90% { opacity: 1; }
-  to { left: 96%; opacity: 0; }
-}
-
-@keyframes bridge-walk-y {
-  from { top: 2%; opacity: 0; }
-  10% { opacity: 1; }
-  90% { opacity: 1; }
-  to { top: 97%; opacity: 0; }
 }
 
 @layer base {
   :root {
     color-scheme: light dark;
+    scroll-behavior: auto;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    :root {
+      scroll-behavior: smooth;
+    }
   }
 
   body {

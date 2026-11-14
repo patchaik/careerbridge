@@ -1,121 +1,115 @@
-// Inline SVG wordmark: "Career" above a stylized suspension bridge (Golden
-// Gate-style towers/cables/deck) in International Orange, with "Bridge" set
-// into the deck. `compact` trims detail for nav-height legibility.
+// Mirrors src/assets/careerbridge-logo.svg exactly (shapes, proportions,
+// coordinates) — do not redraw. That file is the `stacked` variant; the
+// others reuse the same bridge-mark geometry at different crops/colors.
+
+const NAVY = "#1E293B";
+const INDIGO = "#3730A3";
+const SLATE = "#64748B";
+const WHITE = "#F8FAFC";
+const INDIGO_LIGHT = "#A5B4FC";
+const SLATE_LIGHT = "#CBD5E1";
+
+function BridgeMarkShapes({ color, accent }: { color: string; accent: string }) {
+  return (
+    <>
+      <rect x="114" y="66" width="6" height="74" fill={color} />
+      <rect x="150" y="66" width="6" height="74" fill={color} />
+      <rect x="114" y="79" width="42" height="3" fill={color} />
+      <path
+        d="M117 68 Q96 72 78 120 M117 76 Q100 80 86 120 M117 84 Q104 88 94 120 M153 68 Q174 72 192 120 M153 76 Q170 80 184 120 M153 84 Q166 88 176 120 M117 70 Q135 112 153 70"
+        fill="none"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M127 84 L127 120 M135 90 L135 120 M143 84 L143 120"
+        fill="none"
+        stroke={color}
+        strokeWidth="1.2"
+      />
+      <rect x="72" y="120" width="126" height="5" rx="1" fill={color} />
+      <circle cx="78" cy="122.5" r="3" fill={accent} />
+      <circle cx="192" cy="122.5" r="3" fill={accent} />
+    </>
+  );
+}
+
+function StackedLogo({ className, inverse }: { className?: string; inverse?: boolean }) {
+  const color = inverse ? WHITE : NAVY;
+  const accent = inverse ? INDIGO_LIGHT : INDIGO;
+  const tagline = inverse ? SLATE_LIGHT : SLATE;
+  return (
+    <svg viewBox="60 56 150 142" role="img" aria-label="CareerBridge" className={className}>
+      <BridgeMarkShapes color={color} accent={accent} />
+      <text
+        x="135"
+        y="168"
+        textAnchor="middle"
+        fontFamily="Inter, system-ui, sans-serif"
+        fontSize="21"
+        fontWeight="700"
+        letterSpacing="-0.3"
+      >
+        <tspan fill={color}>Career</tspan>
+        <tspan fill={accent}>Bridge</tspan>
+      </text>
+      <text
+        x="135"
+        y="190"
+        textAnchor="middle"
+        fontFamily="Inter, system-ui, sans-serif"
+        fontSize="11"
+        fontWeight="500"
+        letterSpacing="2"
+        fill={tagline}
+      >
+        AI-READY CAREERS
+      </text>
+    </svg>
+  );
+}
+
+function MarkLogo({ className }: { className?: string }) {
+  return (
+    <svg viewBox="68 60 134 84" role="img" aria-label="CareerBridge" className={className}>
+      <BridgeMarkShapes color={NAVY} accent={INDIGO} />
+    </svg>
+  );
+}
+
+function HorizontalLogo({ className }: { className?: string }) {
+  return (
+    <span role="img" aria-label="CareerBridge" className={`inline-flex items-center gap-2 ${className ?? ""}`}>
+      <svg viewBox="68 60 134 84" aria-hidden="true" className="h-8 w-auto flex-shrink-0">
+        <BridgeMarkShapes color={NAVY} accent={INDIGO} />
+      </svg>
+      <span
+        aria-hidden="true"
+        className="text-lg font-bold leading-none tracking-tight"
+        style={{ fontFamily: "Inter, system-ui, sans-serif" }}
+      >
+        <span style={{ color: NAVY }}>Career</span>
+        <span style={{ color: INDIGO }}>Bridge</span>
+      </span>
+    </span>
+  );
+}
 
 interface LogoProps {
-  variant?: "full" | "compact";
+  variant?: "stacked" | "horizontal" | "mark" | "inverse";
   className?: string;
 }
 
-function FullLogo({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 360 190"
-      role="img"
-      aria-label="CareerBridge"
-      className={className}
-    >
-      <text
-        x="180"
-        y="46"
-        textAnchor="middle"
-        fontSize="42"
-        fontWeight="700"
-        letterSpacing="0.5"
-        fill="var(--color-neutral-900)"
-      >
-        Career
-      </text>
-
-      {/* main cable */}
-      <path
-        d="M30,150 C55,95 75,66 97,66 C135,66 138,118 180,118 C222,118 225,66 263,66 C285,66 305,95 330,150"
-        fill="none"
-        stroke="var(--color-brand-600)"
-        strokeWidth="5"
-        strokeLinecap="round"
-      />
-
-      {/* suspenders */}
-      {[
-        [107, 72],
-        [124, 84],
-        [141, 100],
-        [158, 112],
-        [198, 112],
-        [215, 100],
-        [232, 84],
-        [249, 72],
-      ].map(([x, y]) => (
-        <line
-          key={x}
-          x1={x}
-          y1={y}
-          x2={x}
-          y2="143"
-          stroke="var(--color-brand-500)"
-          strokeWidth="2.5"
-        />
-      ))}
-
-      {/* towers */}
-      <rect x="90" y="62" width="14" height="88" fill="var(--color-brand-700)" />
-      <rect x="256" y="62" width="14" height="88" fill="var(--color-brand-700)" />
-
-      {/* deck */}
-      <rect x="30" y="143" width="300" height="18" rx="2" fill="var(--color-brand-700)" />
-      <text
-        x="180"
-        y="156"
-        textAnchor="middle"
-        fontSize="14"
-        fontWeight="700"
-        letterSpacing="1.5"
-        fill="white"
-      >
-        BRIDGE
-      </text>
-    </svg>
-  );
-}
-
-function CompactLogo({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 185 34"
-      role="img"
-      aria-label="CareerBridge"
-      className={className}
-    >
-      {/* simplified bridge glyph */}
-      <path
-        d="M4,24 C7,12 10,8 14,8 C18,8 19,18 23,18 C27,18 28,8 32,8 C36,8 39,12 42,24"
-        fill="none"
-        stroke="var(--color-brand-600)"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-      <line x1="14" y1="10" x2="14" y2="23" stroke="var(--color-brand-700)" strokeWidth="2" />
-      <line x1="32" y1="10" x2="32" y2="23" stroke="var(--color-brand-700)" strokeWidth="2" />
-      <rect x="2" y="23" width="42" height="5" rx="1.5" fill="var(--color-brand-700)" />
-
-      <text
-        x="54"
-        y="23"
-        fontSize="17"
-        fontWeight="700"
-        fill="var(--color-neutral-900)"
-      >
-        CareerBridge
-      </text>
-    </svg>
-  );
-}
-
-export function Logo({ variant = "full", className }: LogoProps) {
-  return variant === "full" ? (
-    <FullLogo className={className} />
-  ) : (
-    <CompactLogo className={className} />
-  );
+export function Logo({ variant = "stacked", className }: LogoProps) {
+  switch (variant) {
+    case "horizontal":
+      return <HorizontalLogo className={className} />;
+    case "mark":
+      return <MarkLogo className={className} />;
+    case "inverse":
+      return <StackedLogo className={className} inverse />;
+    default:
+      return <StackedLogo className={className} />;
+  }
 }
