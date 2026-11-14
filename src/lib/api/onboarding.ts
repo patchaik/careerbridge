@@ -1,8 +1,9 @@
 import { USE_MOCKS } from "../config";
-import type { CandidateProfile } from "../types";
-import { mockConfirmProfile, mockParseManualSkills, mockParseResume } from "../mock/handlers";
+import { mockCreateProfile, mockParseResume, type CreateProfileInput } from "../mock/handlers";
 import { apiRequest } from "./client";
 
+// Extracts skills from an uploaded résumé only — StartPage merges the result
+// into its own skills list rather than this call producing a full profile.
 export async function parseResume(
   file: File,
   simulateFailure = false,
@@ -14,18 +15,9 @@ export async function parseResume(
   return apiRequest<{ workflowId: string }>("/onboarding/parse", { method: "POST", body });
 }
 
-export async function parseManualSkills(skills: string[]): Promise<{ workflowId: string }> {
-  if (USE_MOCKS) return { workflowId: mockParseManualSkills(skills) };
-  return apiRequest<{ workflowId: string }>("/onboarding/parse", {
-    method: "POST",
-    body: { skills },
-  });
-}
+export type { CreateProfileInput };
 
-export async function confirmProfile(profile: CandidateProfile): Promise<CandidateProfile> {
-  if (USE_MOCKS) return mockConfirmProfile(profile);
-  return apiRequest<CandidateProfile>(`/profiles/${profile.id}/confirm`, {
-    method: "PUT",
-    body: profile,
-  });
+export async function createProfile(input: CreateProfileInput): Promise<{ workflowId: string }> {
+  if (USE_MOCKS) return { workflowId: mockCreateProfile(input) };
+  return apiRequest<{ workflowId: string }>("/profiles", { method: "POST", body: input });
 }

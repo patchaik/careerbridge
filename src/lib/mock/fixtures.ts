@@ -7,7 +7,7 @@ import type {
   AssessmentProjectQuestion,
   CandidateProfile,
   CandidateSkillEvidence,
-  InterestAnalysis,
+  Interest,
   JobPosting,
   JobSkillRequirement,
   KnowledgeCheckQuestion,
@@ -32,36 +32,42 @@ export const demoResumeSkills: CandidateSkillEvidence[] = [
     skill: "Java",
     category: "technical",
     status: "present",
+    source: "resume",
     sourceExcerpt: "5 years building backend services in Java across two teams.",
   },
   {
     skill: "Spring Boot",
     category: "technical",
     status: "present",
+    source: "resume",
     sourceExcerpt: "Built and maintained REST APIs with Spring Boot and Spring Data.",
   },
   {
     skill: "REST APIs",
     category: "technical",
     status: "present",
+    source: "resume",
     sourceExcerpt: "Designed and documented REST APIs consumed by 3 internal teams.",
   },
   {
     skill: "Oracle",
     category: "technical",
     status: "present",
+    source: "resume",
     sourceExcerpt: "Wrote and tuned PL/SQL against an Oracle 19c database.",
   },
   {
     skill: "Docker",
     category: "technical",
     status: "present",
+    source: "resume",
     sourceExcerpt: "Containerized services with Docker for staging and production.",
   },
   {
     skill: "Collaboration",
     category: "interpersonal",
     status: "self_reported",
+    source: "resume",
     sourceExcerpt: null,
   },
 ];
@@ -73,6 +79,7 @@ export const demoProfile: CandidateProfile = {
   level: "Mid-level",
   workMode: "remote",
   skills: demoResumeSkills,
+  situation: null,
   confirmedAt: null,
 };
 
@@ -496,48 +503,26 @@ export const demoProgressMilestones: ProgressMilestone[] = [
   { id: "pm5", title: "Résumé evidence approved", completedAt: null, status: "upcoming" },
 ];
 
-export const demoInterestAnalysis: InterestAnalysis = {
-  clusters: [
-    {
-      id: "cluster_backend",
-      category: "technical",
-      label: "Backend development",
-      skills: ["Java", "Spring Boot", "REST APIs"],
-      sourceExcerpt: "Built and maintained REST APIs with Spring Boot and Spring Data.",
-    },
-    {
-      id: "cluster_infra",
-      category: "technical",
-      label: "Data & infrastructure",
-      skills: ["Oracle", "Docker"],
-      sourceExcerpt: "Containerized services with Docker; wrote and tuned PL/SQL against an Oracle 19c database.",
-    },
-    {
-      id: "cluster_collab",
-      category: "interpersonal",
-      label: "Cross-team collaboration",
-      skills: ["Collaboration"],
-      sourceExcerpt: "Designed and documented REST APIs consumed by 3 internal teams.",
-    },
-  ],
-  interests: [
-    {
-      id: "interest_backend_systems",
-      label: "Building backend systems",
-      sourceExcerpt: "5 years building backend services in Java across two teams.",
-    },
-    {
-      id: "interest_api_design",
-      label: "API design for other teams",
-      sourceExcerpt: "Designed and documented REST APIs consumed by 3 internal teams.",
-    },
-    {
-      id: "interest_data_tuning",
-      label: "Performance & data tuning",
-      sourceExcerpt: "Wrote and tuned PL/SQL against an Oracle 19c database.",
-    },
-  ],
-};
+export const demoInferredInterests: Interest[] = [
+  {
+    id: "interest_backend_systems",
+    label: "Building backend systems",
+    source: "inferred",
+    sourceExcerpt: "5 years building backend services in Java across two teams.",
+  },
+  {
+    id: "interest_api_design",
+    label: "API design for other teams",
+    source: "inferred",
+    sourceExcerpt: "Designed and documented REST APIs consumed by 3 internal teams.",
+  },
+  {
+    id: "interest_data_tuning",
+    label: "Performance & data tuning",
+    source: "inferred",
+    sourceExcerpt: "Wrote and tuned PL/SQL against an Oracle 19c database.",
+  },
+];
 
 export const demoResumeCritique: ResumeCritique = {
   items: [

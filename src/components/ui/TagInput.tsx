@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { useState, type KeyboardEvent } from "react";
+import { useState, type KeyboardEvent, type ReactNode } from "react";
 import { cn } from "../../lib/cn";
 
 interface TagInputProps {
@@ -8,9 +8,18 @@ interface TagInputProps {
   placeholder?: string;
   ariaLabel: string;
   className?: string;
+  /** Optional extra content rendered inside a tag's chip, e.g. a "from résumé" indicator. */
+  renderTagBadge?: (tag: string) => ReactNode;
 }
 
-export function TagInput({ value, onChange, placeholder, ariaLabel, className }: TagInputProps) {
+export function TagInput({
+  value,
+  onChange,
+  placeholder,
+  ariaLabel,
+  className,
+  renderTagBadge,
+}: TagInputProps) {
   const [draft, setDraft] = useState("");
 
   function commit() {
@@ -45,6 +54,7 @@ export function TagInput({ value, onChange, placeholder, ariaLabel, className }:
           className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2.5 py-1 text-sm font-medium text-primary-800"
         >
           {tag}
+          {renderTagBadge?.(tag)}
           <button
             type="button"
             onClick={() => onChange(value.filter((v) => v !== tag))}

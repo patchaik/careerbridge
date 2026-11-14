@@ -23,12 +23,23 @@ export type EvidenceStatus =
   | "self_reported"
   | "not_established";
 
+// Where a skill entry came from: extracted from an uploaded résumé, or typed
+// in directly by the candidate. Distinct from `status`, which describes how
+// much evidence backs the skill later in the journey (/skills gap analysis).
+export type SkillSource = "resume" | "user";
+
 export interface CandidateSkillEvidence {
   skill: string;
   category: SkillCategory;
   status: EvidenceStatus;
+  source: SkillSource;
   sourceExcerpt: string | null;
 }
+
+// What best describes the candidate's current situation — chosen on /start,
+// used to tailor tone and emphasis later in the journey (e.g. supportive
+// copy for "no_job", exploration-leaning recommendations for "new_career").
+export type Situation = "upskill" | "no_job" | "new_career";
 
 export interface CandidateProfile {
   id: string;
@@ -37,30 +48,25 @@ export interface CandidateProfile {
   level: string | null;
   workMode: "remote" | "hybrid" | "onsite" | null;
   skills: CandidateSkillEvidence[];
+  situation: Situation | null;
   confirmedAt: string | null;
 }
 
 // --- /interests (POST /interests/analyze) ---
 
-export type InterestCategory = "technical" | "interpersonal" | "domain";
+// Where an interest came from: typed in by the candidate on /start, or
+// inferred by the "AI" from the résumé (with the excerpt it came from).
+export type InterestSource = "user" | "inferred";
 
-export interface SkillCluster {
-  id: string;
-  category: InterestCategory;
-  label: string;
-  skills: string[];
-  sourceExcerpt: string;
-}
-
-export interface InferredInterest {
+export interface Interest {
   id: string;
   label: string;
-  sourceExcerpt: string;
+  source: InterestSource;
+  sourceExcerpt: string | null;
 }
 
 export interface InterestAnalysis {
-  clusters: SkillCluster[];
-  interests: InferredInterest[];
+  interests: Interest[];
 }
 
 // --- /critique (POST /resumes/critique) ---

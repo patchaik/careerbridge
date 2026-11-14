@@ -75,16 +75,13 @@ existence.
 
 ## POST /onboarding/parse
 
-Extract résumé or manual skill evidence. Async — returns a workflow id.
+Extracts skills from an uploaded résumé only — it does **not** create or return a profile.
+`/start` merges the result into its own skills list (each tagged `source: "resume"`) and the
+candidate can keep editing from there before anything is submitted. Async — returns a workflow id.
 
-**Request** (résumé upload — multipart/form-data)
+**Request** (multipart/form-data)
 ```
 file: <PDF or DOCX binary>
-```
-
-**Request** (manual skill entry — JSON)
-```json
-{ "skills": ["Java", "Spring Boot", "REST APIs", "Oracle", "Docker"] }
 ```
 
 **Response**
@@ -95,76 +92,111 @@ file: <PDF or DOCX binary>
 Poll `GET /workflows/wf_123` until complete; the resolved result is:
 ```json
 {
-  "profile": {
-    "id": "profile_demo_1",
-    "target_role": "Software Engineer — AI Applications",
-    "location": "Remote",
-    "level": "Mid-level",
-    "work_mode": "remote",
-    "confirmed_at": null,
-    "skills": [
-      {
-        "skill": "Java",
-        "category": "technical",
-        "status": "present",
-        "source_excerpt": "5 years building backend services in Java across two teams."
-      }
-    ]
-  }
-}
-```
-
-**Errors**: `422` if the file isn't a parseable PDF/DOCX — frontend falls back to manual entry, never invents a profile.
-
----
-
-## PUT /profiles/{profile_id}/confirm
-
-Approve the (possibly edited) extracted profile.
-
-**Request**: full `CandidateProfile` object (snake_case), as above.
-
-**Response**: the same object with `confirmed_at` set.
-
-**Errors**: `404` if `profile_id` doesn't exist.
-
----
-
-## POST /interests/analyze
-
-Cluster the candidate's skills (technical / interpersonal / domain) and infer interests, each
-tied back to the résumé excerpt it came from. Used by `/interests`.
-
-**Request**
-```json
-{ "profile_id": "profile_demo_1" }
-```
-
-**Response**
-```json
-{
-  "clusters": [
+  "skills": [
     {
-      "id": "cluster_backend",
+      "skill": "Java",
       "category": "technical",
-      "label": "Backend development",
-      "skills": ["Java", "Spring Boot", "REST APIs"],
-      "source_excerpt": "Built and maintained REST APIs with Spring Boot and Spring Data."
-    }
-  ],
-  "interests": [
-    {
-      "id": "interest_backend_systems",
-      "label": "Building backend systems",
+      "status": "present",
+      "source": "resume",
       "source_excerpt": "5 years building backend services in Java across two teams."
     }
   ]
 }
 ```
 
-`category` is one of `technical`, `interpersonal`, `domain`. The candidate selects which
-clusters/interests to build on client-side — this endpoint only surfaces evidence, it never
-decides on the candidate's behalf.
+**Errors**: `422` if the file isn't a parseable PDF/DOCX. The frontend shows the error inline on
+the upload box only — the skills/interests fields stay usable, and no profile is invented.
+
+---
+
+## POST /profiles
+
+Builds the profile from what `/start` has compiled: the final skills list (résumé- and/or
+user-sourced), and the required situation. Async — returns a workflow id, same polling pattern
+as `/onboarding/parse`.
+
+**Request**
+```json
+{
+  "skills": [
+    { "skill": "Java", "source": "resume" },
+    { "skill": "Kubernetes", "source": "user" }
+  ],
+  "situation": "upskill"
+}
+```
+`situation` is one of `upskill`, `no_job`, `new_career` — see `src/lib/types.ts`. It travels with
+the profile from here on (`CandidateProfile.situation`) and is meant to tailor tone later in the
+journey (e.g. supportive copy for `no_job`, exploration-leaning recommendations on `/target` for
+`new_career`) — never to gate or score anything.
+
+**Response**: `{ "workflow_id": "wf_789" }`. Resolved result:
+```json
+{
+  "profile": {
+    "id": "profile_demo_1",
+    "target_role": null,
+    "location": "Remote",
+    "level": "Mid-level",
+    "work_mode": "remote",
+    "situation": "upskill",
+    "confirmed_at": null,
+    "skills": [
+      {
+        "skill": "Java",
+        "category": "technical",
+        "status": "present",
+        "source": "resume",
+        "source_excerpt": "5 years building backend services in Java across two teams."
+      },
+      {
+        "skill": "Kubernetes",
+        "category": "technical",
+        "status": "self_reported",
+        "source": "user",
+        "source_excerpt": null
+      }
+    ]
+  }
+}
+```
+
+---
+
+## POST /interests/analyze
+
+Combines the interests the candidate typed in on `/start` (and any added on `/interests` itself)
+with ones inferred from the résumé, each tied back to the excerpt it came from. Used by `/interests`.
+
+**Request**
+```json
+{ "profile_id": "profile_demo_1", "user_interests": ["Building backend systems"] }
+```
+
+**Response**
+```json
+{
+  "interests": [
+    {
+      "id": "interest_user_building_backend_systems",
+      "label": "Building backend systems",
+      "source": "user",
+      "source_excerpt": null
+    },
+    {
+      "id": "interest_api_design",
+      "label": "API design for other teams",
+      "source": "inferred",
+      "source_excerpt": "Designed and documented REST APIs consumed by 3 internal teams."
+    }
+  ]
+}
+```
+
+`source` is `user` (typed in by the candidate — `source_excerpt` is always `null`) or `inferred`
+(found by the "AI" — `source_excerpt` is the résumé passage it came from). The candidate selects
+which ones to build on client-side; this endpoint only surfaces evidence, it never decides on
+the candidate's behalf.
 
 ---
 

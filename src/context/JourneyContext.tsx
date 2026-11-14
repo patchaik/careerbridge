@@ -4,6 +4,7 @@ import type {
   CandidateProfile,
   LearningPath,
   ResumeDraft,
+  Situation,
 } from "../lib/types";
 
 const STORAGE_KEY = "careerbridge:journey";
@@ -32,8 +33,9 @@ export const TARGET_INDEX = MAIN_PATH.indexOf("/target");
 
 interface JourneyState {
   profile: CandidateProfile | null;
-  lostJobToAI: boolean;
-  selectedSkills: string[];
+  situation: Situation | null;
+  userInterests: string[];
+  selectedInterests: string[];
   targetRole: string | null;
   chosenSkill: string | null;
   learningPath: LearningPath | null;
@@ -45,8 +47,9 @@ interface JourneyState {
 
 const initialState: JourneyState = {
   profile: null,
-  lostJobToAI: false,
-  selectedSkills: [],
+  situation: null,
+  userInterests: [],
+  selectedInterests: [],
   targetRole: null,
   chosenSkill: null,
   learningPath: null,
@@ -76,8 +79,9 @@ function saveState(state: JourneyState) {
 
 interface JourneyContextValue extends JourneyState {
   setProfile: (profile: CandidateProfile | null) => void;
-  setLostJobToAI: (value: boolean) => void;
-  setSelectedSkills: (skills: string[]) => void;
+  setSituation: (situation: Situation | null) => void;
+  setUserInterests: (interests: string[]) => void;
+  setSelectedInterests: (interests: string[]) => void;
   setTargetRole: (role: string | null) => void;
   setChosenSkill: (skill: string | null) => void;
   setLearningPath: (path: LearningPath | null) => void;
@@ -99,8 +103,9 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
   const value: JourneyContextValue = {
     ...state,
     setProfile: (profile) => setState((s) => ({ ...s, profile })),
-    setLostJobToAI: (lostJobToAI) => setState((s) => ({ ...s, lostJobToAI })),
-    setSelectedSkills: (selectedSkills) => setState((s) => ({ ...s, selectedSkills })),
+    setSituation: (situation) => setState((s) => ({ ...s, situation })),
+    setUserInterests: (userInterests) => setState((s) => ({ ...s, userInterests })),
+    setSelectedInterests: (selectedInterests) => setState((s) => ({ ...s, selectedInterests })),
     setTargetRole: (targetRole) => setState((s) => ({ ...s, targetRole })),
     setChosenSkill: (chosenSkill) => setState((s) => ({ ...s, chosenSkill })),
     setLearningPath: (learningPath) => setState((s) => ({ ...s, learningPath })),

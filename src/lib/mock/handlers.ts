@@ -7,6 +7,7 @@ import type {
   AuthSession,
   CandidateProfile,
   CandidateSkillEvidence,
+  Interest,
   InterestAnalysis,
   KnowledgeCheckQuestion,
   LearningPath,
@@ -14,12 +15,14 @@ import type {
   ProgressMilestone,
   ResumeCritique,
   ResumeDraft,
+  Situation,
   SkillAnalysis,
+  SkillSource,
   TutorMessage,
   WellbeingCheckIn,
 } from "../types";
 import {
-  demoInterestAnalysis,
+  demoInferredInterests,
   demoJobPostings,
   demoProfile,
   demoProgressMilestones,
@@ -71,38 +74,50 @@ export async function mockForgotPassword(): Promise<{ success: true }> {
   return { success: true };
 }
 
+// Extracts skills from an uploaded résumé — does not build a profile by
+// itself. StartPage merges the result into its skills tag list.
 export function mockParseResume(simulateFailure = false): string {
-  return startMockWorkflow<{ profile: CandidateProfile }>(
+  return startMockWorkflow<{ skills: CandidateSkillEvidence[] }>(
     () => {
       if (simulateFailure) {
-        throw new Error("We couldn't read that file. Try a different PDF/DOCX, or enter your skills manually.");
+        throw new Error("We couldn't read that file. Try a different PDF/DOCX, or add your skills manually below.");
       }
-      return { profile: demoProfile };
+      return { skills: demoResumeSkills };
     },
     [800, 1800],
   );
 }
 
-export function mockParseManualSkills(skills: string[]): string {
-  const evidence: CandidateSkillEvidence[] = skills.map((skill) => ({
-    skill,
-    category: "technical",
-    status: "self_reported",
-    sourceExcerpt: null,
-  }));
+export interface CreateProfileInput {
+  skills: { skill: string; source: SkillSource }[];
+  situation: Situation;
+}
+
+// Builds the profile from whatever StartPage has compiled: skills (résumé-
+// and/or user-sourced), the chosen situation, and any interests typed in.
+export function mockCreateProfile(input: CreateProfileInput): string {
   return startMockWorkflow<{ profile: CandidateProfile }>(
-    () => ({ profile: { ...demoProfile, skills: evidence } }),
-    [400, 900],
+    () => {
+      const skills: CandidateSkillEvidence[] = input.skills.map(({ skill, source }) => {
+        const fromResume = demoResumeSkills.find((s) => s.skill.toLowerCase() === skill.toLowerCase());
+        return {
+          skill,
+          category: fromResume?.category ?? "technical",
+          status: source === "resume" ? "present" : "self_reported",
+          source,
+          sourceExcerpt: source === "resume" ? fromResume?.sourceExcerpt ?? null : null,
+        };
+      });
+      return {
+        profile: { ...demoProfile, skills, situation: input.situation },
+      };
+    },
+    [500, 1100],
   );
 }
 
 export function mockGetWorkflow<T>(workflowId: string) {
   return getMockWorkflow<T>(workflowId);
-}
-
-export async function mockConfirmProfile(profile: CandidateProfile): Promise<CandidateProfile> {
-  await mockDelay();
-  return { ...profile, confirmedAt: new Date().toISOString() };
 }
 
 export async function mockCreateGoal(): Promise<{ goalId: string }> {
@@ -183,9 +198,15 @@ export async function mockExportResume(): Promise<{ success: true; filename: str
   return { success: true, filename: "resume-updated.docx" };
 }
 
-export async function mockAnalyzeInterests(): Promise<InterestAnalysis> {
+export async function mockAnalyzeInterests(userInterests: string[]): Promise<InterestAnalysis> {
   await mockDelay(500, 1100);
-  return demoInterestAnalysis;
+  const userEntries: Interest[] = userInterests.map((label) => ({
+    id: `interest_user_${label.toLowerCase().replace(/\s+/g, "_")}`,
+    label,
+    source: "user",
+    sourceExcerpt: null,
+  }));
+  return { interests: [...userEntries, ...demoInferredInterests] };
 }
 
 export async function mockGetResumeCritique(): Promise<ResumeCritique> {
