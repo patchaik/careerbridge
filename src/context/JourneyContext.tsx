@@ -8,7 +8,14 @@ import type {
 
 const STORAGE_KEY = "careerbridge:journey";
 
-export type JourneyStepId = "profile" | "direction" | "skills" | "learn" | "prove" | "progress";
+export type JourneyStepId =
+  | "about"
+  | "profile"
+  | "direction"
+  | "skills"
+  | "learn"
+  | "prove"
+  | "progress";
 
 interface JourneyState {
   profile: CandidateProfile | null;
@@ -74,7 +81,7 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
   useEffect(() => saveState(state), [state]);
 
   const unlockedSteps = useMemo(() => {
-    const steps = new Set<JourneyStepId>(["profile"]);
+    const steps = new Set<JourneyStepId>(["about", "profile"]);
     if (state.profile) steps.add("direction");
     if (state.targetRole) steps.add("skills");
     if (state.chosenSkill) steps.add("learn");

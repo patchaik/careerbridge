@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Logo } from "../brand/Logo";
 import { useJourney, type JourneyStepId } from "../../context/JourneyContext";
@@ -11,7 +12,8 @@ interface GroupDef {
 }
 
 const groups: GroupDef[] = [
-  { id: "profile", label: "Profile", to: "/start", matches: ["/", "/start", "/interests", "/critique"] },
+  { id: "about", label: "About Us", to: "/", matches: ["/"] },
+  { id: "profile", label: "Profile", to: "/start", matches: ["/start", "/interests", "/critique"] },
   { id: "direction", label: "Direction", to: "/target", matches: ["/target", "/recommendations"] },
   { id: "skills", label: "Skills", to: "/skills", matches: ["/skills"] },
   { id: "learn", label: "Learn", to: "/courses", matches: ["/courses", "/learn", "/arena"] },
@@ -22,15 +24,28 @@ const groups: GroupDef[] = [
 export function TopNav() {
   const { unlockedSteps } = useJourney();
   const location = useLocation();
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
-    <header className="border-b border-neutral-200 bg-white">
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
+    <header
+      className={cn(
+        "fixed inset-x-0 top-0 z-50 h-16 border-b bg-white transition-shadow",
+        scrolled ? "border-neutral-200 shadow-sm" : "border-transparent",
+      )}
+    >
+      <div className="mx-auto flex h-full max-w-5xl items-center justify-between gap-4 px-4">
         <Link
           to="/"
           className="flex-shrink-0 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
         >
-          <Logo variant="horizontal" />
+          <Logo variant="stacked" tagline={false} className="h-12 w-auto" />
         </Link>
         <nav aria-label="Journey groups" className="overflow-x-auto">
           <ol className="flex items-center gap-1 sm:gap-2">

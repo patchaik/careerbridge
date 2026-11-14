@@ -37,7 +37,7 @@ function StageCard({ stage }: { stage: Stage }) {
 
 export function JourneyStepper() {
   return (
-    <div id="how-it-works">
+    <div>
       {/* Desktop: arched connector + evenly spaced cards. Tablet/mobile keep the roomier vertical timeline. */}
       <div className="relative hidden lg:block">
         <svg

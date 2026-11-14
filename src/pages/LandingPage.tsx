@@ -40,7 +40,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-5xl px-4 py-16">
+      <section id="how-it-works" className="mx-auto max-w-5xl scroll-mt-16 px-4 py-16">
         <h2 className="text-center text-2xl font-semibold text-neutral-900 sm:text-3xl">
           How it works
         </h2>

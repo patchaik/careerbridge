@@ -35,12 +35,25 @@ function BridgeMarkShapes({ color, accent }: { color: string; accent: string }) 
   );
 }
 
-function StackedLogo({ className, inverse }: { className?: string; inverse?: boolean }) {
+function StackedLogo({
+  className,
+  inverse,
+  tagline = true,
+}: {
+  className?: string;
+  inverse?: boolean;
+  tagline?: boolean;
+}) {
   const color = inverse ? WHITE : NAVY;
   const accent = inverse ? INDIGO_LIGHT : INDIGO;
-  const tagline = inverse ? SLATE_LIGHT : SLATE;
+  const taglineColor = inverse ? SLATE_LIGHT : SLATE;
   return (
-    <svg viewBox="60 56 150 142" role="img" aria-label="CareerBridge" className={className}>
+    <svg
+      viewBox={tagline ? "60 56 150 142" : "60 56 150 122"}
+      role="img"
+      aria-label="CareerBridge"
+      className={className}
+    >
       <BridgeMarkShapes color={color} accent={accent} />
       <text
         x="135"
@@ -54,18 +67,20 @@ function StackedLogo({ className, inverse }: { className?: string; inverse?: boo
         <tspan fill={color}>Career</tspan>
         <tspan fill={accent}>Bridge</tspan>
       </text>
-      <text
-        x="135"
-        y="190"
-        textAnchor="middle"
-        fontFamily="Inter, system-ui, sans-serif"
-        fontSize="11"
-        fontWeight="500"
-        letterSpacing="2"
-        fill={tagline}
-      >
-        AI-READY CAREERS
-      </text>
+      {tagline && (
+        <text
+          x="135"
+          y="190"
+          textAnchor="middle"
+          fontFamily="Inter, system-ui, sans-serif"
+          fontSize="11"
+          fontWeight="500"
+          letterSpacing="2"
+          fill={taglineColor}
+        >
+          AI-READY CAREERS
+        </text>
+      )}
     </svg>
   );
 }
@@ -99,17 +114,18 @@ function HorizontalLogo({ className }: { className?: string }) {
 interface LogoProps {
   variant?: "stacked" | "horizontal" | "mark" | "inverse";
   className?: string;
+  tagline?: boolean;
 }
 
-export function Logo({ variant = "stacked", className }: LogoProps) {
+export function Logo({ variant = "stacked", className, tagline = true }: LogoProps) {
   switch (variant) {
     case "horizontal":
       return <HorizontalLogo className={className} />;
     case "mark":
       return <MarkLogo className={className} />;
     case "inverse":
-      return <StackedLogo className={className} inverse />;
+      return <StackedLogo className={className} inverse tagline={tagline} />;
     default:
-      return <StackedLogo className={className} />;
+      return <StackedLogo className={className} tagline={tagline} />;
   }
 }
