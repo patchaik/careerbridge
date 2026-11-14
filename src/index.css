@@ -76,6 +76,33 @@
   --color-neutral-800: #1e293b;
   --color-neutral-900: #0f172a;
   --color-neutral-950: #020617;
+
+  /* Brand — International Orange (bridge mark) */
+  --color-brand-50: #fdf3f1;
+  --color-brand-100: #fbe2dd;
+  --color-brand-200: #f6c5bb;
+  --color-brand-300: #eea296;
+  --color-brand-400: #de7868;
+  --color-brand-500: #cb4f3e;
+  --color-brand-600: #c0362c;
+  --color-brand-700: #a12c23;
+  --color-brand-800: #82241d;
+  --color-brand-900: #5e1a16;
+}
+
+/* Bridge pathway walking-dot animation (landing page). Disabled via motion-safe: in markup. */
+@keyframes bridge-walk-x {
+  from { left: 2%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  to { left: 96%; opacity: 0; }
+}
+
+@keyframes bridge-walk-y {
+  from { top: 2%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  to { top: 97%; opacity: 0; }
 }
 
 @layer base {

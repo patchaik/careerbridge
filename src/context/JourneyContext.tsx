@@ -8,10 +8,13 @@ import type {
 
 const STORAGE_KEY = "careerbridge:journey";
 
-export type JourneyStepId = "goal" | "skills" | "arena" | "progress";
+export type JourneyStepId = "profile" | "direction" | "skills" | "learn" | "prove" | "progress";
 
 interface JourneyState {
   profile: CandidateProfile | null;
+  lostJobToAI: boolean;
+  selectedSkills: string[];
+  targetRole: string | null;
   chosenSkill: string | null;
   learningPath: LearningPath | null;
   assessmentAttempt: AssessmentAttempt | null;
@@ -21,6 +24,9 @@ interface JourneyState {
 
 const initialState: JourneyState = {
   profile: null,
+  lostJobToAI: false,
+  selectedSkills: [],
+  targetRole: null,
   chosenSkill: null,
   learningPath: null,
   assessmentAttempt: null,
@@ -49,6 +55,9 @@ function saveState(state: JourneyState) {
 interface JourneyContextValue extends JourneyState {
   unlockedSteps: Set<JourneyStepId>;
   setProfile: (profile: CandidateProfile | null) => void;
+  setLostJobToAI: (value: boolean) => void;
+  setSelectedSkills: (skills: string[]) => void;
+  setTargetRole: (role: string | null) => void;
   setChosenSkill: (skill: string | null) => void;
   setLearningPath: (path: LearningPath | null) => void;
   setAssessmentAttempt: (attempt: AssessmentAttempt | null) => void;
@@ -65,19 +74,24 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
   useEffect(() => saveState(state), [state]);
 
   const unlockedSteps = useMemo(() => {
-    const steps = new Set<JourneyStepId>(["goal"]);
-    if (state.profile?.confirmedAt) steps.add("skills");
-    if (state.chosenSkill) {
-      steps.add("arena");
+    const steps = new Set<JourneyStepId>(["profile"]);
+    if (state.profile) steps.add("direction");
+    if (state.targetRole) steps.add("skills");
+    if (state.chosenSkill) steps.add("learn");
+    if (state.learningPath) {
+      steps.add("prove");
       steps.add("progress");
     }
     return steps;
-  }, [state.profile, state.chosenSkill]);
+  }, [state.profile, state.targetRole, state.chosenSkill, state.learningPath]);
 
   const value: JourneyContextValue = {
     ...state,
     unlockedSteps,
     setProfile: (profile) => setState((s) => ({ ...s, profile })),
+    setLostJobToAI: (lostJobToAI) => setState((s) => ({ ...s, lostJobToAI })),
+    setSelectedSkills: (selectedSkills) => setState((s) => ({ ...s, selectedSkills })),
+    setTargetRole: (targetRole) => setState((s) => ({ ...s, targetRole })),
     setChosenSkill: (chosenSkill) => setState((s) => ({ ...s, chosenSkill })),
     setLearningPath: (learningPath) => setState((s) => ({ ...s, learningPath })),
     setAssessmentAttempt: (assessmentAttempt) => setState((s) => ({ ...s, assessmentAttempt })),
