@@ -5,8 +5,8 @@ Walks the full product flow with a throwaway user, skill and job, checks every
 integrity rule, then deletes everything it created (including stored files).
 
 Usage (from the repo root):
-  pip install -r requirements.txt
-  python3 tests/test_db_layer.py
+  pip install -r db_requirements.txt
+  python3 database_tests/test_db_layer.py
 """
 
 import sys
@@ -47,7 +47,7 @@ def step(title):
 def main():
     print(f"CareerBridge data layer test  (run {TAG})")
     if not admin.health_check():
-        check("Database and storage reachable", False, "run tests/test_db_setup.py first")
+        check("Database and storage reachable", False, "run database_tests/test_db_setup.py first")
         return finish()
     check("Database and storage reachable", True)
 
