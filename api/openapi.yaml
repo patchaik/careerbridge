@@ -1,0 +1,1370 @@
+openapi: 3.1.0
+info:
+  title: CareerBridge API
+  version: 0.1.0
+  summary: Target a job. Discover a genuine skill gap. Learn it. Demonstrate it.
+  description: |
+    Contract between the CareerBridge UI and the FastAPI backend.
+
+    **Conventions**
+    - Base path `/api`. JSON in and out, except résumé upload (multipart).
+    - IDs are UUID strings. Timestamps are ISO 8601 UTC.
+    - MVP auth: send the signed-in user's ID in the `X-User-Id` header.
+      This will later be replaced by a Supabase Auth bearer token, with no change to request bodies.
+    - Errors always use the `Error` shape (see components).
+    - `Idempotency-Key` header (any unique string, e.g. a UUID made by the UI) is required on
+      profile confirmation, assessment submission and résumé export. Repeating a request with the
+      same key returns the first result.
+    - Long-running calls (`/jobs/search`, `/skills/analyze`, `/paths/generate`) return their result
+      and a `workflow_id`. If the backend answers `202`, poll `GET /api/workflows/{workflow_id}`.
+    - Every job, requirement, gap and resource carries its source. The UI must show the `provider`
+      label for `cached` and `synthetic` data.
+
+    **Backend mapping**: each operation lists the `database` package functions it uses in
+    `x-db-functions`.
+servers:
+  - url: http://localhost:8000
+    description: Local FastAPI
+security:
+  - userId: []
+tags:
+  - name: Users
+  - name: Onboarding
+  - name: Goals
+  - name: Market evidence
+  - name: Learning
+  - name: Arena
+  - name: Assessments
+  - name: Résumé
+  - name: Wellbeing
+  - name: System
+
+paths:
+  # ------------------------------------------------------------------ System
+  /api/health:
+    get:
+      tags: [System]
+      summary: Health check
+      operationId: health
+      security: []
+      x-db-functions: [admin.health_check]
+      responses:
+        "200":
+          description: Service status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, database]
+                properties:
+                  status: { type: string, enum: [ok, degraded] }
+                  database: { type: boolean }
+                  job_provider: { type: string, enum: [live, cached] }
+
+  /api/workflows/{workflow_id}:
+    get:
+      tags: [System]
+      summary: Status of a long-running operation
+      operationId: getWorkflow
+      x-db-functions: [users.get_workflow]
+      parameters:
+        - $ref: "#/components/parameters/WorkflowId"
+      responses:
+        "200":
+          description: Workflow status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Workflow" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ------------------------------------------------------------------- Users
+  /api/users:
+    post:
+      tags: [Users]
+      summary: Sign in or create a user by email
+      description: Returns the existing user if the email is known. Consent is required.
+      operationId: createUser
+      security: []
+      x-db-functions: [users.create_user]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, consent]
+              properties:
+                email: { type: string, format: email }
+                name: { type: string }
+                consent:
+                  type: boolean
+                  description: Must be true. Records consent to process the résumé.
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "422": { $ref: "#/components/responses/Invalid" }
+
+  /api/users/{user_id}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [Users]
+      summary: Get a user
+      operationId: getUser
+      x-db-functions: [users.get_user]
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Users]
+      summary: Delete my data
+      description: Deletes the user, every row they own and their stored files. Cannot be undone.
+      operationId: deleteUser
+      x-db-functions: [users.delete_user]
+      responses:
+        "204": { description: Deleted }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/users/{user_id}/export:
+    get:
+      tags: [Users]
+      summary: Download my data (JSON)
+      operationId: exportUserData
+      x-db-functions: [admin.export_user_data]
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Everything stored about the user
+          content:
+            application/json:
+              schema: { type: object }
+
+  # -------------------------------------------------------------- Onboarding
+  /api/onboarding/parse:
+    post:
+      tags: [Onboarding]
+      summary: Parse a résumé or manual skills into a profile
+      description: |
+        Send a PDF/DOCX résumé (multipart) or a manual skill list (JSON). The backend extracts skills
+        with evidence excerpts. A skill not found on the résumé is `not_established`, never "missing".
+        The résumé is untrusted input: it is parsed as data, never followed as instructions.
+      operationId: parseOnboarding
+      x-db-functions: [profiles.create_profile, profiles.add_skill_evidence_bulk]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: .pdf or .docx, up to 5 MB
+          application/json:
+            schema:
+              type: object
+              required: [skills]
+              properties:
+                skills:
+                  type: array
+                  minItems: 1
+                  maxItems: 30
+                  items: { type: string }
+                experience_summary: { type: string, maxLength: 2000 }
+      responses:
+        "201":
+          description: Profile with extracted skills, awaiting user confirmation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Profile" }
+        "413": { $ref: "#/components/responses/TooLarge" }
+        "422": { $ref: "#/components/responses/Invalid" }
+
+  /api/profiles/{profile_id}:
+    get:
+      tags: [Onboarding]
+      summary: Get a profile and its skill evidence
+      operationId: getProfile
+      x-db-functions: [profiles.get_profile, profiles.list_skill_evidence]
+      parameters:
+        - $ref: "#/components/parameters/ProfileId"
+      responses:
+        "200":
+          description: Profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Profile" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/profiles/{profile_id}/confirm:
+    put:
+      tags: [Onboarding]
+      summary: Confirm corrected skill evidence
+      description: |
+        The user reviews extracted skills, fixes or removes them, and adds ones the résumé missed.
+        `demonstrated` cannot be set here; it comes only from a passed assessment.
+      operationId: confirmProfile
+      x-db-functions: [profiles.update_skill_evidence, profiles.add_skill_evidence,
+                       profiles.delete_skill_evidence, profiles.confirm_profile]
+      parameters:
+        - $ref: "#/components/parameters/ProfileId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [skills]
+              properties:
+                skills:
+                  type: array
+                  maxItems: 30
+                  items:
+                    type: object
+                    required: [skill, status]
+                    properties:
+                      skill: { type: string }
+                      status:
+                        type: string
+                        enum: [present, user_confirmed, self_reported, not_established]
+                      excerpt: { type: string, maxLength: 1000 }
+                remove_skill_ids:
+                  type: array
+                  items: { type: string, format: uuid }
+                clear_resume_text:
+                  type: boolean
+                  default: false
+                  description: Privacy option. Wipes the parsed résumé text after confirmation.
+      responses:
+        "200":
+          description: Confirmed profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Profile" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Invalid" }
+
+  # -------------------------------------------------------------------- Goals
+  /api/goals:
+    post:
+      tags: [Goals]
+      summary: Create the user's job and learning goal
+      description: Becomes the active goal; any previous goal is deactivated.
+      operationId: createGoal
+      x-db-functions: [users.create_goal]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GoalInput" }
+      responses:
+        "201":
+          description: Goal
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Goal" }
+        "422": { $ref: "#/components/responses/Invalid" }
+    get:
+      tags: [Goals]
+      summary: List my goals (active first)
+      operationId: listGoals
+      x-db-functions: [users.list_goals]
+      responses:
+        "200":
+          description: Goals
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Goal" }
+
+  # --------------------------------------------------------- Market evidence
+  /api/jobs/search:
+    post:
+      tags: [Market evidence]
+      summary: Search live job postings with provenance
+      description: |
+        Calls the job provider (Adzuna or Greenhouse). If it fails, returns the labeled cached set and
+        sets `fallback_used: true`. Never invents postings.
+      operationId: searchJobs
+      x-db-functions: [jobs.upsert_job_posting, jobs.add_job_requirements]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [goal_id]
+              properties:
+                goal_id: { type: string, format: uuid }
+                limit: { type: integer, minimum: 1, maximum: 5, default: 5 }
+      responses:
+        "200":
+          description: Matching postings with per-skill requirements
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobSearchResult" }
+        "202": { $ref: "#/components/responses/Accepted" }
+        "503": { $ref: "#/components/responses/ProviderUnavailable" }
+
+  /api/jobs/{job_id}:
+    get:
+      tags: [Market evidence]
+      summary: Get one posting and its requirements
+      operationId: getJob
+      x-db-functions: [jobs.get_job, jobs.list_requirements]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Job posting
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobPosting" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/skills/analyze:
+    post:
+      tags: [Market evidence]
+      summary: Build the role-skill gap analysis
+      description: |
+        Compares confirmed skills to job requirements. Returns up to 10 existing skills, 10 market
+        skills and 10 ranked gaps. Each gap cites the jobs and excerpts that ask for it.
+      operationId: analyzeSkills
+      x-db-functions: [jobs.create_gap_analysis, jobs.gap_report]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [goal_id, profile_id, job_ids]
+              properties:
+                goal_id: { type: string, format: uuid }
+                profile_id: { type: string, format: uuid }
+                job_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 5
+                  items: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Gap analysis
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GapAnalysis" }
+        "202": { $ref: "#/components/responses/Accepted" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/gap-analyses/{analysis_id}:
+    get:
+      tags: [Market evidence]
+      summary: Get a saved gap analysis
+      operationId: getGapAnalysis
+      x-db-functions: [jobs.gap_report]
+      parameters:
+        - name: analysis_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Gap analysis
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GapAnalysis" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ----------------------------------------------------------------- Learning
+  /api/diagnostics/start:
+    post:
+      tags: [Learning]
+      summary: Start an optional diagnostic for a skill the user may already have (P1)
+      operationId: startDiagnostic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [skill]
+              properties:
+                skill: { type: string }
+      responses:
+        "201":
+          description: Diagnostic questions
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Diagnostic" }
+
+  /api/diagnostics/{diagnostic_id}/submit:
+    post:
+      tags: [Learning]
+      summary: Submit diagnostic answers (P1)
+      description: A strong result can skip training. It never marks a skill `demonstrated`.
+      operationId: submitDiagnostic
+      x-db-functions: [profiles.add_skill_evidence]
+      parameters:
+        - name: diagnostic_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answers]
+              properties:
+                answers:
+                  type: array
+                  items: { $ref: "#/components/schemas/Answer" }
+      responses:
+        "200":
+          description: Diagnostic result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [skill, score, recommendation]
+                properties:
+                  skill: { type: string }
+                  score: { type: number, minimum: 0, maximum: 1 }
+                  recommendation: { type: string, enum: [skip_training, short_refresher, full_path] }
+
+  /api/paths/generate:
+    post:
+      tags: [Learning]
+      summary: Create a learning path and its rubric for one gap
+      description: |
+        Returns a proposed path and the rubric that will grade it. The rubric is shown to the user
+        before learning starts and is frozen when the path is approved.
+      operationId: generatePath
+      x-db-functions: [learning.create_path, mastery.get_frozen_rubric, mastery.create_rubric]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [goal_id, skill]
+              properties:
+                goal_id: { type: string, format: uuid }
+                skill: { type: string }
+                modality: { $ref: "#/components/schemas/Modality" }
+      responses:
+        "201":
+          description: Proposed path
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LearningPath" }
+        "202": { $ref: "#/components/responses/Accepted" }
+
+  /api/paths/{path_id}:
+    get:
+      tags: [Learning]
+      summary: Get a learning path
+      operationId: getPath
+      x-db-functions: [learning.get_path]
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      responses:
+        "200":
+          description: Path
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LearningPath" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/paths/{path_id}/approve:
+    put:
+      tags: [Learning]
+      summary: Approve a path and freeze its rubric
+      operationId: approvePath
+      x-db-functions: [learning.update_path_status, mastery.approve_rubric, mastery.freeze_rubric]
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      responses:
+        "200":
+          description: Approved path with frozen rubric
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LearningPath" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/paths/{path_id}/status:
+    put:
+      tags: [Learning]
+      summary: Pause, resume or complete a path
+      operationId: setPathStatus
+      x-db-functions: [learning.update_path_status]
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [in_progress, paused, completed] }
+      responses:
+        "200":
+          description: Path
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LearningPath" }
+
+  /api/resources:
+    get:
+      tags: [Learning]
+      summary: Verified learning options for a skill
+      description: Up to 5 free and up to 5 paid. Lists are never padded to reach 5.
+      operationId: listResources
+      x-db-functions: [learning.list_resources]
+      parameters:
+        - name: skill
+          in: query
+          required: true
+          schema: { type: string }
+        - name: modality
+          in: query
+          schema: { $ref: "#/components/schemas/Modality" }
+      responses:
+        "200":
+          description: Resources grouped by price
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [skill, free, paid]
+                properties:
+                  skill: { type: string }
+                  free:
+                    type: array
+                    maxItems: 5
+                    items: { $ref: "#/components/schemas/Resource" }
+                  paid:
+                    type: array
+                    maxItems: 5
+                    items: { $ref: "#/components/schemas/Resource" }
+
+  # -------------------------------------------------------------------- Arena
+  /api/arena/tutor:
+    post:
+      tags: [Arena]
+      summary: Bounded lesson response for the current milestone (P1)
+      description: |
+        Answers only within the milestone's concepts. Gives hints, not full solutions to assessed
+        tasks.
+      operationId: tutor
+      x-db-functions: [learning.save_session, learning.get_session]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path_id, milestone_id, message]
+              properties:
+                path_id: { type: string, format: uuid }
+                milestone_id: { type: string }
+                session_id: { type: string, format: uuid }
+                mode: { type: string, enum: [written, hands_on], default: written }
+                message: { type: string, maxLength: 4000 }
+      responses:
+        "200":
+          description: Tutor reply
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [session_id, reply]
+                properties:
+                  session_id: { type: string, format: uuid }
+                  reply: { type: string }
+                  hint_count: { type: integer }
+                  suggested_next: { type: string }
+
+  /api/arena/practice:
+    post:
+      tags: [Arena]
+      summary: Record practice and get feedback (P1)
+      description: Practice is not assessed and never creates verified evidence.
+      operationId: practice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path_id, milestone_id, submission]
+              properties:
+                path_id: { type: string, format: uuid }
+                milestone_id: { type: string }
+                submission: { type: string, maxLength: 20000 }
+      responses:
+        "200":
+          description: Feedback
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [feedback, criteria]
+                properties:
+                  feedback: { type: string }
+                  criteria:
+                    type: array
+                    items: { $ref: "#/components/schemas/CriterionResult" }
+
+  # -------------------------------------------------------------- Assessments
+  /api/assessments/start:
+    post:
+      tags: [Assessments]
+      summary: Start an assessment against the path's frozen rubric
+      operationId: startAssessment
+      x-db-functions: [mastery.start_attempt]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path_id]
+              properties:
+                path_id: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Attempt with quiz questions and project task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssessmentStart" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/assessments/submit:
+    post:
+      tags: [Assessments]
+      summary: Grade an attempt against its frozen rubric
+      description: |
+        On `passed`, verified evidence is created, scoped to this exact project and test.
+        On `failed`, missed criteria map to remediation; automatic retries stop after 3.
+        `needs_review` means grading was not reliable enough to decide.
+      operationId: submitAssessment
+      x-db-functions: [mastery.submit_attempt, mastery.record_verified_evidence]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [attempt_id]
+              properties:
+                attempt_id: { type: string, format: uuid }
+                quiz_answers:
+                  type: array
+                  items: { $ref: "#/components/schemas/Answer" }
+                project_submission:
+                  type: string
+                  maxLength: 50000
+                  description: Code or a link to the submitted project
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssessmentResult" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/progress:
+    get:
+      tags: [Assessments]
+      summary: Documented competency progress for the active goal
+      operationId: getProgress
+      x-db-functions: [users.get_active_goal, jobs.get_latest_gap_analysis, learning.list_paths,
+                       mastery.list_attempts, mastery.list_verified_evidence]
+      responses:
+        "200":
+          description: Progress
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Progress" }
+
+  # ------------------------------------------------------------------- Résumé
+  /api/resumes/draft:
+    post:
+      tags: [Résumé]
+      summary: Suggest résumé edits backed by verified evidence
+      description: |
+        Every suggested change cites a verified evidence ID. Wording describes the scope of the
+        evidence (e.g. "built a RAG pipeline in a guided project") and never claims employment
+        experience.
+      operationId: draftResume
+      x-db-functions: [resumes.create_resume_draft]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profile_id, evidence_ids]
+              properties:
+                profile_id: { type: string, format: uuid }
+                evidence_ids:
+                  type: array
+                  minItems: 1
+                  items: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Draft
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResumeVersion" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/resumes/{resume_id}:
+    parameters:
+      - $ref: "#/components/parameters/ResumeId"
+    get:
+      tags: [Résumé]
+      summary: Get a résumé version
+      operationId: getResume
+      x-db-functions: [resumes.get_resume_version]
+      responses:
+        "200":
+          description: Résumé version
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResumeVersion" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Résumé]
+      summary: Edit a draft (accept, reword or drop suggested changes)
+      operationId: updateResumeDraft
+      x-db-functions: [resumes.update_resume_draft]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [changes]
+              properties:
+                changes:
+                  type: array
+                  items: { $ref: "#/components/schemas/ResumeChange" }
+      responses:
+        "200":
+          description: Updated draft
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResumeVersion" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/resumes/{resume_id}/approve:
+    put:
+      tags: [Résumé]
+      summary: User approves the draft (required before export)
+      operationId: approveResume
+      x-db-functions: [resumes.approve_resume]
+      parameters:
+        - $ref: "#/components/parameters/ResumeId"
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResumeVersion" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/resumes/{resume_id}/reject:
+    put:
+      tags: [Résumé]
+      summary: User rejects the draft
+      operationId: rejectResume
+      x-db-functions: [resumes.reject_resume]
+      parameters:
+        - $ref: "#/components/parameters/ResumeId"
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResumeVersion" }
+
+  /api/resumes/export:
+    post:
+      tags: [Résumé]
+      summary: Export an approved résumé
+      description: Refused unless the version is approved. Returns a short-lived download link.
+      operationId: exportResume
+      x-db-functions: [resumes.record_export, resumes.export_url]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resume_id, format]
+              properties:
+                resume_id: { type: string, format: uuid }
+                format: { type: string, enum: [docx, pdf] }
+      responses:
+        "200":
+          description: Download link
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [resume_id, download_url, expires_in_seconds]
+                properties:
+                  resume_id: { type: string, format: uuid }
+                  download_url: { type: string, format: uri }
+                  expires_in_seconds: { type: integer, example: 600 }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  # ---------------------------------------------------------------- Wellbeing
+  /api/wellbeing/preferences:
+    put:
+      tags: [Wellbeing]
+      summary: Opt in or out of check-ins (P1)
+      operationId: setWellbeingPreferences
+      x-db-functions: [wellbeing.set_wellbeing_preferences]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [opted_in]
+              properties:
+                opted_in: { type: boolean }
+                support_style: { type: string, enum: [brief, encouraging, practical] }
+      responses:
+        "200":
+          description: Preferences
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WellbeingPreferences" }
+
+  /api/wellbeing/checkin:
+    post:
+      tags: [Wellbeing]
+      summary: Optional nonclinical check-in (P1)
+      description: |
+        Not therapy and not scored. Answers are never used by matching, grading or export.
+        The user can pause their learning path from here.
+      operationId: wellbeingCheckin
+      x-db-functions: [wellbeing.record_checkin, learning.update_path_status]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [feeling]
+              properties:
+                feeling: { type: string, enum: [good, okay, stretched, overwhelmed] }
+                note: { type: string, maxLength: 500 }
+                pause_path_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Supportive response
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
+                  suggestion: { type: string }
+                  path_paused: { type: boolean }
+                  support_resources:
+                    type: array
+                    description: Shown when the note suggests distress
+                    items:
+                      type: object
+                      properties:
+                        name: { type: string }
+                        contact: { type: string }
+
+components:
+  securitySchemes:
+    userId:
+      type: apiKey
+      in: header
+      name: X-User-Id
+      description: MVP only. The signed-in user's UUID. To be replaced by a bearer token.
+
+  parameters:
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ProfileId:
+      name: profile_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    PathId:
+      name: path_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ResumeId:
+      name: resume_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    WorkflowId:
+      name: workflow_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Unique per user action. Repeats return the first result.
+      schema: { type: string, minLength: 8, maxLength: 100 }
+
+  responses:
+    Accepted:
+      description: Still running. Poll the workflow.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Workflow" }
+    Invalid:
+      description: Input failed validation (`validation_error`)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Not found (`not_found`)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Not your data (`forbidden`)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: A product rule refused the action (`rule_violation`), e.g. export before approval
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TooLarge:
+      description: File too large (`file_too_large`)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ProviderUnavailable:
+      description: Job provider down and no cached data (`provider_unavailable`)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [validation_error, not_found, forbidden, rule_violation, file_too_large,
+                     provider_unavailable, rate_limited, internal_error]
+            message:
+              type: string
+              description: Safe to show to the user
+              example: Export requires an approved résumé version
+            field: { type: string, description: Input field at fault, if any }
+
+    Modality:
+      type: string
+      enum: [text, hands_on, both]
+
+    Provider:
+      type: string
+      enum: [adzuna, greenhouse, cached, synthetic]
+      description: UI must label `cached` and `synthetic` data.
+
+    Workflow:
+      type: object
+      required: [workflow_id, state]
+      properties:
+        workflow_id: { type: string, format: uuid }
+        state:
+          type: string
+          enum: [ONBOARDING, PROFILE_REVIEW, JOB_SEARCH, GAP_ANALYSIS, PATH_APPROVAL, LEARNING,
+                 ASSESSING, REMEDIATION, EVIDENCE_VERIFIED, RESUME_REVIEW, EXPORT_READY]
+        next_action: { type: string }
+        retry_count: { type: integer, minimum: 0, maximum: 3 }
+        result_url: { type: string, description: Where to GET the result when done }
+        errors:
+          type: array
+          items: { type: string }
+
+    User:
+      type: object
+      required: [id, email]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        name: { type: string }
+        consent_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+
+    SkillEvidence:
+      type: object
+      required: [id, skill, status, evidence_type]
+      properties:
+        id: { type: string, format: uuid }
+        skill_id: { type: string, format: uuid }
+        skill: { type: string }
+        category: { type: string, enum: [technical, interpersonal, domain] }
+        evidence_type: { type: string, enum: [resume, self_reported, diagnostic] }
+        status:
+          type: string
+          enum: [present, user_confirmed, self_reported, not_established, demonstrated]
+        excerpt: { type: string, description: Résumé text supporting the skill }
+
+    Profile:
+      type: object
+      required: [id, user_id, source, skills]
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        source: { type: string, enum: [resume, manual] }
+        has_file: { type: boolean }
+        confirmed_at: { type: [string, "null"], format: date-time }
+        skills:
+          type: array
+          items: { $ref: "#/components/schemas/SkillEvidence" }
+
+    GoalInput:
+      type: object
+      required: [target_role]
+      properties:
+        target_role: { type: string, example: "Software Engineer, AI Applications" }
+        location: { type: string, example: Bay Area }
+        seniority: { type: string, example: mid }
+        learning_goal: { type: string }
+        modality: { $ref: "#/components/schemas/Modality" }
+
+    Goal:
+      allOf:
+        - $ref: "#/components/schemas/GoalInput"
+        - type: object
+          required: [id, user_id, is_active]
+          properties:
+            id: { type: string, format: uuid }
+            user_id: { type: string, format: uuid }
+            is_active: { type: boolean }
+            created_at: { type: string, format: date-time }
+
+    JobRequirement:
+      type: object
+      required: [skill, importance, excerpt]
+      properties:
+        skill: { type: string }
+        importance: { type: string, enum: [required, preferred] }
+        excerpt: { type: string, description: Job text that asks for the skill }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+
+    JobPosting:
+      type: object
+      required: [id, provider, title, url, retrieved_at]
+      properties:
+        id: { type: string, format: uuid }
+        provider: { $ref: "#/components/schemas/Provider" }
+        title: { type: string }
+        company: { type: string }
+        location: { type: string }
+        url: { type: string, format: uri }
+        completeness: { type: string, enum: [full, partial] }
+        retrieved_at: { type: string, format: date-time }
+        requirements:
+          type: array
+          items: { $ref: "#/components/schemas/JobRequirement" }
+
+    JobSearchResult:
+      type: object
+      required: [jobs, fallback_used]
+      properties:
+        workflow_id: { type: string, format: uuid }
+        jobs:
+          type: array
+          maxItems: 5
+          items: { $ref: "#/components/schemas/JobPosting" }
+        fallback_used:
+          type: boolean
+          description: True when the live provider failed and labeled cached postings were used
+
+    GapSource:
+      type: object
+      required: [job_id, title, url, provider]
+      properties:
+        job_id: { type: string, format: uuid }
+        title: { type: string }
+        company: { type: string }
+        url: { type: string, format: uri }
+        provider: { $ref: "#/components/schemas/Provider" }
+        excerpt: { type: string }
+
+    Gap:
+      type: object
+      required: [skill, job_ids, sources]
+      properties:
+        skill: { type: string }
+        importance: { type: string, enum: [required, preferred] }
+        frequency: { type: integer, description: Number of postings asking for it }
+        reason: { type: string }
+        job_ids:
+          type: array
+          items: { type: string, format: uuid }
+        sources:
+          type: array
+          items: { $ref: "#/components/schemas/GapSource" }
+
+    GapAnalysis:
+      type: object
+      required: [id, goal_id, profile_id, existing_skills, market_skills, gaps]
+      properties:
+        id: { type: string, format: uuid }
+        workflow_id: { type: string, format: uuid }
+        goal_id: { type: string, format: uuid }
+        profile_id: { type: string, format: uuid }
+        existing_skills:
+          type: array
+          maxItems: 10
+          items: { type: string }
+        market_skills:
+          type: array
+          maxItems: 10
+          items: { type: string }
+        gaps:
+          type: array
+          maxItems: 10
+          items: { $ref: "#/components/schemas/Gap" }
+        created_at: { type: string, format: date-time }
+
+    Diagnostic:
+      type: object
+      required: [diagnostic_id, skill, questions]
+      properties:
+        diagnostic_id: { type: string }
+        skill: { type: string }
+        questions:
+          type: array
+          items: { $ref: "#/components/schemas/Question" }
+
+    Question:
+      type: object
+      required: [id, prompt]
+      properties:
+        id: { type: string }
+        prompt: { type: string }
+        choices:
+          type: array
+          items: { type: string }
+
+    Answer:
+      type: object
+      required: [question_id, answer]
+      properties:
+        question_id: { type: string }
+        answer: { type: string }
+
+    Milestone:
+      type: object
+      required: [id, title]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        concepts:
+          type: array
+          items: { type: string }
+        mode: { type: string, enum: [written, hands_on] }
+        done: { type: boolean }
+
+    Rubric:
+      type: object
+      required: [id, skill, version, approval_status, criteria]
+      properties:
+        id: { type: string, format: uuid }
+        skill: { type: string }
+        version: { type: integer }
+        approval_status: { type: string, enum: [draft, reviewed, frozen] }
+        frozen_at: { type: [string, "null"], format: date-time }
+        criteria:
+          type: object
+          description: Shown to the user before learning starts
+
+    LearningPath:
+      type: object
+      required: [id, goal_id, skill, objective, status, milestones]
+      properties:
+        id: { type: string, format: uuid }
+        workflow_id: { type: string, format: uuid }
+        goal_id: { type: string, format: uuid }
+        skill: { type: string }
+        objective: { type: string }
+        status: { type: string, enum: [proposed, approved, in_progress, completed, paused] }
+        milestones:
+          type: array
+          items: { $ref: "#/components/schemas/Milestone" }
+        rubric: { $ref: "#/components/schemas/Rubric" }
+
+    Resource:
+      type: object
+      required: [id, title, url, price_type]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        url: { type: string, format: uri }
+        provider: { type: string }
+        price_type: { type: string, enum: [free, paid, mixed, unknown] }
+        modality: { type: string }
+        level: { type: string }
+        concepts:
+          type: array
+          items: { type: string }
+        verified_at: { type: [string, "null"], format: date-time }
+
+    CriterionResult:
+      type: object
+      required: [criterion, met]
+      properties:
+        criterion: { type: string }
+        met: { type: boolean }
+        comment: { type: string }
+
+    AssessmentStart:
+      type: object
+      required: [attempt_id, rubric_id, quiz, project_task]
+      properties:
+        attempt_id: { type: string, format: uuid }
+        rubric_id: { type: string, format: uuid }
+        rubric_version: { type: integer }
+        quiz:
+          type: array
+          items: { $ref: "#/components/schemas/Question" }
+        project_task: { type: string }
+
+    AssessmentResult:
+      type: object
+      required: [attempt_id, status, criteria]
+      properties:
+        attempt_id: { type: string, format: uuid }
+        status: { type: string, enum: [passed, failed, needs_review] }
+        quiz_score: { type: number, minimum: 0, maximum: 1 }
+        criteria:
+          type: array
+          items: { $ref: "#/components/schemas/CriterionResult" }
+        remediation:
+          type: array
+          description: Focused activities for missed criteria (on failed)
+          items:
+            type: object
+            properties:
+              criterion: { type: string }
+              activity: { type: string }
+              resource_id: { type: string, format: uuid }
+        retries_left: { type: integer, minimum: 0, maximum: 3 }
+        verified_evidence_id:
+          type: [string, "null"]
+          format: uuid
+          description: Set only when status is passed
+
+    VerifiedEvidence:
+      type: object
+      required: [id, skill, scope, verified_at]
+      properties:
+        id: { type: string, format: uuid }
+        skill: { type: string }
+        scope: { type: string, example: "Guided project: 3-document RAG pipeline" }
+        summary: { type: string }
+        attempt_id: { type: string, format: uuid }
+        verified_at: { type: string, format: date-time }
+
+    Progress:
+      type: object
+      required: [goal, gaps, next_action]
+      properties:
+        goal: { $ref: "#/components/schemas/Goal" }
+        gaps:
+          type: array
+          items:
+            type: object
+            required: [skill, status]
+            properties:
+              skill: { type: string }
+              status: { type: string, enum: [not_started, learning, assessing, demonstrated] }
+              path_id: { type: [string, "null"], format: uuid }
+        verified_evidence:
+          type: array
+          items: { $ref: "#/components/schemas/VerifiedEvidence" }
+        next_action:
+          type: string
+          example: Take the RAG assessment
+
+    ResumeChange:
+      type: object
+      required: [section, after, evidence_id]
+      properties:
+        section: { type: string, example: Skills }
+        before: { type: string }
+        after: { type: string }
+        evidence_id: { type: string, format: uuid }
+
+    ResumeVersion:
+      type: object
+      required: [id, profile_id, status, changes]
+      properties:
+        id: { type: string, format: uuid }
+        profile_id: { type: string, format: uuid }
+        status: { type: string, enum: [draft, approved, exported, rejected] }
+        changes:
+          type: array
+          items: { $ref: "#/components/schemas/ResumeChange" }
+        evidence_ids:
+          type: array
+          items: { type: string, format: uuid }
+        approved_at: { type: [string, "null"], format: date-time }
+        exported: { type: boolean }
+
+    WellbeingPreferences:
+      type: object
+      required: [user_id, opted_in]
+      properties:
+        user_id: { type: string, format: uuid }
+        opted_in: { type: boolean }
+        support_style: { type: string }
+        last_checkin_at: { type: [string, "null"], format: date-time }
