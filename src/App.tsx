@@ -1,6 +1,7 @@
-import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
+import { useEffect } from "react";
+import { BrowserRouter, Link, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
-import { Protected, ProtectedBranch } from "./components/routing/Protected";
+import { Protected } from "./components/routing/Protected";
 import { AuthProvider } from "./context/AuthContext";
 import { JourneyProvider } from "./context/JourneyContext";
 import { AuthCallbackPage } from "./pages/AuthCallbackPage";
@@ -21,6 +22,8 @@ import { ProgressPage } from "./pages/ProgressPage";
 import { StartPage } from "./pages/StartPage";
 
 function AppLayout() {
+  const { pathname, search, hash } = useLocation();
+  useEffect(() => { if (!hash) window.scrollTo(0, 0); }, [pathname, search, hash]);
   return (
     <AppShell>
       <Outlet />
@@ -52,15 +55,15 @@ function App() {
               {/* Direction + Skills */}
               <Route
                 path="/target"
-                element={<Protected index={4}><TargetPage /></Protected>}
+                element={<Protected><TargetPage /></Protected>}
               />
               <Route
                 path="/recommendations"
-                element={<ProtectedBranch><RecommendationsPage /></ProtectedBranch>}
+                element={<Protected><RecommendationsPage /></Protected>}
               />
               <Route
                 path="/skills"
-                element={<Protected index={5}><SkillsPage /></Protected>}
+                element={<Protected><SkillsPage /></Protected>}
               />
 
               {/* Learn */}
@@ -95,7 +98,7 @@ function App() {
                 element={<Protected><ProgressPage /></Protected>}
               />
 
-              <Route path="*" element={<ComingSoonPage phase="a later phase" />} />
+              <Route path="*" element={<div className="mx-auto max-w-3xl px-4 py-12"><h1 className="text-2xl font-semibold">Page not found</h1><Link className="mt-3 inline-block text-primary-700 underline" to="/">Go to CareerBridge home</Link></div>} />
             </Route>
           </Routes>
         </BrowserRouter>

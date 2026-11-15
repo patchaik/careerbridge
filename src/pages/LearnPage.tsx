@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { SourceLink } from "../components/features/search/SourceLink";
 import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -12,6 +13,7 @@ import { priceLabels } from "../lib/api/resources";
 
 export function LearnPage() {
   const [params] = useSearchParams();
+  const { hash } = useLocation();
   const id = params.get("path");
   const currentPath = useRef(id);
   const [plan, setPlan] = useState<LearningPlan | null>(null);
@@ -51,6 +53,12 @@ export function LearnPage() {
       active = false;
     };
   }, [id]);
+  useEffect(() => {
+    if (!hash || !plan || plan.id !== id) return;
+    try {
+      document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({ block: "start" });
+    } catch { /* Ignore a malformed fragment. */ }
+  }, [hash, id, plan]);
   async function accept() {
     if (!plan) return;
     setBusy(true);
@@ -106,8 +114,8 @@ export function LearnPage() {
         </Card>)}
         <p className="mt-4">
           {plans.length ? "Your 50 most recent plans appear here. " : "No saved plans yet. "}
-          <Link to="/courses" className="text-primary-700 underline">
-            Choose a skill and resources
+          <Link to="/progress" className="text-primary-700 underline">
+            Find your next skill
           </Link>
         </p>
       </div>}
@@ -157,14 +165,7 @@ export function LearnPage() {
                       const r = plan.resources.find((item) => item.id === rid);
                       return r ? (
                         <li key={rid}>
-                          <a
-                            href={r.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-primary-700 underline"
-                          >
-                            {r.title}
-                          </a>
+                          <SourceLink url={r.url}>{r.title}</SourceLink>
                           <span className="ml-2 text-xs text-neutral-600">
                             {priceLabels[r.price_type]}
                           </span>

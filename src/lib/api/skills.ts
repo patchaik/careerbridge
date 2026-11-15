@@ -9,10 +9,11 @@ export interface GapAnalysis {
   market_skills: string[];
   gaps: {
     skill: string;
-    importance: "required" | "preferred";
-    frequency: number;
-    reason: string;
-    sources: { job_id: string; title: string; url: string; excerpt: string }[];
+    importance: "required" | "preferred" | null;
+    frequency: number | null;
+    reason: string | null;
+    job_ids: string[];
+    sources: { job_id: string; title: string; url: string; provider: string; excerpt: string | null }[];
   }[];
 }
 

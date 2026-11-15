@@ -4,6 +4,7 @@ import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { CARD_ACCENT, GRADIENT_HEADING, JobIconsBackground } from "../components/ui/techTheme";
 import { ExposureBadge, TrendBadge } from "../components/features/target/OutlookBadges";
+import { useSavedSearchProfile } from "../hooks/useSavedSearchProfile";
 import { useJourney } from "../context/JourneyContext";
 import { mockDelay } from "../lib/config";
 import { generateRoleRecommendations } from "../lib/mock/roleOutlook";
@@ -11,7 +12,8 @@ import type { RoleRecommendation } from "../lib/types";
 
 export function RecommendationsPage() {
   const navigate = useNavigate();
-  const { profile, situation, setTargetRole } = useJourney();
+  const { profile, loading: profileLoading, error: profileError } = useSavedSearchProfile();
+  const { situation, setTargetRole } = useJourney();
   const [recommendations, setRecommendations] = useState<RoleRecommendation[] | null>(null);
 
   useEffect(() => {
@@ -33,11 +35,13 @@ export function RecommendationsPage() {
     navigate("/target");
   }
 
+  if (profileLoading) return <p role="status" className="mx-auto max-w-xl px-4 py-16">Loading your saved profile…</p>;
+  if (profileError) return <p role="alert" className="mx-auto max-w-xl px-4 py-16">{profileError}</p>;
   if (!profile?.confirmedAt) {
     return (
       <div className="mx-auto max-w-xl px-4 py-16">
         <p>Confirm your skills before getting role recommendations.</p>
-        <Link to="/interests" className="text-primary-700 underline">
+        <Link to="/start" className="text-primary-700 underline">
           Review your profile
         </Link>
       </div>

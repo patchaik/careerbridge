@@ -1,21 +1,17 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { getLearningCheck, startLearningCheck, submitLearningCheck, type LearningCheck as SavedCheck } from "../../../lib/api/learningChecks";
 import { Alert } from "../../ui/Alert";
 import { Button } from "../../ui/Button";
 import { Card } from "../../ui/Card";
 
 export function LearningCheck({ pathId, completed }: { pathId: string; completed: boolean }) {
-  const { hash } = useLocation();
   const [check, setCheck] = useState<SavedCheck | null>(null);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  useEffect(() => {
-    if (!loading && hash) document.getElementById(hash.slice(1))?.scrollIntoView({ block: "start" });
-  }, [loading, hash]);
   function receive(saved: SavedCheck | null) {
     setCheck(saved);
     if (saved?.submission) {
