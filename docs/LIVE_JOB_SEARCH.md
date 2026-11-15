@@ -21,7 +21,7 @@ One workflow is created before search, with pinned routing and prompt/schema ver
 
 The hosted relational schema cannot store `unspecified` importance. Such requirements are excluded, never relabeled as preferred. The UI explains that this is a comparison of explicit requirements from partial excerpts. Supporting unspecified importance needs a reviewed schema migration. Skill matching currently uses canonical-name equality, not semantic equivalence. Matching the requested role/location/seniority is model-assisted, not independently verified; listings may be stale.
 
-Search and analysis require a confirmed, owned profile and owned goal. Gap reload is owner-scoped. Authentication still uses the existing development `X-User-Id` boundary; verified JWT identity, `/api/v1` integration, durable async work/idempotency and full shared-contract acceptance remain follow-ups. Interests and critique still use the existing labeled mock endpoints. This PR does not close AF-01/UI-01/AF-03/UI-02 or enable learning for arbitrary skills.
+Search and analysis require a confirmed, owned profile and owned goal. Gap reload is owner-scoped. The Supabase Auth bearer-token integration from `stitch-1` commit `1e02a9c` is preserved. The touched routes use its verified identity; broader endpoint ownership, `/api/v1` integration, durable async work/idempotency and full shared-contract acceptance remain follow-ups. Interests and critique still use the existing labeled mock endpoints. This PR does not close AF-01/UI-01/AF-03/UI-02 or enable learning for arbitrary skills.
 
 ## Setup
 
@@ -39,15 +39,16 @@ Search and analysis require a confirmed, owned profile and owned goal. Gap reloa
 - A results-page reload uses saved data and makes no new model call.
 - UI shows progress, blocks duplicate submission and explains failures/empty results.
 
-Validated on 2026-11-14:
+Validated on 2026-11-14, including reconciliation with the concurrent Supabase Auth update (`1e02a9c`):
 
 - 73 Python tests passed (gateway, job source validation, ownership/confirmation, failure handling, résumé regressions and existing mock tests); 814 offline shared-contract checks passed.
-- TypeScript and Vite production build passed; ESLint has zero errors and four existing Fast Refresh warnings. Targeted Python lint passed.
+- TypeScript and Vite production build passed; ESLint has zero errors and five Fast Refresh warnings after the upstream Auth update; Vite also reports the inherited larger bundle warning. Targeted Python lint passed.
 - OpenAI `gpt-6-luna` passed the actual job prompt/schema conformance fixtures and budget probe. Nebius was not tested live.
 - Live HTTP résumé upload, confirmation, Keenable search, gap analysis and Supabase reload passed for Python backend engineer (two postings) and Registered Nurse (one posting). Role changes produced distinct results. Exact stored requirement quotes, source IDs, model audit linkage and owner rejection were verified.
-- The browser walkthrough passed from a synthetic manual profile through confirmation, target entry, live search, cited gaps and reload. A rejected model extraction was visibly reported; retry succeeded. Reload did not create another successful model invocation or search workflow.
-- Synthetic users, profiles/files, reports and their created job snapshots were cleaned up. No hosted schema migration was applied.
+- Before the concurrent Auth update, the browser walkthrough passed from a synthetic manual profile through confirmation, target entry, live search, cited gaps and reload. A rejected model extraction was visibly reported; retry succeeded. Reload did not create another successful model invocation or search workflow.
+- After the Auth update, the full live HTTP flow passed again for both roles using real Supabase bearer tokens. Actual UI API modules passed bearer-header, payload, reload and error-propagation checks. The UI build passed; the browser sign-in walkthrough was not repeated after that upstream change.
+- Synthetic users (including Auth identities), profiles/files, reports and their created job snapshots were cleaned up. No hosted schema migration was applied.
 
 Model extraction is not perfectly reliable: some live attempts failed source/schema validation even after the bounded repair. They were rejected without fake results. Later diagnostic calls and retry passed; the intermittent rejection was not reproduced in the diagnostic inputs and is not claimed fixed. This remains a reliability limitation alongside synchronous search latency.
 
-To repeat the HTTP/Supabase check on a development environment, export its credentials and run `python -m scripts.check_job_flow --base-url http://127.0.0.1:8000 --output /tmp/job-flow-check.json`. It creates disposable synthetic users, makes billable model/search requests for two roles, verifies persistence and cleans up its own records. The browser screenshot is retained in the local task outputs, not committed.
+To repeat the HTTP/Supabase check on a development environment, export its credentials and run `python -m scripts.check_job_flow --base-url http://127.0.0.1:8000 --output /tmp/job-flow-check.json`. It creates disposable confirmed Supabase Auth users using the configured backend admin client, signs in on a separate client, makes billable model/search requests for two roles, verifies persistence and cleans up its own records. The browser screenshot is retained in the local task outputs, not committed.

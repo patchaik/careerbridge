@@ -6,7 +6,7 @@ import { CaptchaModal } from "../components/features/auth/CaptchaModal";
 import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { TextField } from "../components/ui/TextField";
-import { useAuth } from "../context/AuthContext";
+import { EmailNotVerifiedError, useAuth } from "../context/AuthContext";
 import { MAIN_PATH, useJourney } from "../context/JourneyContext";
 import { isValidEmail } from "../lib/validation";
 
@@ -17,7 +17,7 @@ interface FormErrors {
 
 export function SignInPage() {
   const navigate = useNavigate();
-  const { signIn, isSigningIn, authNotice, clearAuthNotice } = useAuth();
+  const { signIn, isSigningIn, resendVerificationEmail, isResendingVerification } = useAuth();
   const { furthestStepIndex } = useJourney();
 
   const [email, setEmail] = useState("");
@@ -25,6 +25,8 @@ export function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [authError, setAuthError] = useState<string | null>(null);
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+  const [resendSent, setResendSent] = useState(false);
   const [captchaOpen, setCaptchaOpen] = useState(false);
 
   function validate(): boolean {
@@ -39,6 +41,8 @@ export function SignInPage() {
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setAuthError(null);
+    setUnverifiedEmail(null);
+    setResendSent(false);
     if (validate()) setCaptchaOpen(true);
   }
 
@@ -46,18 +50,41 @@ export function SignInPage() {
     setCaptchaOpen(false);
     try {
       await signIn(email, password);
-      clearAuthNotice();
       navigate(furthestStepIndex === 0 ? "/start" : MAIN_PATH[furthestStepIndex]);
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : "Sign in failed. Please try again.");
+      if (err instanceof EmailNotVerifiedError) {
+        setUnverifiedEmail(email);
+      } else {
+        setAuthError(err instanceof Error ? err.message : "Sign in failed. Please try again.");
+      }
+    }
+  }
+
+  async function handleResend() {
+    if (!unverifiedEmail) return;
+    setResendSent(false);
+    try {
+      await resendVerificationEmail(unverifiedEmail);
+      setResendSent(true);
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : "Couldn't resend the email. Please try again.");
     }
   }
 
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to continue to CareerBridge">
-      {authNotice && (
-        <Alert variant="warning" className="mb-4">
-          {authNotice}
+      {unverifiedEmail && (
+        <Alert variant="warning" className="mb-4" title="Please verify your email first">
+          Check your inbox for a verification link, or{" "}
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={isResendingVerification}
+            className="font-medium underline hover:text-warning-900 disabled:no-underline"
+          >
+            {isResendingVerification ? "resending…" : "resend the email"}
+          </button>
+          .{resendSent && " Sent — check your inbox."}
         </Alert>
       )}
       {authError && (

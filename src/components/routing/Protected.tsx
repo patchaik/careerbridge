@@ -8,7 +8,7 @@ import { MAIN_PATH, TARGET_INDEX, useJourney } from "../../context/JourneyContex
 // actually reached, and — the one legitimate case of visiting exactly the
 // next page in sequence — extends progress by one step.
 export function Protected({ index, children }: { index: number; children: ReactNode }) {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, isInitializing } = useAuth();
   const { furthestStepIndex, advanceFurthestStep } = useJourney();
 
   useEffect(() => {
@@ -17,6 +17,9 @@ export function Protected({ index, children }: { index: number; children: ReactN
     }
   }, [isSignedIn, index, furthestStepIndex, advanceFurthestStep]);
 
+  // Wait for the initial Supabase session check — otherwise a signed-in user
+  // bounces to /signin for a frame before their stored session loads.
+  if (isInitializing) return null;
   if (!isSignedIn) return <Navigate to="/signin" replace />;
   if (index > furthestStepIndex + 1) {
     return <Navigate to={MAIN_PATH[furthestStepIndex]} replace />;
@@ -28,9 +31,10 @@ export function Protected({ index, children }: { index: number; children: ReactN
 // Reachable as soon as its anchor step is reached; visiting it never moves
 // furthestStepIndex itself since it isn't part of the main sequence.
 export function ProtectedBranch({ children }: { children: ReactNode }) {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, isInitializing } = useAuth();
   const { furthestStepIndex } = useJourney();
 
+  if (isInitializing) return null;
   if (!isSignedIn) return <Navigate to="/signin" replace />;
   if (furthestStepIndex < TARGET_INDEX) {
     return <Navigate to={MAIN_PATH[furthestStepIndex]} replace />;

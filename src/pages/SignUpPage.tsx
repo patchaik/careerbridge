@@ -1,6 +1,6 @@
 import { Eye, EyeOff } from "lucide-react";
-import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { AuthLayout } from "../components/features/auth/AuthLayout";
 import { CaptchaModal } from "../components/features/auth/CaptchaModal";
 import { Alert } from "../components/ui/Alert";
@@ -9,6 +9,8 @@ import { Checkbox } from "../components/ui/Checkbox";
 import { TextField } from "../components/ui/TextField";
 import { useAuth } from "../context/AuthContext";
 import { isValidEmail, isValidUsername } from "../lib/validation";
+
+const RESEND_COOLDOWN_SECONDS = 30;
 
 interface FormErrors {
   fullName?: string;
@@ -20,8 +22,7 @@ interface FormErrors {
 }
 
 export function SignUpPage() {
-  const navigate = useNavigate();
-  const { signUp, isSigningUp } = useAuth();
+  const { signUp, isSigningUp, resendVerificationEmail, isResendingVerification } = useAuth();
 
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
@@ -33,6 +34,15 @@ export function SignUpPage() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [authError, setAuthError] = useState<string | null>(null);
   const [captchaOpen, setCaptchaOpen] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const id = setInterval(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(id);
+  }, [resendCooldown]);
 
   function validate(): boolean {
     const next: FormErrors = {};
@@ -62,10 +72,52 @@ export function SignUpPage() {
     setCaptchaOpen(false);
     try {
       await signUp({ fullName, username, email, password });
-      navigate("/start");
+      setSubmitted(true);
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : "Sign up failed. Please try again.");
     }
+  }
+
+  async function handleResend() {
+    setResendMessage(null);
+    try {
+      await resendVerificationEmail(email);
+      setResendMessage("Verification email sent again.");
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    } catch (err) {
+      setResendMessage(err instanceof Error ? err.message : "Couldn't resend the email. Please try again.");
+    }
+  }
+
+  if (submitted) {
+    return (
+      <AuthLayout title="Create account" subtitle="Join CareerBridge to start building your future">
+        <Alert variant="success" title="Check your email">
+          We sent a verification link to <strong>{email}</strong>. Click it to finish creating
+          your account.
+        </Alert>
+        <Button
+          variant="secondary"
+          className="mt-4 w-full"
+          onClick={handleResend}
+          disabled={isResendingVerification || resendCooldown > 0}
+        >
+          {isResendingVerification
+            ? "Resending…"
+            : resendCooldown > 0
+              ? `Resend email (${resendCooldown}s)`
+              : "Resend email"}
+        </Button>
+        {resendMessage && <p className="mt-2 text-center text-xs text-neutral-500">{resendMessage}</p>}
+        <Link
+          to="/signin"
+          className="mt-5 block text-center text-sm font-medium text-primary-700 hover:underline"
+        >
+          Back to sign in
+        </Link>
+      </AuthLayout>
+    );
   }
 
   return (

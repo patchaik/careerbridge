@@ -10,7 +10,8 @@ import httpx
 from docx import Document
 
 from database import users, jobs
-from database.client import run, table
+from database.client import run, table, get_client
+from supabase import create_client
 
 
 def main():
@@ -53,17 +54,32 @@ def main():
 
     try:
         with httpx.Client(base_url=args.base_url, timeout=240, trust_env=False) as c:
-            user = checked(
-                c.post(
-                    "/api/users",
-                    json={
-                        "email": f"job-check-{uuid4().hex}@example.com",
-                        "name": "Synthetic Job Check",
-                        "consent": True,
-                    },
+            email = f"job-check-{uuid4().hex}@example.com"
+            password = uuid4().hex + "Aa!7"
+            auth_user = (
+                get_client()
+                .auth.admin.create_user(
+                    {
+                        "email": email,
+                        "password": password,
+                        "email_confirm": True,
+                        "user_metadata": {
+                            "full_name": "Synthetic Job Check",
+                            "consent": True,
+                        },
+                    }
                 )
+                .user
             )
-            c.headers["X-User-Id"] = user["id"]
+            user = {"id": auth_user.id}
+            # Sign-in must not mutate the shared service-role client's session.
+            sign_in = create_client(
+                os.environ["SUPABASE_URL"], os.environ["SUPABASE_PUBLISHABLE_KEY"]
+            )
+            session = sign_in.auth.sign_in_with_password(
+                {"email": email, "password": password}
+            ).session
+            c.headers["Authorization"] = "Bearer " + session.access_token
             doc = Document()
             doc.add_paragraph("I wrote Python scripts. I used SQL to query a database.")
             b = io.BytesIO()
@@ -173,7 +189,7 @@ def main():
                 )
                 forbidden = c.get(
                     "/api/gap-analyses/" + analysis["id"],
-                    headers={"X-User-Id": str(uuid4())},
+                    headers={"Authorization": "Bearer invalid-test-token"},
                 )
                 assert forbidden.status_code in (401, 403, 404)
                 item = {
@@ -198,6 +214,7 @@ def main():
             users.delete_user(user["id"])
             for jid in posting_ids:
                 jobs.delete_job(jid)
+            get_client().auth.admin.delete_user(user["id"])
             report["synthetic_data_cleaned"] = users.get_user(user["id"]) is None
         Path(args.output).write_text(json.dumps(report, indent=2))
         print(

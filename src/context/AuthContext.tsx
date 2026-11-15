@@ -1,134 +1,178 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
-import type { SignUpInput } from "../lib/api/auth";
-import type { AuthSession, AuthUser } from "../lib/types";
-import { isReal } from "../lib/api/endpoints";
-import { useCreateBackendUser, useForgotPassword, useSignIn, useSignUp } from "../hooks/useAuthActions";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import type { User } from "@supabase/supabase-js";
+import { supabase } from "../lib/supabase";
+import type { AuthUser } from "../lib/types";
 
-const STORAGE_KEY = "careerbridge:auth";
-
-interface StoredSession extends AuthSession {
-  backendUserId?: string;
+export interface SignUpInput {
+  fullName: string;
+  username: string;
+  email: string;
+  password: string;
 }
 
-function saveSession(session: StoredSession | null) {
-  try {
-    if (session) localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-    else localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // localStorage unavailable (e.g. private browsing) — session just won't persist
-  }
+// Thrown by signIn specifically for an unconfirmed account, so SignInPage can
+// show "Please verify your email first" + a resend button instead of a
+// generic error.
+export class EmailNotVerifiedError extends Error {}
+
+function mapUser(user: User): AuthUser {
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  return {
+    id: user.id,
+    email: user.email ?? "",
+    fullName: typeof meta.full_name === "string" ? meta.full_name : "",
+    username: typeof meta.username === "string" ? meta.username : "",
+  };
 }
 
-// Runs once, synchronously, before the first render: a stored session from
-// back when createUser was mock (or from a broken run) has no backendUserId.
-// If createUser is "real" now, that session can never send a valid
-// X-User-Id — sign it out rather than let the UI limp along and fail later
-// with a confusing "missing header" error from the backend.
-function loadInitialAuthState(): { user: AuthUser | null; notice: string | null } {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { user: null, notice: null };
-    const parsed = JSON.parse(raw) as StoredSession;
-    if (isReal("createUser") && !parsed?.backendUserId) {
-      saveSession(null);
-      return { user: null, notice: "Please sign in again." };
-    }
-    return { user: parsed?.user ?? null, notice: null };
-  } catch {
-    return { user: null, notice: null };
+function isUnconfirmedEmailError(error: { code?: string; message: string }): boolean {
+  if (error.code === "email_not_confirmed") return true;
+  return error.message.toLowerCase().includes("confirm");
+}
+
+function authErrorMessage(error: { status?: number; message: string }): string {
+  if (error.status === 429) return "Too many attempts. Please wait a moment and try again.";
+  const lower = error.message.toLowerCase();
+  if (lower.includes("invalid login credentials")) return "Incorrect email or password.";
+  if (lower.includes("already registered") || lower.includes("already exists")) {
+    return "An account with this email already exists.";
   }
+  return error.message || "Something went wrong. Please try again.";
 }
 
 interface AuthContextValue {
   user: AuthUser | null;
   isSignedIn: boolean;
-  /** Throws on failure — never resolves to a signed-in state silently. */
+  /** True until the initial session check (from storage) resolves — route
+   * guards should wait for this instead of treating "no user yet" as
+   * "signed out". */
+  isInitializing: boolean;
+  /** Throws EmailNotVerifiedError for an unconfirmed account, Error otherwise. */
   signIn: (email: string, password: string) => Promise<AuthUser>;
-  signUp: (fields: SignUpInput) => Promise<AuthUser>;
+  /** Resolves once Supabase has accepted the signup and queued a
+   * verification email — never signs the user in directly. Throws on failure. */
+  signUp: (fields: SignUpInput) => Promise<void>;
+  resendVerificationEmail: (email: string) => Promise<void>;
   forgotPassword: (email: string) => Promise<boolean>;
-  signOut: () => void;
+  signOut: () => Promise<void>;
   isSigningIn: boolean;
   isSigningUp: boolean;
   isSendingReset: boolean;
-  /** Set when a stale/invalid session was force-signed-out on load. */
-  authNotice: string | null;
-  clearAuthNotice: () => void;
+  isResendingVerification: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const initial = useMemo(() => loadInitialAuthState(), []);
-  const [user, setUser] = useState<AuthUser | null>(initial.user);
-  const [authNotice, setAuthNotice] = useState<string | null>(initial.notice);
-  const signInAction = useSignIn();
-  const signUpAction = useSignUp();
-  const forgotPasswordAction = useForgotPassword();
-  const createBackendUserAction = useCreateBackendUser();
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isSigningUp, setIsSigningUp] = useState(false);
+  const [isSendingReset, setIsSendingReset] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
 
-  // Registers with the real backend (POST /api/users) first. When createUser
-  // is "real", this MUST succeed before anything is considered signed in —
-  // never fall back to a fake session for a real endpoint. When createUser
-  // is "mock", createBackendUser always succeeds (synthesizes a local id),
-  // so this never blocks pure-mock-mode sign-in.
-  async function requireBackendUser(email: string, name: string | null): Promise<string> {
-    const backendUser = await createBackendUserAction.run(email, name, true);
-    if (!backendUser) {
-      throw new Error(
-        createBackendUserAction.error?.message ??
-          "Couldn't reach the server to create your account. Please try again.",
-      );
-    }
-    return backendUser.id;
-  }
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      await Promise.resolve();
+      if (cancelled) return;
+      setUser(data.session?.user ? mapUser(data.session.user) : null);
+      setIsInitializing(false);
+    })();
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ? mapUser(session.user) : null);
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.subscription.unsubscribe();
+    };
+  }, []);
 
   async function signIn(email: string, password: string): Promise<AuthUser> {
-    const backendUserId = await requireBackendUser(email, null);
-    const session = await signInAction.run(email, password);
-    if (!session) {
-      throw new Error(signInAction.error?.message ?? "Sign in failed. Please try again.");
+    setIsSigningIn(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        if (isUnconfirmedEmailError(error)) throw new EmailNotVerifiedError("Please verify your email first.");
+        throw new Error(authErrorMessage(error));
+      }
+      if (!data.user) throw new Error("Sign in failed. Please try again.");
+      const mapped = mapUser(data.user);
+      setUser(mapped);
+      return mapped;
+    } finally {
+      setIsSigningIn(false);
     }
-    const stored: StoredSession = { ...session, backendUserId };
-    setUser(stored.user);
-    saveSession(stored);
-    return stored.user;
   }
 
-  async function signUp(fields: SignUpInput): Promise<AuthUser> {
-    const backendUserId = await requireBackendUser(fields.email, fields.fullName);
-    const session = await signUpAction.run(fields);
-    if (!session) {
-      throw new Error(signUpAction.error?.message ?? "Sign up failed. Please try again.");
+  async function signUp(fields: SignUpInput): Promise<void> {
+    setIsSigningUp(true);
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: fields.email,
+        password: fields.password,
+        options: {
+          data: { full_name: fields.fullName, username: fields.username, consent: true },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) throw new Error(authErrorMessage(error));
+    } finally {
+      setIsSigningUp(false);
     }
-    const stored: StoredSession = { ...session, backendUserId };
-    setUser(stored.user);
-    saveSession(stored);
-    return stored.user;
   }
 
-  async function forgotPassword(email: string) {
-    const result = await forgotPasswordAction.run(email);
-    return result?.success === true;
+  async function resendVerificationEmail(email: string): Promise<void> {
+    setIsResendingVerification(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (error) throw new Error(authErrorMessage(error));
+    } finally {
+      setIsResendingVerification(false);
+    }
   }
 
-  function signOut() {
-    // Clears the session only — journey progress persists under its own key.
+  async function forgotPassword(email: string): Promise<boolean> {
+    setIsSendingReset(true);
+    try {
+      // Neutral regardless of outcome: never reveal whether an account
+      // exists for this email, matching Supabase Auth's own anti-enumeration
+      // behavior on this endpoint.
+      await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      return true;
+    } finally {
+      setIsSendingReset(false);
+    }
+  }
+
+  async function signOut(): Promise<void> {
+    await supabase.auth.signOut();
     setUser(null);
-    saveSession(null);
   }
 
   const value: AuthContextValue = {
     user,
     isSignedIn: user !== null,
+    isInitializing,
     signIn,
     signUp,
+    resendVerificationEmail,
     forgotPassword,
     signOut,
-    isSigningIn: signInAction.isLoading || createBackendUserAction.isLoading,
-    isSigningUp: signUpAction.isLoading || createBackendUserAction.isLoading,
-    isSendingReset: forgotPasswordAction.isLoading,
-    authNotice,
-    clearAuthNotice: () => setAuthNotice(null),
+    isSigningIn,
+    isSigningUp,
+    isSendingReset,
+    isResendingVerification,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

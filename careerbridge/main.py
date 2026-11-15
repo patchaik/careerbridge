@@ -25,6 +25,7 @@ MAX_FILE_SIZE = 5 * 1024 * 1024
 app = FastAPI(title="CareerBridge API", version="0.1.0")
 
 cors_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3002").split(",") if o.strip()]
+# allow_headers=["*"] already covers Authorization (the Supabase bearer token).
 app.add_middleware(CORSMiddleware, allow_origins=cors_origins, allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
 
@@ -69,13 +70,34 @@ def not_implemented(feature: str):
 
 
 # ---------------------------------------------------------------------------
-# Auth: X-User-Id header (MVP only -- see openapi.yaml securitySchemes.userId)
+# Auth: Supabase Auth bearer token (default), or X-User-Id header as a
+# dev/test fallback -- see openapi.yaml securitySchemes.userId and
+# docs/INTEGRATION_NOTES.md. NEVER set AUTH_MODE=header in a deployment: it
+# trusts whatever user id the caller sends, with no verification at all.
 # ---------------------------------------------------------------------------
 
-def current_user_id(x_user_id: Optional[str] = Header(default=None, alias="X-User-Id")) -> str:
-    if not x_user_id:
-        raise ApiError(403, "forbidden", "Missing X-User-Id header")
-    return x_user_id
+AUTH_MODE = os.getenv("AUTH_MODE", "supabase").strip().lower()
+
+
+def current_user_id(
+    authorization: Optional[str] = Header(default=None),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+) -> str:
+    if AUTH_MODE == "header":
+        if not x_user_id:
+            raise ApiError(403, "forbidden", "Missing X-User-Id header")
+        return x_user_id
+
+    scheme, _, token = (authorization or "").partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise ApiError(401, "unauthorized", "Missing or invalid Authorization header")
+
+    auth_user = users.get_auth_user(token)
+    if not auth_user:
+        raise ApiError(401, "unauthorized", "Your session has expired. Please sign in again.")
+
+    app_user = users.get_or_link_app_user(auth_user["id"], auth_user["email"], auth_user.get("user_metadata"))
+    return app_user["id"]
 
 
 def idempotency_key(key: Optional[str] = Header(default=None, alias="Idempotency-Key")) -> Optional[str]:

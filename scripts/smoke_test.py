@@ -1,10 +1,12 @@
-"""End-to-end smoke test against a running CareerBridge API, in mock mode.
+"""End-to-end smoke test against a running CareerBridge API, in mock mode,
+using real Supabase Auth (AUTH_MODE=supabase, the backend default).
 
-Exercises the whole product flow over HTTP: create user -> upload résumé ->
-poll/confirm -> goal -> job search -> gap analysis -> resources -> generate
-path -> approve rubric -> tutor -> start + submit assessment -> progress.
-Prints PASS/FAIL per step and always deletes the test user at the end
-(even on failure), since it uses a clearly fake @example.com address.
+Exercises the whole product flow over HTTP: create a confirmed Supabase Auth
+user -> sign in for a real access token -> upload résumé -> poll/confirm ->
+goal -> job search -> gap analysis -> resources -> generate path -> approve
+rubric -> tutor -> start + submit assessment -> progress. Prints PASS/FAIL
+per step and always deletes the test app user AND the test auth user at the
+end (even on failure), since it uses a clearly fake @example.com address.
 
 Usage:
     uvicorn careerbridge.main:app --port 8000   (separate terminal, mock mode)
@@ -13,17 +15,25 @@ Usage:
 
 from __future__ import annotations
 
+import os
 import sys
 import uuid
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import httpx
+from supabase import create_client
+
+from database.client import get_client
 
 BASE_URL = "http://localhost:8000"
 FIXTURE = Path(__file__).parent / "fixtures" / "sample_resume.docx"
 EXPECTED_SKILLS = {"Java", "Spring Boot", "REST APIs", "Docker", "PostgreSQL", "React", "Leadership"}
+TEST_PASSWORD = "Smoke-test-password-1!"
 
-_user_id: str | None = None
+_user_id: str | None = None  # the app `users` row id (== the auth user id)
+_auth_user_id: str | None = None
 _failed = False
 
 
@@ -41,26 +51,62 @@ def run_step(name: str, fn):
 
 
 def cleanup():
-    if not _user_id:
-        return
-    try:
-        httpx.delete(f"{BASE_URL}/api/users/{_user_id}", timeout=10)
-        print(f"(cleanup) deleted test user {_user_id}")
-    except Exception as exc:  # noqa: BLE001
-        print(f"(cleanup) failed to delete test user {_user_id}: {exc}")
+    if _user_id:
+        try:
+            httpx.delete(f"{BASE_URL}/api/users/{_user_id}", timeout=10)
+            print(f"(cleanup) deleted app user {_user_id}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"(cleanup) failed to delete app user {_user_id}: {exc}")
+    if _auth_user_id:
+        try:
+            get_client().auth.admin.delete_user(_auth_user_id)
+            print(f"(cleanup) deleted auth user {_auth_user_id}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"(cleanup) failed to delete auth user {_auth_user_id}: {exc}")
 
 
 def main():
-    global _user_id
+    global _user_id, _auth_user_id
     client = httpx.Client(base_url=BASE_URL, timeout=30)
 
     run_step("health check", lambda: _expect_ok(client.get("/api/health")))
 
     email = f"smoke-test-{uuid.uuid4().hex[:10]}@example.com"
-    user = run_step("create user", lambda: _expect_ok(
-        client.post("/api/users", json={"email": email, "name": "Smoke Test", "consent": True})))
-    _user_id = user["id"]
-    headers = {"X-User-Id": _user_id}
+
+    # The shared admin/secret client (database.client.get_client()) — used
+    # for admin.create_user/delete_user only. It must never sign in on this
+    # instance (see the sign-in client below).
+    admin = get_client()
+
+    def _create_auth_user():
+        created = admin.auth.admin.create_user({
+            "email": email,
+            "password": TEST_PASSWORD,
+            "email_confirm": True,
+            "user_metadata": {"full_name": "Smoke Test", "username": "smoketest", "consent": True},
+        })
+        return created.user.id
+
+    _auth_user_id = run_step("create confirmed Supabase Auth user", _create_auth_user)
+    _user_id = _auth_user_id  # the app `users` row is created lazily, with this same id, on first request below
+
+    # sign_in_with_password mutates ITS OWN client's session, swapping that
+    # client's Authorization header from the service key to the signed-in
+    # user's token for every later call. Doing that on the shared admin
+    # client above would silently break admin.create_user/delete_user and
+    # every table() query for the rest of this process — a throwaway client
+    # instance avoids it, mirroring how the real frontend's own supabase-js
+    # client is never the backend's admin client either. See
+    # docs/INTEGRATION_NOTES.md.
+    def _sign_in():
+        url = os.environ["SUPABASE_URL"].strip().rstrip("/")
+        key = os.environ["SUPABASE_KEY"].strip()
+        sign_in_client = create_client(url, key)
+        session = sign_in_client.auth.sign_in_with_password({"email": email, "password": TEST_PASSWORD})
+        return session.session.access_token
+
+    access_token = run_step("sign in as test user", _sign_in)
+    headers = {"Authorization": f"Bearer {access_token}"}
 
     profile = run_step("upload résumé", lambda: _upload_resume(client, headers))
     profile_id = profile["id"]
@@ -119,8 +165,12 @@ def main():
 
     run_step("progress reflects demonstrated skill", lambda: _check_progress(client, headers, gap_skill))
 
-    run_step("delete test user", lambda: _expect_status(
+    run_step("delete test app user", lambda: _expect_status(
         client.delete(f"/api/users/{_user_id}"), 204))
+    _user_id = None
+
+    run_step("delete test auth user", lambda: admin.auth.admin.delete_user(_auth_user_id))
+    _auth_user_id = None
 
     print("\nAll smoke test steps passed.")
 

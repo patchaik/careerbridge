@@ -9,8 +9,8 @@ info:
     **Conventions**
     - Base path `/api`. JSON in and out, except résumé upload (multipart).
     - IDs are UUID strings. Timestamps are ISO 8601 UTC.
-    - MVP auth: send the signed-in user's ID in the `X-User-Id` header.
-      This will later be replaced by a Supabase Auth bearer token, with no change to request bodies.
+    - Auth: send a Supabase Auth access token as `Authorization: Bearer <token>`.
+      The backend validates the token and resolves the app user; request bodies are unchanged.
     - Errors always use the `Error` shape (see components).
     - `Idempotency-Key` header (any unique string, e.g. a UUID made by the UI) is required on
       profile confirmation, assessment submission and résumé export. Repeating a request with the
@@ -26,7 +26,7 @@ servers:
   - url: http://localhost:8000
     description: Local FastAPI
 security:
-  - userId: []
+  - bearerAuth: []
 tags:
   - name: Users
   - name: Onboarding
@@ -375,6 +375,7 @@ paths:
       tags: [Market evidence]
       summary: Get a saved gap analysis
       operationId: getGapAnalysis
+      security: [{ bearerAuth: [] }]
       x-db-functions: [jobs.gap_report]
       parameters:
         - name: analysis_id
@@ -911,11 +912,11 @@ paths:
 
 components:
   securitySchemes:
-    userId:
-      type: apiKey
-      in: header
-      name: X-User-Id
-      description: MVP only. The signed-in user's UUID. To be replaced by a bearer token.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase Auth access token, validated by the backend.
 
   parameters:
     UserId:

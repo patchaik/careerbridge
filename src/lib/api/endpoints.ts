@@ -12,9 +12,6 @@ import { USE_MOCKS } from "../config";
 export type EndpointMode = "real" | "mock";
 
 const ENDPOINT_MODE: Record<string, EndpointMode> = {
-  // Users / auth
-  createUser: "real",
-
   // Onboarding / profile
   parseOnboarding: "real",
   getProfile: "real",
@@ -59,10 +56,8 @@ const ENDPOINT_MODE: Record<string, EndpointMode> = {
   startDiagnostic: "mock",
   wellbeingCheckIn: "mock",
 
-  // UI-only for now (password/username auth) — see docs/INTEGRATION_NOTES.md
-  signIn: "mock",
-  signUp: "mock",
-  forgotPassword: "mock",
+  // Auth isn't in this table at all — it's Supabase Auth, always, regardless
+  // of VITE_USE_MOCKS. See src/context/AuthContext.tsx and src/lib/supabase.ts.
 };
 
 export function isReal(endpoint: keyof typeof ENDPOINT_MODE): boolean {

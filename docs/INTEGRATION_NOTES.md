@@ -28,15 +28,29 @@ npm run dev
 **`.env`** (repo root, never committed):
 ```
 SUPABASE_URL=https://<project>.supabase.co
-SUPABASE_KEY=<service_role key>
+SUPABASE_KEY=<secret key, sb_secret_... or service_role JWT>
+AUTH_MODE=supabase
 CAREERBRIDGE_ANALYST_MODE=mock
 CAREERBRIDGE_SEARCH_MODE=mock
 CORS_ORIGINS=http://localhost:3002
 VITE_USE_MOCKS=false
 VITE_API_BASE_URL=http://localhost:8000
+VITE_SUPABASE_URL=https://<project>.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 `OPENAI_API_KEY` / `KEENABLE_API_KEY` are only needed if you later drop the
 two `CAREERBRIDGE_*_MODE=mock` lines to run the agents live.
+
+`VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` are safe to be public —
+never put `SUPABASE_KEY` (the secret key) in a `VITE_` variable.
+
+**Supabase dashboard settings required** (Authentication → Settings /
+URL Configuration):
+- Email provider **on**, with **"Confirm email" enabled** (sign-up requires
+  verification before sign-in works).
+- **Site URL**: `http://localhost:3002`
+- **Redirect URLs**: `http://localhost:3002/**` (covers both
+  `/auth/callback` and `/reset-password`)
 
 To run the UI purely on mocks (no backend needed), set `VITE_USE_MOCKS=true`
 in a `.env.local` (gitignored, overrides `.env`, no need to touch the real
@@ -76,7 +90,7 @@ python -m careerbridge.tests.test_mock_skills
 | Diagnostics | **501** — P1, not implemented |
 | Wellbeing | **501** — P1, not implemented |
 | Interest analysis, résumé critique, role outlook, role recommendations, recommended jobs | **Mock in the UI** — no contract endpoint exists; see `docs/API_PROPOSALS.md` |
-| Password/username auth | **Mock in the UI** — the contract's MVP auth is `X-User-Id` only (see below) |
+| Auth (sign up/in, email verification, password reset) | **Real** — Supabase Auth, always, regardless of `VITE_USE_MOCKS` (see below) |
 
 `src/lib/api/endpoints.ts` is the single switch; `VITE_USE_MOCKS=true` forces
 everything to mock regardless of that table.
@@ -97,18 +111,80 @@ in the current UI renders these types, so leaving them until the page that
 needs them is built — and can be designed against the real shape directly —
 seemed better than guessing now and having to redo it anyway.
 
-## Auth: two separate user identities right now
+## Auth: Supabase Auth end to end
 
-The UI's sign-in/sign-up (mock, password-based, `AuthContext`) and the
-backend's `X-User-Id` (real, email-based, `POST /api/users`) are **not the
-same system**. After a mock sign-in/sign-up succeeds, the UI best-effort
-calls `POST /api/users` with the same email and stores the returned backend
-user id as `backendUserId` (in the same `careerbridge:auth` localStorage
-blob) for the `X-User-Id` header on every other real call. If that call
-fails (backend down), sign-in still succeeds — real-mode calls then fail on
-their own with a clear error instead of blocking auth entirely.
+Sign-up/sign-in/password-reset are **real Supabase Auth**, unconditionally —
+not switched by `VITE_USE_MOCKS` or `src/lib/api/endpoints.ts` at all (auth
+isn't an "endpoint" in that table; `src/context/AuthContext.tsx` talks
+directly to `src/lib/supabase.ts`'s client, which uses only the public
+publishable key and only Supabase's Auth API — it never queries tables
+directly, since every table has RLS enabled with no public policies).
 
-This is a stopgap, not a design: see "Open questions" below.
+**Frontend flow:**
+- `signUp` calls `supabase.auth.signUp` with `full_name`/`username`/`consent`
+  in user metadata and `emailRedirectTo: /auth/callback`. It does **not**
+  sign the user in — Supabase requires email confirmation first (dashboard
+  setting above), so `SignUpPage` shows a "check your email" screen with a
+  cooldown "Resend email" button (`supabase.auth.resend`) instead of
+  navigating anywhere.
+- `/auth/callback` is where the verification link lands. supabase-js
+  exchanges the link's code for a session automatically on load
+  (`detectSessionInUrl: true`); the page just waits for `getSession()` to
+  resolve, then routes to `/start` (new users) or the furthest unlocked
+  step. An expired/invalid link leaves no session — shown as a friendly
+  error with a link back to `/signin`.
+- `signIn` calls `supabase.auth.signInWithPassword`. An unconfirmed account
+  throws a distinguishable `EmailNotVerifiedError` (checked via the error's
+  `code`/message) so `SignInPage` can show "Please verify your email first"
+  with its own resend button, instead of a generic error.
+- `forgotPassword` calls `supabase.auth.resetPasswordForEmail` with
+  `redirectTo: /reset-password`, and **always** reports success regardless
+  of the outcome — matching Supabase's own anti-enumeration behavior on that
+  endpoint (never reveal whether an email is registered).
+- `/reset-password` relies on the same `detectSessionInUrl` mechanism: the
+  recovery link already signs the user in (temporarily) on load. The page
+  checks for that session, shows "new password" + confirm, and calls
+  `supabase.auth.updateUser({ password })` — which both sets the password
+  and leaves the user signed in to continue, no separate sign-in step.
+- `AuthProvider` tracks the session via `getSession()` on mount plus
+  `onAuthStateChange`, exposing `isInitializing` so route guards
+  (`Protected`/`ProtectedBranch`) wait for the initial check instead of
+  flashing a redirect to `/signin` before a stored session loads.
+- The API client (`src/lib/api/client.ts`) sends
+  `Authorization: Bearer <access_token>` (read fresh from
+  `supabase.auth.getSession()`, auto-refreshed by supabase-js) on every real
+  request instead of the old `X-User-Id` header. `POST /api/users` is no
+  longer called from the frontend at all.
+
+**Backend flow (`careerbridge/main.py`, `database/users.py`):**
+- `AUTH_MODE` env var: `supabase` (default) validates the bearer token;
+  `header` falls back to trusting a raw `X-User-Id` header with **zero**
+  verification — dev/test only, never set this in a deployment.
+- `database.users.get_auth_user(token)` calls the Supabase client's
+  `auth.get_user(token)` (works regardless of which key type the client
+  itself was created with) and caches the result for 60s so a page firing
+  several requests doesn't re-validate every time. Returns `None` for any
+  invalid/expired/malformed token.
+- `database.users.get_or_link_app_user(auth_id, email, metadata)` resolves
+  the app `users` row: by id first (the normal case), then by email (links
+  an older pre-Supabase-Auth row), then creates one with `id = auth_id`,
+  `auth_provider = 'supabase'`, and `consent_at` from the metadata's
+  `consent` flag. No schema change needed — `users.id` has no special
+  default that blocks inserting an explicit UUID.
+
+**Gotcha found while building this** (relevant to anyone writing scripts
+against the Supabase Python client, e.g. `scripts/smoke_test.py`):
+`client.auth.sign_in_with_password(...)` mutates **that client instance's
+own session**, silently swapping its Authorization header from whatever key
+it was created with to the signed-in user's access token for every later
+call — including plain `table()` queries. Doing this on the shared
+`database.client.get_client()` singleton (the service/secret-key client
+used for admin operations everywhere else in the backend) breaks every
+subsequent admin call in the same process with `permission denied for table
+...` errors that look like an RLS/grants problem but are actually "this
+client is now making requests as the signed-in user, not the service role."
+Always sign in on a separate, throwaway client instance
+(`supabase.create_client(url, key)`) instead of the shared one.
 
 ## Storage mapping (careerbridge/store.py)
 
@@ -216,15 +292,11 @@ Followed the contract and adapted the backend in every case (never edited
   become a bigger part of the product, a dedicated table (with its own
   retention/audit story for served-but-unanswered question sets) is
   probably cleaner. Flag if you'd rather do that migration now.
-- **Password auth vs. `X-User-Id` vs. future Supabase Auth.** Right now the
-  UI's password/username sign-in is pure theater (any input succeeds) and
-  genuinely unrelated to the backend's `X-User-Id`, which is just "the
-  email you typed, registered or found by `POST /api/users`." Worth
-  deciding: does real password auth get built on top of `X-User-Id` (e.g.
-  a real `/api/auth/*` that returns a backend user id), or does this jump
-  straight to Supabase Auth later, skipping a custom password system
-  entirely? Either way, `src/lib/api/auth.ts`'s `createBackendUser` is the
-  seam where that would plug in.
+- **`AUTH_MODE=header` cleanup.** The header fallback exists purely so
+  someone without Supabase credentials handy can still exercise the API
+  with `curl -H "X-User-Id: ..."` during local backend-only work. If that's
+  never actually used, it's a dead code path (and a standing temptation to
+  misconfigure in a deployment) worth removing later.
 - **The gaps in `docs/API_PROPOSALS.md`** — five proposed endpoints
   (interest analysis, résumé critique, role outlook, role recommendations,
   recommended jobs) with no agent behind them yet. Whoever picks up Phase 4
