@@ -236,6 +236,28 @@ def test_resource_price_evidence(kind, quote, valid):
     )
 
 
+@pytest.mark.parametrize("markup", ["*", "**", "_", "__", "`", "``"])
+def test_resource_evidence_accepts_rendered_markdown(markup):
+    item = {"page_index": 0, "title": "SQL joins", "learning_evidence": "Learn SQL joins.",
+            "price_type": "free", "price_evidence": "Free access.", "format": "course"}
+    data = {"pages": [{"content": f"# SQL {markup}joins{markup}\nLearn {markup}SQL\u0020joins.{markup}\n\nFree\naccess."}]}
+    assert resource_source_supported({"resources": [item]}, data)
+    for field, invented in (("title", "Advanced SQL joins"),
+                            ("learning_evidence", "Learn SQL joins and optimization."),
+                            ("price_evidence", "Free certificate.")):
+        assert not resource_source_supported({"resources": [{**item, field: invented}]}, data)
+    assert not resource_source_supported({"resources": [{**item, "price_type": "paid"}]}, data)
+
+
+def test_resource_evidence_preserves_identifiers_and_meaning():
+    item = {"page_index": 0, "title": "SQL course", "learning_evidence": "Use customer_id.",
+            "price_type": "unknown", "price_evidence": "", "format": "course"}
+    data = {"pages": [{"content": "SQL course\nUse `customer_id`.\nThis is not free."}]}
+    assert resource_source_supported({"resources": [item]}, data)
+    assert not resource_source_supported({"resources": [{**item, "learning_evidence": "Use customerid."}]}, data)
+    assert not resource_source_supported({"resources": [{**item, "learning_evidence": "This is free."}]}, data)
+
+
 def test_searches_both_prices_and_preserves_empty_results(monkeypatch):
     queries = []
     monkeypatch.setattr(search_agent, "search", lambda q, n: queries.append(q) or [])

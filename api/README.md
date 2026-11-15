@@ -32,7 +32,7 @@ bad input → 422 `validation_error`.
 | Sign in | `POST /api/users` | Sign in or create by email (consent required) |
 | | `DELETE /api/users/{id}` · `GET /api/users/{id}/export` | Delete or download my data |
 | 1. Upload | `POST /api/onboarding/parse` | Résumé (multipart) or manual skills → profile |
-| 2. Confirm | `GET /api/profiles/{id}` · `PUT /api/profiles/{id}/confirm` | Review and confirm skills |
+| 2. Confirm | `GET /api/profiles/latest` · `GET /api/profiles/{id}` · `PUT /api/profiles/{id}/confirm` | Review and confirm skills |
 | 3. Goal | `POST /api/goals` · `GET /api/goals` | Target role, location, seniority |
 | 4. Jobs | `POST /api/jobs/search` · `GET /api/jobs/{id}` | Up to 5 real postings with requirements |
 | 5. Gaps | `POST /api/skills/analyze` · `GET /api/gap-analyses/{id}` | Up to 10 gaps, each citing its jobs |

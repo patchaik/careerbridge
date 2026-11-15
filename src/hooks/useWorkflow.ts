@@ -7,7 +7,7 @@ const POLL_INTERVAL_MS = 500;
 // Polls a backend workflow (start -> workflowId -> poll status) until it
 // completes or fails. Pass the workflowId once you have it from the triggering call.
 export function useWorkflowPolling<T>(workflowId: string | null) {
-  const [workflow, setWorkflow] = useState<Workflow<T> | null>(null);
+  const [result, setResult] = useState<{ id: string; workflow: Workflow<T> } | null>(null);
 
   useEffect(() => {
     if (!workflowId) return;
@@ -16,11 +16,16 @@ export function useWorkflowPolling<T>(workflowId: string | null) {
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     async function poll() {
-      const result = await getWorkflowStatus<T>(id);
-      if (cancelled) return;
-      setWorkflow(result);
-      if (result.status === "pending" || result.status === "running") {
-        timer = setTimeout(poll, POLL_INTERVAL_MS);
+      try {
+        const workflow = await getWorkflowStatus<T>(id);
+        if (cancelled) return;
+        setResult({ id, workflow });
+        if (workflow.status === "pending" || workflow.status === "running") {
+          timer = setTimeout(poll, POLL_INTERVAL_MS);
+        }
+      } catch (error) {
+        if (!cancelled) setResult({ id, workflow: { workflowId: id, status: "failed", result: null,
+          error: error instanceof Error ? error.message : "Couldn't load progress. Please retry." } });
       }
     }
 
@@ -32,5 +37,6 @@ export function useWorkflowPolling<T>(workflowId: string | null) {
     };
   }, [workflowId]);
 
-  return workflowId ? workflow : null;
+  // Never expose the previous upload/build result while a new ID is loading.
+  return result?.id === workflowId ? result.workflow : null;
 }

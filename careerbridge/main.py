@@ -200,9 +200,14 @@ async def parse_onboarding(request: Request, user_id: str = Depends(current_user
                                           body.get("experience_summary"))
 
 
+@app.get("/api/profiles/latest")
+def get_latest_profile(user_id: str = Depends(current_user_id)):
+    return store.get_saved_profile_flow(user_id)
+
+
 @app.get("/api/profiles/{profile_id}")
-def get_profile(profile_id: str):
-    return store.profile_response(profile_id)
+def get_profile(profile_id: str, user_id: str = Depends(current_user_id)):
+    return store.get_saved_profile_flow(user_id, profile_id)
 
 
 class SkillConfirmation(BaseModel):
@@ -219,10 +224,11 @@ class ConfirmProfileBody(BaseModel):
 
 @app.put("/api/profiles/{profile_id}/confirm")
 def confirm_profile(profile_id: str, body: ConfirmProfileBody,
-                    key: Optional[str] = Depends(idempotency_key)):
+                    key: Optional[str] = Depends(idempotency_key),
+                    user_id: str = Depends(current_user_id)):
     return store.confirm_profile_flow(
         profile_id, [s.model_dump() for s in body.skills], body.remove_skill_ids,
-        body.clear_resume_text, key)
+        body.clear_resume_text, key, user_id)
 
 
 # ---------------------------------------------------------------------------

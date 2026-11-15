@@ -19,6 +19,12 @@ RESOURCE_PROMPT = (
 )
 
 
+def evidence_text(text):
+    """Compare rendered words, allowing only inline Markdown and whitespace changes."""
+    text = re.sub(r"(?<!\w)(\*{1,2}|_{1,2}|`{1,3})(?=\S)(.+?)(?<=\S)\1(?!\w)", r"\2", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def resource_source_supported(output, data):
     seen = set()
     for item in output["resources"]:
@@ -26,13 +32,13 @@ def resource_source_supported(output, data):
         if index < 0 or index >= len(data["pages"]) or index in seen:
             return False
         seen.add(index)
-        text = data["pages"][index]["content"]
+        text = evidence_text(data["pages"][index]["content"])
         if (
             not item["title"].strip()
-            or item["title"] not in text
+            or evidence_text(item["title"]) not in text
             or not item["learning_evidence"].strip()
-            or item["learning_evidence"] not in text
-            or item["price_evidence"] not in text
+            or evidence_text(item["learning_evidence"]) not in text
+            or evidence_text(item["price_evidence"]) not in text
         ):
             return False
         price = item["price_evidence"].casefold()

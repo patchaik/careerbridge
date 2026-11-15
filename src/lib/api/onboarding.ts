@@ -59,13 +59,13 @@ export function mapBackendProfile(profile: BackendProfile): CandidateProfile {
 
 // Extracts skills from an uploaded résumé only — StartPage merges the result
 // into its own skills list rather than this call producing a full profile.
-// Real mode: POST /api/onboarding/parse answers synchronously (mock-mode
-// agents run in-process), so the result is wrapped in an already-"complete"
+// Real mode: POST /api/onboarding/parse saves the file/profile synchronously.
+// Return that profile immediately and wrap the result in an already-"complete"
 // local workflow — see realWorkflowCache.ts — rather than actually polling.
 export async function parseResume(
   file: File,
   simulateFailure = false,
-): Promise<{ workflowId: string }> {
+): Promise<{ workflowId: string; profile?: CandidateProfile }> {
   if (!isReal("parseOnboarding")) return { workflowId: mockParseResume(simulateFailure) };
 
   try {
@@ -73,7 +73,7 @@ export async function parseResume(
     body.append("file", file);
     const profile = await apiRequest<BackendProfile>("/api/onboarding/parse", { method: "POST", body });
     const mapped = mapBackendProfile(profile);
-    return { workflowId: registerCompletedWorkflow({ skills: mapped.skills, profileId: mapped.id }) };
+    return { workflowId: registerCompletedWorkflow({ skills: mapped.skills, profileId: mapped.id }), profile: mapped };
   } catch (err) {
     const message = err instanceof ApiError ? err.message : "We couldn't read that file.";
     return { workflowId: registerFailedWorkflow(message) };
@@ -91,6 +91,28 @@ export async function getProfile(profileId: string): Promise<CandidateProfile> {
   if (!isReal("getProfile")) throw new Error("getProfile is real-mode only");
   const profile = await apiRequest<BackendProfile>(`/api/profiles/${profileId}`);
   return mapBackendProfile(profile);
+}
+
+// Recover a missing/stale browser ID from this signed-in user's saved profile.
+// Network/server errors must not be mistaken for an absent profile.
+export async function getSavedProfile(profileId?: string): Promise<CandidateProfile | null> {
+  if (profileId && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(profileId)) {
+    try { return await getProfile(profileId); }
+    catch (error) { if (!(error instanceof ApiError) || error.status !== 404) throw error; }
+  }
+  try {
+    return mapBackendProfile(await apiRequest<BackendProfile>("/api/profiles/latest"));
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+export function mergeSavedSkills(draft: CandidateSkillEvidence[], saved: CandidateSkillEvidence[]): CandidateSkillEvidence[] {
+  const byName = new Map(saved.map(s => [s.skill.toLowerCase(), s]));
+  return draft.map(s => byName.get(s.skill.toLowerCase()) ?? {
+    ...s, id: null, source: "user", sourceExcerpt: null, status: "self_reported",
+  });
 }
 
 export interface BuildProfileInput {
@@ -119,27 +141,20 @@ export async function buildProfile(input: BuildProfileInput): Promise<{ workflow
   if (!isReal("parseOnboarding")) return { workflowId: mockBuildProfile(input) };
 
   try {
-    let profileId = input.profileId;
-    let skills = input.skills;
-    if (!profileId) {
-      const created = await apiRequest<BackendProfile>("/api/onboarding/parse", {
-        method: "POST",
-        body: { skills: input.skills.map((s) => s.skill) },
-      });
-      profileId = created.id;
-      skills = created.skills.map(mapBackendSkill);
+    let saved = await getSavedProfile(input.profileId);
+    if (!saved) {
+      if (input.skills.some(s => s.source === "resume")) {
+        throw new ApiError(409, "This résumé is not linked to a saved profile. Upload it again before continuing.");
+      }
+      saved = mapBackendProfile(await apiRequest<BackendProfile>("/api/onboarding/parse", {
+        method: "POST", body: { skills: input.skills.map(s => s.skill) },
+      }));
     }
-
+    // The backend owns identity/file state and résumé evidence. Retain learner
+    // additions/removals, but never promote cached/demo excerpts to saved evidence.
     const profile: CandidateProfile = {
-      id: profileId,
-      userId: null,
-      source: input.skills.some((s) => s.source === "resume") ? "resume" : "manual",
-      hasFile: input.skills.some((s) => s.source === "resume"),
-      targetRole: null,
-      location: null,
-      level: null,
-      workMode: null,
-      skills,
+      ...saved,
+      skills: mergeSavedSkills(input.skills, saved.skills),
       situation: input.situation,
       experienceLevel: input.experienceLevel,
       yearsOfExperience: input.yearsOfExperience,

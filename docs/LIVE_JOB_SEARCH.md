@@ -6,7 +6,7 @@ This slice advances AF-03 (#10) and UI-02 (#15), building on PR #24. It reuses K
 
 After profile confirmation, continue through the existing critique screen to `/target`. Enter any role, location (or remote) and seniority. Search returns up to five verifiable postings; `/skills?analysis=<id>` displays saved matches, ranked gaps, exact quotes and original links. Reload reads the saved analysis and job snapshots, without another model call. Search and analysis are explicit actions, never triggered by a results-page reload.
 
-Only role/location/seniority go to Keenable. Job extraction sends bounded public page excerpts through task `job_extract`, prompt/schema `job-requirements-v1`. No résumé or profile skills are sent to that task. The existing gateway owns provider selection, schema validation, retries and deadlines. Source checks reject invented titles, employers, skill names, quotes, duplicate skills and invalid page references. Gap comparison is deterministic; it makes no model call. Missing evidence is never described as inability or verified mastery.
+Only role/location/seniority go to Keenable. Job extraction sends bounded public page excerpts through task `job_extract`, prompt `job-requirements-v2` and schema `job-requirements-v1`. Each skill must be a contiguous substring of its source excerpt, ignoring case only; the prompt includes examples to prevent paraphrased or combined skill names. No résumé or profile skills are sent to that task. The existing gateway owns provider selection, schema validation, retries and deadlines. Source checks reject invented titles, employers, skill names, quotes, duplicate skills and invalid page references. Gap comparison is deterministic; it makes no model call. Missing evidence is never described as inability or verified mastery.
 
 One workflow is created before search, with pinned routing and prompt/schema versions. Invocation metadata is durably logged before posting writes. Search failures remain failures; there is no mock fallback. Empty verified results produce an explicit empty state. Repeated retrievals create separate reference snapshots so a later search cannot replace an earlier report's sources.
 
@@ -28,7 +28,27 @@ Search and analysis require a confirmed, owned profile and owned goal. Gap reloa
 1. Copy `deployment/job-model-routing.example.yaml` to ignored `deployment/job-model-routing.yaml`. Set the server-selected profile and configured model/key environment variables. OpenAI and Nebius use the same gateway; no provider code lives in the UI.
 2. With credentials exported, run `python -m scripts.check_job_model --profile openai` (or `nebius`). This makes billable synthetic normal, empty, adversarial and budget probes and writes a seven-day capability report. A prompt/model/schema change needs a fresh report.
 3. Set `CAREERBRIDGE_SEARCH_MODE=live`. `JOB_MODEL_ROUTING_PATH` optionally selects a different routing file. `KEENABLE_API_KEY` is optional for the existing public endpoints. Keep `VITE_USE_MOCKS=false` and point `VITE_API_BASE_URL` at the API.
-4. Restart the API after changes. The service remains synchronous; a search can take several minutes when source pages are slow. Provider failures offer retry, without substituting fixture data.
+4. Restart the API after changes. The service remains synchronous. Job/resource page fetching uses batches of at most three concurrent requests per discovery call, preserving search rank, URL deduplication, result limits and the 20-second per-request timeout. Failed pages are skipped; all-source failures still fail rather than substituting fixture data.
+
+## Discovery timings
+
+Both job search and resource discovery save `workflow_runs.state_json.timings_ms`:
+`search`, `fetch`, `model`, `save` and `total`, measured with a monotonic clock.
+Resource search/fetch values accumulate across the free and paid queries. Model time
+includes gateway validation, bounded retries and audit writes. Save time covers
+domain rows; total runs from store entry to just before the final workflow snapshot
+write. Authentication, that final write and response loading/serialization are outside
+the recorded total, so HTTP time is measured separately in the live check. Completed
+stage timings are retained on failures, including the failing stage's elapsed time.
+No prompt text, credentials or source content is added to timing metadata.
+
+With development/test credentials loaded, run `python -m scripts.check_discovery_flow
+--output discovery-check.json` against the local API. It creates a disposable learner,
+runs live job search → gap comparison, then live resource discovery for a seeded SQL
+gap, verifies stored evidence
+and GET reloads, and reports stage/HTTP times. It removes its learner/job fixtures;
+real public resource catalog entries remain. No schema migration or new dependency
+is required.
 
 ## Acceptance and checks
 

@@ -63,6 +63,21 @@ def test_valid_and_empty_evidence():
     assert not job_source_supported({"jobs": [valid_job(), valid_job()]}, data)
 
 
+@pytest.mark.parametrize("literal,paraphrase,excerpt", [
+    ("Business Analyst", "Business Analyst experience", "Three years of experience as a Business Analyst."),
+    ("Agile", "Agile delivery methodologies", "Experience working in Agile, Lean-Agile, or hybrid delivery environments."),
+    ("problem-solving", "Analytical and problem-solving skills", "Strong analytical, problem-solving, and communication skills."),
+    ("analyzing business processes", "Business process analysis", "Experience in analyzing business processes and developing solutions."),
+])
+def test_job_skills_must_be_literal_excerpt_substrings(literal, paraphrase, excerpt):
+    job = valid_job()
+    data = {"pages": [{"content": "Acme Data Analyst. " + excerpt}]}
+    job["requirements"] = [{"skill": literal, "importance": "required", "excerpt": excerpt}]
+    assert job_source_supported({"jobs": [job]}, data)
+    job["requirements"][0]["skill"] = paraphrase
+    assert not job_source_supported({"jobs": [job]}, data)
+
+
 @pytest.mark.parametrize("audit_fails", [False, True])
 def test_gateway_uses_pinned_context_and_audit(monkeypatch, audit_fails):
     state = {

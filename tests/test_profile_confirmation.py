@@ -41,7 +41,7 @@ def confirmation(monkeypatch):
 def test_confirmation_without_excerpt_preserves_saved_evidence(confirmation, status):
     row, writes = confirmation
     result = store.confirm_profile_flow(
-        "profile", [{"skill": "SQL", "status": status}], [], False, None
+        "profile", [{"skill": "SQL", "status": status}], [], False, None, "user"
     )
     assert result["confirmed_at"]
     writes["add_skill_evidence"].assert_called_once_with(
@@ -59,6 +59,7 @@ def test_forged_excerpt_is_rejected_before_any_changes(confirmation):
             [],
             False,
             None,
+            "user",
         )
     assert error.value.status_code == 422
     for mock in writes.values():
@@ -69,7 +70,7 @@ def test_manual_skill_cannot_be_promoted_to_resume_evidence(confirmation):
     _, writes = confirmation
     with pytest.raises(ApiError):
         store.confirm_profile_flow(
-            "profile", [{"skill": "Docker", "status": "present"}], [], False, None
+            "profile", [{"skill": "Docker", "status": "present"}], [], False, None, "user"
         )
     writes["add_skill_evidence"].assert_not_called()
     writes["confirm_profile"].assert_not_called()
@@ -78,7 +79,7 @@ def test_manual_skill_cannot_be_promoted_to_resume_evidence(confirmation):
 def test_self_reported_skill_needs_no_resume_excerpt(confirmation):
     _, writes = confirmation
     store.confirm_profile_flow(
-        "profile", [{"skill": "Docker", "status": "self_reported"}], [], False, None
+        "profile", [{"skill": "Docker", "status": "self_reported"}], [], False, None, "user"
     )
     writes["add_skill_evidence"].assert_called_once_with(
         "profile", "Docker", "self_reported", excerpt=None, status="self_reported"
@@ -89,7 +90,7 @@ def test_cannot_delete_evidence_outside_this_profile(confirmation):
     _, writes = confirmation
     with pytest.raises(ApiError) as error:
         store.confirm_profile_flow(
-            "profile", [], ["other-profile-evidence"], False, None
+            "profile", [], ["other-profile-evidence"], False, None, "user"
         )
     assert error.value.status_code == 404
     for mock in writes.values():
@@ -99,7 +100,38 @@ def test_cannot_delete_evidence_outside_this_profile(confirmation):
 def test_clearing_resume_text_keeps_source_excerpt(confirmation):
     row, writes = confirmation
     store.confirm_profile_flow(
-        "profile", [{"skill": "SQL", "status": "present"}], [], True, None
+        "profile", [{"skill": "SQL", "status": "present"}], [], True, None, "user"
     )
     assert writes["add_skill_evidence"].call_args.kwargs["excerpt"] == row["excerpt"]
     writes["clear_parsed_text"].assert_called_once_with("profile")
+
+
+def test_confirmation_is_owner_scoped_before_writes(confirmation):
+    _, writes = confirmation
+    with pytest.raises(ApiError) as error:
+        store.confirm_profile_flow("profile", [], [], False, "same-key", "other")
+    assert error.value.status_code == 404
+    for mock in writes.values():
+        mock.assert_not_called()
+
+
+def test_latest_profile_is_loaded_for_signed_in_owner(monkeypatch):
+    latest = MagicMock(return_value={"id": "saved-profile", "user_id": "user"})
+    monkeypatch.setattr(store.profiles, "get_latest_profile", latest)
+    monkeypatch.setattr(store, "profile_response", lambda pid: {"id": pid, "has_file": True})
+    assert store.get_saved_profile_flow("user") == {"id": "saved-profile", "has_file": True}
+    latest.assert_called_once_with("user")
+
+
+def test_profile_get_cannot_return_another_users_record(monkeypatch):
+    monkeypatch.setattr(store.profiles, "get_profile", lambda pid: {"id": pid, "user_id": "other"})
+    with pytest.raises(ApiError) as error:
+        store.get_saved_profile_flow("user", "other-profile")
+    assert error.value.status_code == 404
+
+
+def test_no_saved_profile_is_explicit_not_found(monkeypatch):
+    monkeypatch.setattr(store.profiles, "get_latest_profile", lambda uid: None)
+    with pytest.raises(ApiError) as error:
+        store.get_saved_profile_flow("user")
+    assert error.value.status_code == 404

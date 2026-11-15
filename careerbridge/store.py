@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from time import perf_counter
 from pathlib import Path
 from typing import Optional
 
@@ -24,6 +25,7 @@ from database.client import DBError
 
 from careerbridge.analyst import analyst, resume_routing
 from careerbridge.model_gateway import ModelError, load_routing
+from careerbridge.timings import measure
 from careerbridge.prompts.career_analyst import resume_suite
 from careerbridge.prompts.search_agent import job_suite
 from careerbridge.prompts.resources import resource_suite
@@ -104,6 +106,20 @@ def with_idempotency(key: Optional[str], compute):
 # ---------------------------------------------------------------------------
 # B. Onboarding / profile
 # ---------------------------------------------------------------------------
+
+def owned_profile(profile_id: str, user_id: str) -> dict:
+    profile = call(profiles.get_profile, profile_id)
+    if not profile or profile["user_id"] != user_id:
+        raise ApiError(404, "not_found", "Profile not found")
+    return profile
+
+
+def get_saved_profile_flow(user_id: str, profile_id: Optional[str] = None) -> dict:
+    profile = owned_profile(profile_id, user_id) if profile_id else call(profiles.get_latest_profile, user_id)
+    if not profile:
+        raise ApiError(404, "not_found", "No saved profile yet. Upload your résumé or add your skills first.")
+    return profile_response(profile["id"])
+
 
 def profile_response(profile_id: str) -> dict:
     profile = call(profiles.get_profile, profile_id)
@@ -194,11 +210,10 @@ def parse_manual_skills_flow(user_id: str, skill_names: list[str],
 
 def confirm_profile_flow(profile_id: str, skills_payload: list[dict],
                          remove_skill_ids: list[str], clear_resume_text: bool,
-                         idempotency_key: Optional[str]) -> dict:
+                         idempotency_key: Optional[str], user_id: str) -> dict:
+    profile = owned_profile(profile_id, user_id)
+
     def compute():
-        profile = call(profiles.get_profile, profile_id)
-        if not profile:
-            raise ApiError(404, "not_found", "Profile not found")
         existing = call(profiles.list_skill_evidence, profile_id)
         by_skill = {row["skill_id"]: row for row in existing}
         removals = set(remove_skill_ids or [])
@@ -233,7 +248,8 @@ def confirm_profile_flow(profile_id: str, skills_payload: list[dict],
                         result={"profile_id": profile_id})
         return profile_response(profile_id)
 
-    return with_idempotency(idempotency_key, compute)
+    scoped_key = f"confirm:{user_id}:{profile_id}:{idempotency_key}" if idempotency_key else None
+    return with_idempotency(scoped_key, compute)
 
 
 # ---------------------------------------------------------------------------
@@ -269,13 +285,15 @@ def _map_job_posting(posting: dict) -> dict:
 
 
 def search_jobs_flow(user_id: str, goal: dict, limit: int) -> dict:
+    started = perf_counter()
+    timings = {stage: 0.0 for stage in ("search", "fetch", "model", "save")}
     if goal["user_id"] != user_id:
         raise ApiError(404, "not_found", "Goal not found")
     profile = call(profiles.get_latest_profile, user_id)
     if not profile or not profile.get("confirmed_at"):
         raise ApiError(409, "rule_violation", "Confirm a profile before searching for jobs")
     wf = call(users.create_workflow, user_id, goal["id"])
-    state = {"kind": "search_jobs", "status": "running", "stage": "searching"}
+    state = {"kind": "search_jobs", "status": "running", "stage": "searching", "timings_ms": timings}
     try:
         mode = os.getenv("CAREERBRIDGE_SEARCH_MODE", "live")
         if mode not in ("live", "mock"):
@@ -290,32 +308,35 @@ def search_jobs_flow(user_id: str, goal: dict, limit: int) -> dict:
         agent_out = job_search_agent.invoke({
             "role": goal["target_role"], "location": goal.get("location") or "",
             "seniority": goal.get("seniority") or "",
-            "user_id": user_id, "workflow_id": wf["id"], "model_routing": routing,
+            "user_id": user_id, "workflow_id": wf["id"], "model_routing": routing, "timings_ms": timings,
         })["result"]
         provider = "synthetic" if agent_out["source"] == "synthetic" else "cached"
         posting_ids = []
-        for job in agent_out["jobs"][:limit]:
-            # The existing relational schema accepts only explicit importance.
-            # Omit unknowns rather than falsely claiming they are preferred.
-            reqs = [r for r in job["requirements"] if r["importance"] in ("required", "preferred")]
-            if not reqs:
-                continue
-            # Each retrieval is an immutable reference snapshot, so later searches
-            # cannot rewrite the evidence cited by an earlier gap analysis.
-            snapshot_id = _provider_job_id(json.dumps(job, sort_keys=True))
-            posting = call(jobs.upsert_job_posting, {
-                "provider": provider, "provider_job_id": agent_out["source"] + ":" + snapshot_id,
-                "title": job["title"], "url": job["url"], "company": job.get("employer"),
-                "completeness": "partial", "retrieved_at": job["retrieved_at"],
-            })
-            call(jobs.add_job_requirements, posting["id"], reqs)
-            posting_ids.append(posting["id"])
+        with measure(timings, "save"):
+            for job in agent_out["jobs"][:limit]:
+                # The existing relational schema accepts only explicit importance.
+                # Omit unknowns rather than falsely claiming they are preferred.
+                reqs = [r for r in job["requirements"] if r["importance"] in ("required", "preferred")]
+                if not reqs:
+                    continue
+                # Each retrieval is an immutable reference snapshot, so later searches
+                # cannot rewrite the evidence cited by an earlier gap analysis.
+                snapshot_id = _provider_job_id(json.dumps(job, sort_keys=True))
+                posting = call(jobs.upsert_job_posting, {
+                    "provider": provider, "provider_job_id": agent_out["source"] + ":" + snapshot_id,
+                    "title": job["title"], "url": job["url"], "company": job.get("employer"),
+                    "completeness": "partial", "retrieved_at": job["retrieved_at"],
+                })
+                call(jobs.add_job_requirements, posting["id"], reqs)
+                posting_ids.append(posting["id"])
         result = {"job_ids": posting_ids, "source": agent_out["source"], "profile_id": profile["id"]}
+        timings["total"] = round((perf_counter() - started) * 1000, 3)
         state.update(status="complete", stage="complete", result=result)
         call(users.save_workflow_state, wf["id"], "JOB_SEARCH", state)
         return {"workflow_id": wf["id"], "jobs": [get_job_flow(jid) for jid in posting_ids],
                 "fallback_used": False, "source": agent_out["source"]}
     except Exception as exc:
+        timings["total"] = round((perf_counter() - started) * 1000, 3)
         state.update(status="failed", stage="failed", error=exc.code if isinstance(exc, ModelError) else "search_failed")
         call(users.save_workflow_state, wf["id"], "JOB_SEARCH", state)
         if isinstance(exc, ApiError):
@@ -547,6 +568,8 @@ def require_learning_consent(user_id: str):
 
 
 def discover_resources_flow(user_id: str, analysis_id: str, skill: str) -> dict:
+    started = perf_counter()
+    timings = {stage: 0.0 for stage in ("search", "fetch", "model", "save")}
     require_learning_consent(user_id)
     analysis = get_gap_analysis_flow(analysis_id, user_id)
     gap = next((g for g in analysis["gaps"] if g["skill"].casefold() == skill.strip().casefold()), None)
@@ -554,7 +577,7 @@ def discover_resources_flow(user_id: str, analysis_id: str, skill: str) -> dict:
         raise ApiError(422, "validation_error", "Choose a skill from this gap analysis")
     skill = gap["skill"]
     wf = call(users.create_workflow, user_id, analysis["goal_id"])
-    state = {"kind": "discover_resources", "status": "running", "stage": "searching"}
+    state = {"kind": "discover_resources", "status": "running", "stage": "searching", "timings_ms": timings}
     try:
         routing = load_routing(os.getenv("RESOURCE_MODEL_ROUTING_PATH", "deployment/resource-model-routing.yaml"))
         task = resource_suite()["tasks"]["resource_extract"]
@@ -562,20 +585,23 @@ def discover_resources_flow(user_id: str, analysis_id: str, skill: str) -> dict:
                      output_schema_version=task["output_schema_version"])
         call(users.save_workflow_state, wf["id"], "LEARNING", state)
         result = resource_search_agent.invoke({"skill": skill, "user_id": user_id,
-                    "workflow_id": wf["id"], "model_routing": routing})["result"]
-        for kind in ("free", "paid", "mixed", "unknown"):
-            for item in result[kind]:
-                row = call(learning.add_resource, skill, {"title": item["title"], "url": item["url"],
-                    "price_type": kind, "provider": "keenable", "modality": item["format"]})
-                call(learning.mark_resource_verified, row["id"])
-                item["id"] = row["id"]
+                    "workflow_id": wf["id"], "model_routing": routing, "timings_ms": timings})["result"]
+        with measure(timings, "save"):
+            for kind in ("free", "paid", "mixed", "unknown"):
+                for item in result[kind]:
+                    row = call(learning.add_resource, skill, {"title": item["title"], "url": item["url"],
+                        "price_type": kind, "provider": "keenable", "modality": item["format"]})
+                    call(learning.mark_resource_verified, row["id"])
+                    item["id"] = row["id"]
         # The existing resource table is a current catalog. The owned workflow
         # retains this search's immutable price/access/coverage evidence for reload.
         result.update(workflow_id=wf["id"], analysis_id=analysis_id, goal_id=analysis["goal_id"])
+        timings["total"] = round((perf_counter() - started) * 1000, 3)
         state.update(status="complete", stage="complete", result=result)
         call(users.save_workflow_state, wf["id"], "LEARNING", state)
         return result
     except Exception as exc:
+        timings["total"] = round((perf_counter() - started) * 1000, 3)
         state.update(status="failed", stage="failed", error=exc.code if isinstance(exc, ModelError) else "resource_search_failed")
         call(users.save_workflow_state, wf["id"], "LEARNING", state)
         if isinstance(exc, ApiError):

@@ -190,11 +190,26 @@ paths:
         "413": { $ref: "#/components/responses/TooLarge" }
         "422": { $ref: "#/components/responses/Invalid" }
 
+  /api/profiles/latest:
+    get:
+      tags: [Onboarding]
+      operationId: getLatestProfile
+      summary: Restore the signed-in user's latest saved draft or confirmed profile
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Saved profile, including authoritative has_file and evidence IDs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Profile" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /api/profiles/{profile_id}:
     get:
       tags: [Onboarding]
       summary: Get a profile and its skill evidence
       operationId: getProfile
+      security: [{ BearerAuth: [] }]
       x-db-functions: [profiles.get_profile, profiles.list_skill_evidence]
       parameters:
         - $ref: "#/components/parameters/ProfileId"
@@ -214,6 +229,7 @@ paths:
         The user reviews extracted skills, fixes or removes them, and adds ones the résumé missed.
         `demonstrated` cannot be set here; it comes only from a passed assessment.
       operationId: confirmProfile
+      security: [{ BearerAuth: [] }]
       x-db-functions: [profiles.update_skill_evidence, profiles.add_skill_evidence,
                        profiles.delete_skill_evidence, profiles.confirm_profile]
       parameters:
