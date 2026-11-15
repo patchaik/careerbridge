@@ -1,4 +1,4 @@
-> **Legacy contract:** New MVP implementation targets [contracts/v0.1](../contracts/v0.1/README.md), including `/api/v1` and JWT-derived identity. The specification below documents the earlier baseline and is retained for migration reference.
+> The deployed learning flow uses the synchronous `/api` routes below. See [learning plans](../docs/LEARNING_PLANS.md) for the current scope and [contracts/v0.1](../contracts/v0.1/README.md) for the broader target design. Some older routes remain incomplete.
 
 # CareerBridge API
 
@@ -14,7 +14,7 @@ Build both sides against it; change the spec first, then the code.
 
 | Topic | Rule |
 | --- | --- |
-| Auth (MVP) | `X-User-Id: <user uuid>` header on every call except `/api/health` and `POST /api/users` |
+| Auth (MVP) | Supabase bearer JWT for new learning/profile/job flows; legacy header mode is development-only |
 | Errors | `{"error": {"code", "message", "field"}}`; `message` is safe to show the user |
 | Idempotency | `Idempotency-Key` header on profile confirm, assessment start/submit and résumé export |
 | Long calls | Job search, gap analysis and path generation return a `workflow_id`; on `202`, poll `GET /api/workflows/{id}` |
@@ -36,8 +36,8 @@ bad input → 422 `validation_error`.
 | 3. Goal | `POST /api/goals` · `GET /api/goals` | Target role, location, seniority |
 | 4. Jobs | `POST /api/jobs/search` · `GET /api/jobs/{id}` | Up to 5 real postings with requirements |
 | 5. Gaps | `POST /api/skills/analyze` · `GET /api/gap-analyses/{id}` | Up to 10 gaps, each citing its jobs |
-| 6. Path | `POST /api/paths/generate` · `PUT /api/paths/{id}/approve` · `PUT /api/paths/{id}/status` | Propose, approve (freezes rubric), pause |
-| | `GET /api/resources?skill=` | Up to 5 free and 5 paid resources |
+| 6. Path | `POST /api/paths/generate` · `PUT /api/paths/{id}/approve` · `PUT /api/paths/{id}/status` | Propose from saved resources + skill goal + modality; accept without a rubric; pause |
+| | `POST /api/resources/search` · `GET /api/resource-searches/{workflow_id}` | Discover, save and reload free/paid/mixed/unknown resource evidence |
 | 7. Learn | `POST /api/arena/tutor` · `POST /api/arena/practice` | Tutor and practice (P1) |
 | 8. Assess | `POST /api/assessments/start` · `POST /api/assessments/submit` | Graded against the frozen rubric |
 | | `GET /api/progress` | Gap status, evidence, next action |

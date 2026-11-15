@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI, Header, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from database import admin, users
 from database.client import DBError
@@ -301,27 +301,31 @@ def submit_diagnostic(diagnostic_id: str):
 
 
 class GeneratePathBody(BaseModel):
-    goal_id: str
-    skill: str
-    modality: Optional[Literal["text", "hands_on", "both"]] = None
+    model_config = ConfigDict(extra="forbid")
+    resource_search_id: str
+    learning_goal: str = Field(min_length=10, max_length=600)
+    modality: Literal["text", "hands_on", "both"]
+    resource_ids: list[str] = Field(min_length=1, max_length=10)
+
+    @field_validator("learning_goal", mode="before")
+    @classmethod
+    def strip_goal(cls, value):
+        return value.strip() if isinstance(value, str) else value
 
 
 @app.post("/api/paths/generate", status_code=201)
 def generate_path(body: GeneratePathBody, user_id: str = Depends(current_user_id)):
-    goal = users.get_goal(body.goal_id)
-    if not goal:
-        raise ApiError(404, "not_found", "Goal not found")
-    return store.generate_path_flow(user_id, goal, body.skill, body.modality)
+    return store.generate_path_flow(user_id, **body.model_dump())
 
 
 @app.get("/api/paths/{path_id}")
-def get_path(path_id: str):
-    return store.get_path_flow(path_id)
+def get_path(path_id: str, user_id: str = Depends(current_user_id)):
+    return store.get_path_flow(path_id, user_id)
 
 
 @app.put("/api/paths/{path_id}/approve")
-def approve_path(path_id: str):
-    return store.approve_path_flow(path_id)
+def approve_path(path_id: str, user_id: str = Depends(current_user_id)):
+    return store.approve_path_flow(path_id, user_id)
 
 
 class PathStatusBody(BaseModel):
@@ -329,8 +333,24 @@ class PathStatusBody(BaseModel):
 
 
 @app.put("/api/paths/{path_id}/status")
-def set_path_status(path_id: str, body: PathStatusBody):
-    return store.set_path_status_flow(path_id, body.status)
+def set_path_status(path_id: str, body: PathStatusBody, user_id: str = Depends(current_user_id)):
+    return store.set_path_status_flow(path_id, body.status, user_id)
+
+
+class ResourceSearchBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    analysis_id: str
+    skill: str = Field(min_length=1, max_length=120)
+
+
+@app.post("/api/resources/search")
+def discover_resources(body: ResourceSearchBody, user_id: str = Depends(current_user_id)):
+    return store.discover_resources_flow(user_id, body.analysis_id, body.skill)
+
+
+@app.get("/api/resource-searches/{workflow_id}")
+def get_resource_search(workflow_id: str, user_id: str = Depends(current_user_id)):
+    return store.get_resource_search_flow(user_id, workflow_id)
 
 
 @app.get("/api/resources")
@@ -351,8 +371,8 @@ class TutorBody(BaseModel):
 
 
 @app.post("/api/arena/tutor")
-def tutor(body: TutorBody):
-    return store.tutor_flow(body.path_id, body.milestone_id, body.message, body.session_id, body.mode)
+def tutor(body: TutorBody, user_id: str = Depends(current_user_id)):
+    return store.tutor_flow(body.path_id, body.milestone_id, body.message, body.session_id, body.mode, user_id)
 
 
 @app.post("/api/arena/practice")

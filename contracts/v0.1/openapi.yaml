@@ -2456,7 +2456,7 @@ paths:
     post:
       operationId: generatePath
       summary: generatePath
-      description: generatePath
+      description: Generate a learning-only plan from an owned saved resource search, learner goal, selected resource IDs and modality. No reviewed template or rubric is required.
       parameters:
       - name: Idempotency-Key
         in: header
@@ -2615,7 +2615,7 @@ paths:
     put:
       operationId: approvePath
       summary: approvePath
-      description: approvePath
+      description: Accept the immutable learning plan. Does not publish a template, freeze a rubric or certify a skill.
       parameters:
       - name: path_id
         in: path
@@ -5836,76 +5836,107 @@ components:
       type: object
       additionalProperties: false
       properties:
-        id: *id001
-        created_at: *id004
-        journey_id: *id001
-        gap_id: *id001
-        template_version_id: *id001
-        rubric:
-          $ref: '#/components/schemas/Rubric'
-        revision: *id011
-        status:
+        id:
           type: string
+          format: uuid
+        workflow_id:
+          type: string
+          format: uuid
+        goal_id:
+          type: string
+          format: uuid
+        resource_search_id:
+          type: string
+          format: uuid
+        skill:
+          type: string
+        objective:
+          type: string
+          minLength: 10
+          maxLength: 600
+        learning_outcome:
+          type: string
+          minLength: 1
+          maxLength: 600
+        modality:
+          enum:
+          - text
+          - hands_on
+          - both
+        status:
           enum:
           - proposed
           - approved
           - in_progress
           - paused
           - completed
-        objective:
-          type: string
-          minLength: 1
-          maxLength: 2000
-        modality: *id009
         milestones:
           type: array
-          items:
-            $ref: '#/components/schemas/Milestone'
           minItems: 1
-          maxItems: 20
-        approved_at:
-          anyOf:
-          - *id004
-          - type: 'null'
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/PlanMilestone'
+        resources:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/SavedLearningResource'
+        rubric:
+          type: 'null'
+        assessment_available:
+          const: false
       required:
       - id
-      - created_at
-      - journey_id
-      - gap_id
-      - template_version_id
-      - rubric
-      - revision
-      - status
+      - workflow_id
+      - goal_id
+      - resource_search_id
+      - skill
       - objective
+      - learning_outcome
       - modality
+      - status
       - milestones
-      - approved_at
+      - resources
+      - rubric
+      - assessment_available
     PathGenerate:
-      type: object
       additionalProperties: false
       properties:
-        journey_id: *id001
-        gap_analysis_id: *id001
-        gap_id: *id001
-        template_version_id: *id001
-        modality: *id009
+        resource_search_id:
+          title: Resource Search Id
+          type: string
+        learning_goal:
+          maxLength: 600
+          minLength: 10
+          title: Learning Goal
+          type: string
+        modality:
+          enum:
+          - text
+          - hands_on
+          - both
+          title: Modality
+          type: string
+        resource_ids:
+          items:
+            type: string
+          maxItems: 10
+          minItems: 1
+          title: Resource Ids
+          type: array
       required:
-      - journey_id
-      - gap_analysis_id
-      - gap_id
-      - template_version_id
+      - resource_search_id
+      - learning_goal
       - modality
+      - resource_ids
+      title: GeneratePathBody
+      type: object
     PathApprove:
       type: object
       additionalProperties: false
-      properties:
-        expected_revision: *id011
-        rubric_id: *id001
-        rubric_content_sha256: *id015
-      required:
-      - expected_revision
-      - rubric_id
-      - rubric_content_sha256
+      properties: {}
+      required: []
     PathStatus:
       type: object
       additionalProperties: false
@@ -7075,3 +7106,171 @@ components:
       required:
       - items
       - next_cursor
+    PlanMilestone:
+      additionalProperties: false
+      properties:
+        title:
+          maxLength: 150
+          minLength: 1
+          title: Title
+          type: string
+        mode:
+          enum:
+          - text
+          - hands_on
+          title: Mode
+          type: string
+        instruction:
+          maxLength: 1500
+          minLength: 1
+          title: Instruction
+          type: string
+        success_criteria:
+          items:
+            maxLength: 500
+            minLength: 1
+            type: string
+          maxItems: 3
+          minItems: 1
+          title: Success Criteria
+          type: array
+        resource_ids:
+          items:
+            type: string
+          maxItems: 10
+          minItems: 1
+          title: Resource Ids
+          type: array
+        id:
+          type: string
+          minLength: 1
+      required:
+      - title
+      - mode
+      - instruction
+      - success_criteria
+      - resource_ids
+      - id
+      title: PlanMilestone
+      type: object
+    SavedLearningResource:
+      additionalProperties: false
+      properties:
+        title:
+          maxLength: 200
+          minLength: 1
+          title: Title
+          type: string
+        price_type:
+          enum:
+          - free
+          - paid
+          - mixed
+          - unknown
+          title: Price Type
+          type: string
+        price_evidence:
+          maxLength: 400
+          title: Price Evidence
+          type: string
+        learning_evidence:
+          maxLength: 400
+          minLength: 1
+          title: Learning Evidence
+          type: string
+        format:
+          enum:
+          - article
+          - video
+          - course
+          - exercise
+          - unknown
+          title: Format
+          type: string
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        checked_at:
+          type: string
+          format: date-time
+      required:
+      - title
+      - price_type
+      - price_evidence
+      - learning_evidence
+      - format
+      - id
+      - url
+      - checked_at
+      title: Resource
+      type: object
+    SavedResourceSearch:
+      type: object
+      additionalProperties: false
+      properties:
+        workflow_id:
+          type: string
+          format: uuid
+        analysis_id:
+          type: string
+          format: uuid
+        goal_id:
+          type: string
+          format: uuid
+        skill:
+          type: string
+        source:
+          const: keenable
+        retrieved_at:
+          type: string
+          format: date-time
+        free:
+          type: array
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/SavedLearningResource'
+        paid:
+          type: array
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/SavedLearningResource'
+        mixed:
+          type: array
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/SavedLearningResource'
+        unknown:
+          type: array
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/SavedLearningResource'
+      required:
+      - workflow_id
+      - analysis_id
+      - goal_id
+      - skill
+      - source
+      - retrieved_at
+      - free
+      - paid
+      - mixed
+      - unknown
+    ResourceSearchRequest:
+      additionalProperties: false
+      properties:
+        analysis_id:
+          title: Analysis Id
+          type: string
+        skill:
+          maxLength: 120
+          minLength: 1
+          title: Skill
+          type: string
+      required:
+      - analysis_id
+      - skill
+      title: ResourceSearchBody
+      type: object

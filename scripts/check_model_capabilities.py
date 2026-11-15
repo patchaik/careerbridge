@@ -31,7 +31,7 @@ from careerbridge.model_gateway import (
 )
 
 
-def check(config, suite, profile_name):
+def check(config, suite, profile_name, validate_output=None):
     route = pin_routing(config)["config"]["profiles"][profile_name]
     key = os.environ.get(route["api_key_env"])
     if not key or not route["model"]:
@@ -69,7 +69,7 @@ def check(config, suite, profile_name):
             if schema:
                 output = json.loads(text)
                 validate(schema, output)
-                if output != case["expected"]:
+                if not (validate_output(output, case["input"]) if validate_output else output == case["expected"]):
                     raise ModelError("fixture_quality_failed")
                 checked_json = True
             else:

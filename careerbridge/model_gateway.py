@@ -21,6 +21,7 @@ ADAPTER_VERSION = "chat-compat-v1"
 TASKS = {
     "profile_extract",
     "job_extract",
+    "resource_extract",
     "gap_explain",
     "path_plan",
     "lesson",

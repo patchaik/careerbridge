@@ -26,9 +26,11 @@ from careerbridge.analyst import analyst, resume_routing
 from careerbridge.model_gateway import ModelError, load_routing
 from careerbridge.prompts.career_analyst import resume_suite
 from careerbridge.prompts.search_agent import job_suite
+from careerbridge.prompts.resources import resource_suite
+from careerbridge.prompts.learning_plan import plan_suite
 from careerbridge.assessor import assessor, prepare_assessment
 from careerbridge.errors import ApiError, db_error_to_api_error
-from careerbridge.learning_coach import answer_question, coach, remediation
+from careerbridge.learning_coach import answer_question, propose_path, remediation
 from careerbridge.mock_skills import MOCK_SKILLS
 from careerbridge.search_agent import job_search_agent, resource_search_agent
 
@@ -455,77 +457,140 @@ def _rubric_for_path(path: dict) -> Optional[dict]:
     return rubrics[0] if rubrics else None
 
 
-def generate_path_flow(user_id: str, goal: dict, skill: str, modality: Optional[str]) -> dict:
+def generate_path_flow(user_id: str, resource_search_id: str, learning_goal: str,
+                       modality: str, resource_ids: list[str]) -> dict:
+    require_learning_consent(user_id)
+    search = get_resource_search_flow(user_id, resource_search_id)
     profile = call(profiles.get_latest_profile, user_id)
-    if not profile:
-        raise ApiError(409, "rule_violation", "Confirm a profile before generating a learning path")
+    if not profile or not profile.get("confirmed_at"):
+        raise ApiError(409, "rule_violation", "Confirm a profile before generating a learning plan")
+    available = {r["id"]: r for kind in ("free", "paid", "mixed", "unknown") for r in search[kind]}
+    if len(set(resource_ids)) != len(resource_ids) or not set(resource_ids) <= available.keys():
+        raise ApiError(422, "validation_error", "Choose resources from this saved search")
+    resources = [available[rid] for rid in resource_ids]
     evidence = call(profiles.list_skill_evidence, profile["id"])
-    skills_for_agent = [{"name": (e.get("skills") or {}).get("canonical_name")} for e in evidence]
-
-    free_resources = call(learning.list_resources, skill, price_type="free")
-    if not free_resources:
-        # The contract's /paths/generate takes no resource_search_id, unlike the
-        # old flow's separate step -- so discovery happens here. See notes.
-        try:
-            discovered = resource_search_agent.invoke({"skill": skill})["result"]
-        except Exception as exc:
-            raise ApiError(503, "provider_unavailable",
-                           "Resource discovery is temporarily unavailable.") from exc
-        for price_type in ("free", "paid"):
-            for item in discovered.get(price_type, []):
-                call(learning.add_resource, skill, {"title": item["title"], "url": item["url"],
-                                                     "price_type": price_type})
-        free_resources = call(learning.list_resources, skill, price_type="free")
-    if not free_resources:
-        raise ApiError(409, "rule_violation", "No free learning resources are available for this skill yet")
-
+    data = {"skill": search["skill"], "learning_goal": learning_goal, "modality": modality,
+            "confirmed_skills": list(dict.fromkeys((e.get("skills") or {}).get("canonical_name")
+                for e in evidence if (e.get("skills") or {}).get("canonical_name"))),
+            "resources": [{key: r[key] for key in ("id", "title", "price_type", "learning_evidence", "format")}
+                          for r in resources]}
+    wf = call(users.create_workflow, user_id, search["goal_id"])
+    state = {"kind": "generate_path", "status": "running", "stage": "planning"}
+    path = None
     try:
-        coach_out = coach.invoke({"goal": goal["target_role"], "skill": skill,
-                                  "skills": skills_for_agent, "resources": free_resources})
-    except ValueError as exc:
-        raise ApiError(409, "rule_violation", str(exc)) from exc
+        routing = load_routing(os.getenv("PLAN_MODEL_ROUTING_PATH", "deployment/plan-model-routing.yaml"))
+        task = plan_suite()["tasks"]["path_plan"]
+        state.update(model_routing=routing, prompt_version=task["prompt_version"],
+                     output_schema_version=task["output_schema_version"])
+        call(users.save_workflow_state, wf["id"], "LEARNING", state)
+        plan = propose_path({"user_id": user_id, "workflow_id": wf["id"], "model_routing": routing}, data)
+        milestones = [{"id": f"m{i+1}", **m} for i, m in enumerate(plan["milestones"])]
+        path = call(learning.create_path, search["goal_id"], search["skill"], learning_goal,
+            [{"id": m["id"], "title": m["title"], "mode": "written" if m["mode"] == "text" else "hands_on"}
+             for m in milestones])
+        result = {"id": path["id"], "workflow_id": wf["id"], "goal_id": search["goal_id"],
+                  "resource_search_id": resource_search_id, "skill": search["skill"], "objective": learning_goal,
+                  "learning_outcome": plan["learning_outcome"], "modality": modality, "status": "proposed",
+                  "milestones": milestones, "resources": resources, "rubric": None, "assessment_available": False}
+        state.update(status="complete", stage="complete", result=result)
+        call(users.save_workflow_state, wf["id"], "LEARNING", state)
+        return result
+    except Exception as exc:
+        if path:
+            call(learning.delete_path, path["id"])
+        state.update(status="failed", stage="failed", error=exc.code if isinstance(exc, ModelError) else "plan_failed")
+        call(users.save_workflow_state, wf["id"], "LEARNING", state)
+        if isinstance(exc, ApiError):
+            raise
+        raise ApiError(503, "provider_unavailable", "Couldn't generate the learning plan. Your saved resources are still available; please retry.") from exc
 
-    # The coach's milestones carry explanation/exercise/resource_urls that the
-    # contract's Milestone schema has no field for; /api/arena/tutor is the
-    # delivery mechanism for that richer content instead. See notes.
-    milestones = [{"id": f"m{i + 1}", "title": m["title"], "concepts": [], "mode": "written"}
-                  for i, m in enumerate(coach_out["milestones"])]
 
-    rubric = call(mastery.create_rubric, skill, coach_out["rubric"])
-    path = call(learning.create_path, goal["id"], skill,
-               coach_out["rubric"].get("learner_goal") or goal["target_role"], milestones)
-    record_workflow(user_id, goal["id"], "generate_path", "complete",
-                    result={"path_id": path["id"], "rubric_id": rubric["id"]})
-    return _map_learning_path(call(learning.get_path, path["id"]), rubric)
-
-
-def get_path_flow(path_id: str) -> dict:
+def owned_path(path_id: str, user_id: str) -> dict:
     path = call(learning.get_path, path_id)
-    if not path:
+    goal = call(users.get_goal, path["goal_id"]) if path else None
+    if not goal or goal["user_id"] != user_id:
         raise ApiError(404, "not_found", "Learning path not found")
+    return path
+
+
+def get_path_flow(path_id: str, user_id: str) -> dict:
+    path = owned_path(path_id, user_id)
+    workflow = call(users.get_path_workflow, user_id, path_id)
+    if workflow:
+        return {**workflow["state_json"]["result"], "status": path["status"]}
     return _map_learning_path(path, _rubric_for_path(path))
 
 
-def approve_path_flow(path_id: str) -> dict:
-    path = call(learning.get_path, path_id)
-    if not path:
-        raise ApiError(404, "not_found", "Learning path not found")
-    if path["status"] != "proposed":
-        raise ApiError(409, "rule_violation", "Only a proposed path can be approved")
-    rubric = _rubric_for_path(path)
-    if not rubric:
-        raise ApiError(409, "rule_violation", "This path has no rubric to freeze")
-    if rubric["approval_status"] == "draft":
-        rubric = call(mastery.approve_rubric, rubric["id"])
-    if rubric["approval_status"] == "reviewed":
-        rubric = call(mastery.freeze_rubric, rubric["id"])
-    path = call(learning.update_path_status, path_id, "approved")
-    return _map_learning_path(call(learning.get_path, path_id), rubric)
+def approve_path_flow(path_id: str, user_id: str) -> dict:
+    path = owned_path(path_id, user_id)
+    if path["status"] not in ("proposed", "approved"):
+        raise ApiError(409, "rule_violation", "Only a proposed path can be accepted")
+    if not call(users.get_path_workflow, user_id, path_id):
+        raise ApiError(409, "rule_violation", "Generate a new learning plan before accepting it")
+    # Learner acceptance never creates, approves or freezes an assessment rubric.
+    if path["status"] == "proposed":
+        call(learning.update_path_status, path_id, "approved")
+    return get_path_flow(path_id, user_id)
 
 
-def set_path_status_flow(path_id: str, status: str) -> dict:
-    path = call(learning.update_path_status, path_id, status)
-    return _map_learning_path(call(learning.get_path, path_id), _rubric_for_path(path))
+def set_path_status_flow(path_id: str, status: str, user_id: str) -> dict:
+    path = owned_path(path_id, user_id)
+    if path["status"] == "proposed":
+        raise ApiError(409, "rule_violation", "Accept the plan before recording progress")
+    call(learning.update_path_status, path_id, status)
+    return get_path_flow(path_id, user_id)
+
+
+def require_learning_consent(user_id: str):
+    if not (call(users.get_user, user_id) or {}).get("consent_at"):
+        raise ApiError(403, "consent_required", "Processing consent is required for resource discovery and learning plans")
+
+
+def discover_resources_flow(user_id: str, analysis_id: str, skill: str) -> dict:
+    require_learning_consent(user_id)
+    analysis = get_gap_analysis_flow(analysis_id, user_id)
+    gap = next((g for g in analysis["gaps"] if g["skill"].casefold() == skill.strip().casefold()), None)
+    if not gap:
+        raise ApiError(422, "validation_error", "Choose a skill from this gap analysis")
+    skill = gap["skill"]
+    wf = call(users.create_workflow, user_id, analysis["goal_id"])
+    state = {"kind": "discover_resources", "status": "running", "stage": "searching"}
+    try:
+        routing = load_routing(os.getenv("RESOURCE_MODEL_ROUTING_PATH", "deployment/resource-model-routing.yaml"))
+        task = resource_suite()["tasks"]["resource_extract"]
+        state.update(model_routing=routing, prompt_version=task["prompt_version"],
+                     output_schema_version=task["output_schema_version"])
+        call(users.save_workflow_state, wf["id"], "LEARNING", state)
+        result = resource_search_agent.invoke({"skill": skill, "user_id": user_id,
+                    "workflow_id": wf["id"], "model_routing": routing})["result"]
+        for kind in ("free", "paid", "mixed", "unknown"):
+            for item in result[kind]:
+                row = call(learning.add_resource, skill, {"title": item["title"], "url": item["url"],
+                    "price_type": kind, "provider": "keenable", "modality": item["format"]})
+                call(learning.mark_resource_verified, row["id"])
+                item["id"] = row["id"]
+        # The existing resource table is a current catalog. The owned workflow
+        # retains this search's immutable price/access/coverage evidence for reload.
+        result.update(workflow_id=wf["id"], analysis_id=analysis_id, goal_id=analysis["goal_id"])
+        state.update(status="complete", stage="complete", result=result)
+        call(users.save_workflow_state, wf["id"], "LEARNING", state)
+        return result
+    except Exception as exc:
+        state.update(status="failed", stage="failed", error=exc.code if isinstance(exc, ModelError) else "resource_search_failed")
+        call(users.save_workflow_state, wf["id"], "LEARNING", state)
+        if isinstance(exc, ApiError):
+            raise
+        raise ApiError(503, "provider_unavailable", "Resource discovery is unavailable. Please retry; no mock results were substituted.") from exc
+
+
+def get_resource_search_flow(user_id: str, workflow_id: str) -> dict:
+    workflow = call(users.get_workflow, workflow_id)
+    state = (workflow or {}).get("state_json") or {}
+    if not workflow or workflow["user_id"] != user_id or state.get("kind") != "discover_resources":
+        raise ApiError(404, "not_found", "Resource search not found")
+    if state.get("status") != "complete":
+        raise ApiError(409, "rule_violation", "Resource search is not complete")
+    return state["result"]
 
 
 def list_resources_flow(skill: str) -> dict:
@@ -548,10 +613,10 @@ def _map_resource(resource: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 def tutor_flow(path_id: str, milestone_id: str, message: str,
-              session_id: Optional[str], mode: str) -> dict:
-    path = call(learning.get_path, path_id)
-    if not path:
-        raise ApiError(404, "not_found", "Learning path not found")
+              session_id: Optional[str], mode: str, user_id: str) -> dict:
+    path = owned_path(path_id, user_id)
+    if call(users.get_path_workflow, user_id, path_id):
+        raise ApiError(501, "not_implemented", "Tutor delivery is not available for this learning plan")
     milestone = next((m for m in path["milestones_json"] if m["id"] == milestone_id), None)
     if not milestone:
         raise ApiError(404, "not_found", "Milestone not found on this path")
@@ -572,9 +637,9 @@ def tutor_flow(path_id: str, milestone_id: str, message: str,
 # ---------------------------------------------------------------------------
 
 def start_assessment_flow(user_id: str, path_id: str, idempotency_key: Optional[str]) -> dict:
-    path = call(learning.get_path, path_id)
-    if not path:
-        raise ApiError(404, "not_found", "Learning path not found")
+    path = owned_path(path_id, user_id)
+    if call(users.get_path_workflow, user_id, path_id):
+        raise ApiError(409, "assessment_unavailable", "This learning plan supports self-checks, not competency assessment")
     if path["status"] != "approved":
         raise ApiError(409, "rule_violation", "Approve the path before starting an assessment")
     rubric = _rubric_for_path(path)

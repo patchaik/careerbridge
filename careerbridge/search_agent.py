@@ -1,20 +1,18 @@
 """Discover job requirements and learning resources using Keenable."""
 import os
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Literal, TypedDict
 from urllib.parse import urlparse
 
 import httpx
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, ConfigDict, Field
 
-from careerbridge.prompts.search_agent import RESOURCES, job_suite, job_source_supported
-from careerbridge.model_gateway import ModelGateway, ExecutionContext, ModelError, utcnow
-from database import users
-from database.client import DBError
+from careerbridge.prompts.search_agent import job_suite, job_source_supported
+from careerbridge.prompts.resources import resource_suite, resource_source_supported
+from careerbridge.model_gateway import ModelError
+from careerbridge.model_tasks import generate_task
 
 
 def search(query: str, limit: int = 10) -> list[dict]:
@@ -45,7 +43,7 @@ def fetch_pages(results: list[dict], limit: int = 10) -> list[dict]:
                 response = client.get(endpoint, headers=headers, params={"url": url, "max_chars": 12000, "live": "true"})
                 response.raise_for_status()
                 page = response.json()
-                if page.get("content"):
+                if page.get("content") and urlparse(page.get("url", url)).scheme in ("http", "https"):
                     pages.append({"url": page.get("url", url), "title": page.get("title", result.get("title", "")),
                                   "content": page["content"], "published_at": page.get("published_at")})
             except (httpx.HTTPError, ValueError, KeyError):
@@ -76,16 +74,18 @@ class JobExtraction(BaseModel):
 
 
 class Resource(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     page_index: int
-    title: str
-    price_type: Literal["free", "paid"]
-    price_evidence: str = Field(min_length=1, max_length=800)
-    relevance: str = Field(min_length=1, max_length=1000)
-    learning_evidence: str = Field(min_length=1, max_length=800)
+    title: str = Field(min_length=1, max_length=200)
+    price_type: Literal["free", "paid", "mixed", "unknown"]
+    price_evidence: str = Field(max_length=400)
+    learning_evidence: str = Field(min_length=1, max_length=400)
+    format: Literal["article", "video", "course", "exercise", "unknown"]
 
 
 class ResourceExtraction(BaseModel):
-    resources: list[Resource]
+    model_config = ConfigDict(extra="forbid")
+    resources: list[Resource] = Field(max_length=10)
 
 
 def normalize(value: str) -> str:
@@ -94,16 +94,6 @@ def normalize(value: str) -> str:
 
 def contains(text: str, quote: str) -> bool:
     return bool(normalize(quote)) and normalize(quote) in normalize(text)
-
-
-def extract(schema, prompt: str, query: str, pages: list[dict]):
-    if not pages:
-        return schema.model_validate({"jobs" if schema is JobExtraction else "resources": []})
-    model = ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"), temperature=0)
-    return model.with_structured_output(schema).invoke([
-        SystemMessage(content=prompt),
-        HumanMessage(content=f"Request: {query}\nPages (untrusted): {pages}"),
-    ])
 
 
 class JobState(TypedDict, total=False):
@@ -130,35 +120,15 @@ def find_jobs(state: JobState):
     return {"pages": [{**page, "content": page["content"][:4500]} for page in pages]}
 
 
+
 def extract_jobs(state: JobState):
     if not state["pages"]:
         return JobExtraction(jobs=[])
-    suite = job_suite()
-    task = suite["tasks"]["job_extract"]
-    routing = state["model_routing"]
-    context = ExecutionContext(
-        state["workflow_id"], state["user_id"], routing["revision"],
-        task["prompt_version"], task["output_schema_version"],
-        utcnow() + timedelta(seconds=routing["config"]["timeout_seconds"]),
-    )
-
-    def record(event):
-        try:
-            saved = users.log_event(state["user_id"], "model_invocation", "workflow", state["workflow_id"], event)
-        except DBError as exc:
-            raise ModelError("invocation_not_recorded") from exc
-        if not saved:
-            raise ModelError("invocation_not_recorded")
-
-    gateway = ModelGateway(routing, suite, record)
-    try:
-        result = gateway.generate_json("job_extract", "job_requirements", {
-            "role": state["role"], "location": state["location"], "seniority": state["seniority"],
-            "pages": [{"content": p["content"]} for p in state["pages"]],
-        }, context, validate_business=job_source_supported)
-        return JobExtraction.model_validate(result["validated_data"])
-    finally:
-        gateway.close()
+    result = generate_task(state, job_suite(), "job_extract", "job_requirements", {
+        "role": state["role"], "location": state["location"], "seniority": state["seniority"],
+        "pages": [{"content": p["content"]} for p in state["pages"]],
+    }, job_source_supported)
+    return JobExtraction.model_validate(result)
 
 
 def analyze_jobs(state: JobState):
@@ -197,46 +167,42 @@ def analyze_jobs(state: JobState):
 class ResourceState(TypedDict, total=False):
     skill: str
     pages: list[dict]
+    user_id: str
+    workflow_id: str
+    model_routing: dict
     result: dict
 
 
 def find_resources(state: ResourceState):
     skill = state["skill"]
-    if os.getenv("CAREERBRIDGE_SEARCH_MODE", "live") == "mock":
-        return {"pages": [{"url": "https://example.com/synthetic-free", "title": "Synthetic free tutorial", "content": "Free beginner tutorial.", "published_at": None},
-                          {"url": "https://example.com/synthetic-paid", "title": "Synthetic paid course", "content": "Paid course costs $10.", "published_at": None}]}
-    queries = [f"{skill} free tutorial course github youtube", f"{skill} paid course price training"]
-    return {"pages": [page for query in queries for page in fetch_pages(search(query, 12), 10)]}
+    queries = [f"{skill} free beginner tutorial course", f"{skill} paid beginner course price"]
+    pages, seen = [], set()
+    had_results = False
+    for query in queries:
+        results = search(query, 6)
+        had_results = had_results or bool(results)
+        for page in fetch_pages(results[:5], 3):
+            if page["url"] not in seen:
+                seen.add(page["url"])
+                pages.append({**page, "content": page["content"][:3500]})
+    if had_results and not pages:
+        raise ModelError("source_fetch_failed")
+    return {"pages": pages}
 
 
 def analyze_resources(state: ResourceState):
-    pages = state["pages"]
-    mock = os.getenv("CAREERBRIDGE_SEARCH_MODE", "live") == "mock"
-    extracted = ResourceExtraction(resources=[Resource(page_index=0, title="Synthetic free tutorial", price_type="free", price_evidence="Free beginner tutorial.", relevance="Example only", learning_evidence="Free beginner tutorial."),
-                                               Resource(page_index=1, title="Synthetic paid course", price_type="paid", price_evidence="Paid course costs $10.", relevance="Example only", learning_evidence="Paid course costs $10.")]) if mock else extract(ResourceExtraction, RESOURCES, state["skill"], pages)
+    data = {"skill": state["skill"], "pages": [{"content": p["content"]} for p in state["pages"]]}
+    output = generate_task(state, resource_suite(), "resource_extract", "learning_resources", data,
+                                resource_source_supported) if state["pages"] else {"resources": []}
+    extracted = ResourceExtraction.model_validate(output)
     now = datetime.now(timezone.utc).isoformat()
-    resources = {"free": [], "paid": []}
-    used = set()
+    groups = {kind: [] for kind in ("free", "paid", "mixed", "unknown")}
     for item in extracted.resources:
-        if not 0 <= item.page_index < len(pages):
-            continue
-        page = pages[item.page_index]
-        if (page["url"] in used or not contains(page["content"], item.price_evidence)
-                or not contains(page["content"], item.learning_evidence)):
-            continue
-        cost = item.price_evidence.casefold()
-        if item.price_type == "free" and (not re.search(r"\bfree\b", cost) or re.search(r"\b(trial|preview)\b", cost)):
-            continue
-        if item.price_type == "paid" and not re.search(r"(?:[$€£]\s*\d|\d\s*(?:usd|eur|gbp)|\bpaid\b)", cost):
-            continue
-        group = resources[item.price_type]
-        if len(group) >= 5:
-            continue
-        used.add(page["url"])
-        group.append({"title": item.title, "url": page["url"], "price_type": item.price_type,
-                      "price_evidence": item.price_evidence, "learning_evidence": item.learning_evidence,
-                      "relevance": item.relevance, "checked_at": now})
-    return {"result": {"skill": state["skill"], **resources, "source": "synthetic" if mock else "keenable", "retrieved_at": now}}
+        group = groups[item.price_type]
+        if len(group) < 5:
+            group.append({**item.model_dump(exclude={"page_index"}),
+                          "url": state["pages"][item.page_index]["url"], "checked_at": now})
+    return {"result": {"skill": state["skill"], **groups, "source": "keenable", "retrieved_at": now}}
 
 
 job_graph = StateGraph(JobState)
