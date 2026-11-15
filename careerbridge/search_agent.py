@@ -1,6 +1,7 @@
 """Discover job requirements and learning resources using Keenable."""
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Literal, TypedDict
 from urllib.parse import urlparse
@@ -13,6 +14,7 @@ from careerbridge.prompts.search_agent import job_suite, job_source_supported
 from careerbridge.prompts.resources import resource_suite, resource_source_supported
 from careerbridge.model_gateway import ModelError
 from careerbridge.model_tasks import generate_task
+from careerbridge.timings import measure
 
 
 def search(query: str, limit: int = 10) -> list[dict]:
@@ -31,25 +33,36 @@ def fetch_pages(results: list[dict], limit: int = 10) -> list[dict]:
     key = os.getenv("KEENABLE_API_KEY")
     headers = {"X-API-Key": key} if key else {"X-Keenable-Title": "CareerBridge"}
     endpoint = "https://api.keenable.ai/v1/fetch" + ("" if key else "/public")
-    pages, seen = [], set()
-    with httpx.Client(timeout=20) as client:
-        for result in results:
-            url = result.get("url", "")
-            parsed = urlparse(url)
-            if parsed.scheme not in ("http", "https") or not parsed.hostname or url in seen:
-                continue
+    if limit <= 0:
+        return []
+    candidates, seen = [], set()
+    for result in results:
+        url = result.get("url", "")
+        parsed = urlparse(url)
+        if parsed.scheme in ("http", "https") and parsed.hostname and url not in seen:
             seen.add(url)
+            candidates.append(result)
+    pages = []
+    with httpx.Client(timeout=20) as client, ThreadPoolExecutor(max_workers=3) as pool:
+        def fetch(result):
+            url = result["url"]
             try:
                 response = client.get(endpoint, headers=headers, params={"url": url, "max_chars": 12000, "live": "true"})
                 response.raise_for_status()
                 page = response.json()
                 if page.get("content") and urlparse(page.get("url", url)).scheme in ("http", "https"):
-                    pages.append({"url": page.get("url", url), "title": page.get("title", result.get("title", "")),
-                                  "content": page["content"], "published_at": page.get("published_at")})
+                    return {"url": page.get("url", url), "title": page.get("title", result.get("title", "")),
+                            "content": page["content"], "published_at": page.get("published_at")}
             except (httpx.HTTPError, ValueError, KeyError):
-                continue
-            if len(pages) >= limit:
-                break
+                pass
+            return None
+
+        offset = 0
+        while offset < len(candidates) and len(pages) < limit:
+            # Small batches preserve search rank and avoid fetching past the result limit.
+            batch = candidates[offset:offset + min(3, limit - len(pages))]
+            pages.extend(page for page in pool.map(fetch, batch) if page is not None)
+            offset += len(batch)
     return pages
 
 
@@ -103,6 +116,7 @@ class JobState(TypedDict, total=False):
     workflow_id: str
     user_id: str
     model_routing: dict
+    timings_ms: dict
     pages: list[dict]
     result: dict
 
@@ -112,8 +126,11 @@ def find_jobs(state: JobState):
         return {"pages": [{"url": "https://example.com/synthetic-job", "title": f"Synthetic {state['role']} job",
                            "content": f"Synthetic {state['role']}. Required: Python and SQL. Preferred: Docker.", "published_at": None}]}
     query = f"{state['role']} {state['seniority']} {state['location']} job opening responsibilities qualifications"
-    results = search(query, 10)
-    pages = fetch_pages(results[:8], 5)
+    timings = state.setdefault("timings_ms", {})
+    with measure(timings, "search"):
+        results = search(query, 10)
+    with measure(timings, "fetch"):
+        pages = fetch_pages(results[:8], 5)
     if results and not pages:
         raise ModelError("source_fetch_failed")
     # Bound model input while retaining only quotes within the supplied excerpt.
@@ -134,10 +151,11 @@ def extract_jobs(state: JobState):
 def analyze_jobs(state: JobState):
     pages = state["pages"]
     mock = os.getenv("CAREERBRIDGE_SEARCH_MODE", "live") == "mock"
-    extracted = JobExtraction(jobs=[Job(page_index=0, title=f"Synthetic {state['role']}", employer="Example",
-        requirements=[Requirement(skill="Python", importance="required", excerpt="Required: Python and SQL."),
-                      Requirement(skill="SQL", importance="required", excerpt="Required: Python and SQL."),
-                      Requirement(skill="Docker", importance="preferred", excerpt="Preferred: Docker.")])]) if mock else extract_jobs(state)
+    with measure(state.setdefault("timings_ms", {}), "model"):
+        extracted = JobExtraction(jobs=[Job(page_index=0, title=f"Synthetic {state['role']}", employer="Example",
+            requirements=[Requirement(skill="Python", importance="required", excerpt="Required: Python and SQL."),
+                          Requirement(skill="SQL", importance="required", excerpt="Required: Python and SQL."),
+                          Requirement(skill="Docker", importance="preferred", excerpt="Preferred: Docker.")])]) if mock else extract_jobs(state)
     now = datetime.now(timezone.utc).isoformat()
     jobs = []
     used = set()
@@ -170,6 +188,7 @@ class ResourceState(TypedDict, total=False):
     user_id: str
     workflow_id: str
     model_routing: dict
+    timings_ms: dict
     result: dict
 
 
@@ -178,10 +197,14 @@ def find_resources(state: ResourceState):
     queries = [f"{skill} free beginner tutorial course", f"{skill} paid beginner course price"]
     pages, seen = [], set()
     had_results = False
+    timings = state.setdefault("timings_ms", {})
     for query in queries:
-        results = search(query, 6)
+        with measure(timings, "search"):
+            results = search(query, 6)
         had_results = had_results or bool(results)
-        for page in fetch_pages(results[:5], 3):
+        with measure(timings, "fetch"):
+            fetched = fetch_pages(results[:5], 3)
+        for page in fetched:
             if page["url"] not in seen:
                 seen.add(page["url"])
                 pages.append({**page, "content": page["content"][:3500]})
@@ -192,7 +215,8 @@ def find_resources(state: ResourceState):
 
 def analyze_resources(state: ResourceState):
     data = {"skill": state["skill"], "pages": [{"content": p["content"]} for p in state["pages"]]}
-    output = generate_task(state, resource_suite(), "resource_extract", "learning_resources", data,
+    with measure(state.setdefault("timings_ms", {}), "model"):
+        output = generate_task(state, resource_suite(), "resource_extract", "learning_resources", data,
                                 resource_source_supported) if state["pages"] else {"resources": []}
     extracted = ResourceExtraction.model_validate(output)
     now = datetime.now(timezone.utc).isoformat()
