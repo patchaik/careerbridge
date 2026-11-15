@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
+import { CARD_ACCENT, GRADIENT_HEADING, LearnIconsBackground } from "../components/ui/techTheme";
 import { approvePath, completeMilestone, getPath, listPaths, type LearningPlan } from "../lib/api/paths";
 import { MilestoneMaterial } from "../components/features/learning/MilestoneMaterial";
 import { getMaterials, type MilestoneMaterial as Material } from "../lib/api/materials";
@@ -78,8 +79,9 @@ export function LearnPage() {
     finally { if (currentPath.current === plan.id) setBusy(false); }
   }
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="text-2xl font-semibold">{id ? "Your learning plan" : "My learning"}</h1>
+    <div className="relative mx-auto max-w-3xl px-4 py-12">
+      <LearnIconsBackground />
+      <h1 className={`text-2xl font-semibold sm:text-3xl ${GRADIENT_HEADING}`}>{id ? "Your learning plan" : "My learning"}</h1>
       {id && <Link to="/learn" className="mt-2 inline-block text-primary-700 underline">All saved plans</Link>}
       {error && (
         <Alert variant="danger" className="mt-4">
@@ -92,7 +94,7 @@ export function LearnPage() {
         </p>
       )}
       {!id && !loading && !error && <div className="mt-6 space-y-4">
-        {plans.map(saved => <Card key={saved.id}>
+        {plans.map(saved => <Card key={saved.id} className={CARD_ACCENT}>
           <p className="text-sm text-neutral-600">{saved.skill} · {saved.status === "proposed" ? "Awaiting acceptance" : saved.status === "completed" ? "Completed" : "Ready to continue"}</p>
           <h2 className="mt-2 font-semibold">{saved.objective}</h2>
           <p className="mt-2">{saved.progress.completed} of {saved.progress.total} milestones complete</p>
@@ -109,7 +111,7 @@ export function LearnPage() {
       </div>}
       {plan && (
         <div className="mt-6 space-y-6">
-          <Card>
+          <Card className={CARD_ACCENT}>
             <p className="text-sm text-neutral-600">
               {plan.skill} ·{" "}
               {plan.modality === "hands_on"
@@ -134,7 +136,7 @@ export function LearnPage() {
           <ol className="space-y-4">
             {plan.milestones.map((m, index) => (
               <li key={m.id} id={`milestone-${m.id}`} className="scroll-mt-20">
-                <Card>
+                <Card className={CARD_ACCENT}>
                   <p className="text-xs text-neutral-500">
                     Step {index + 1} · {m.mode === "text" ? "Text" : "Hands-on"}{m.done ? " · Completed" : ""}
                   </p>
@@ -177,6 +179,8 @@ export function LearnPage() {
                   />}
                   {plan.status !== "proposed" && <div className="mt-5">
                     <Button disabled={busy || (!m.done && !materials.some(item => item.milestone_id === m.id))}
+                      size="lg"
+                      className={!busy && (m.done || materials.some(item => item.milestone_id === m.id)) ? "animate-pulse-glow" : ""}
                       onClick={() => complete(m.id, !m.done)}>
                       {busy ? "Saving progress…" : m.done ? "Mark incomplete" : "Mark milestone complete"}
                     </Button>
@@ -192,7 +196,7 @@ export function LearnPage() {
             Hands-on tasks are completed outside this app.
           </p>
           {plan.status === "proposed" ? (
-            <Button onClick={accept} disabled={busy}>
+            <Button onClick={accept} disabled={busy} size="lg" className={busy ? "" : "animate-pulse-glow"}>
               {busy ? "Saving…" : "Accept learning plan"}
             </Button>
           ) : (

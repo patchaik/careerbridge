@@ -5,6 +5,7 @@ import { Alert } from "../components/ui/Alert";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
+import { CARD_ACCENT, GRADIENT_HEADING, SkillsIconsBackground } from "../components/ui/techTheme";
 import { useJourney } from "../context/JourneyContext";
 import { getGapAnalysis, type GapAnalysis } from "../lib/api/skills";
 import { getJob, type JobPosting } from "../lib/api/jobs";
@@ -75,8 +76,9 @@ export function SkillsPage() {
   const selfReportedGaps = data?.analysis.gaps.filter((g) => isSelfReported(g.skill)) ?? [];
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-16">
-      <h1 className="text-2xl font-semibold">Your skill comparison</h1>
+    <div className="relative mx-auto max-w-3xl px-4 py-16">
+      <SkillsIconsBackground />
+      <h1 className={`text-2xl font-semibold sm:text-3xl ${GRADIENT_HEADING}`}>Your skill comparison</h1>
       <p className="mt-2 text-neutral-600">
         Based on the retrieved postings and your confirmed profile. A gap means
         missing profile evidence, not demonstrated inability.
@@ -156,7 +158,7 @@ export function SkillsPage() {
               {reviewGaps.map((gap) => {
                 const isOpen = expanded.has(gap.skill);
                 return (
-                  <Card key={gap.skill}>
+                  <Card key={gap.skill} className={CARD_ACCENT}>
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <div className="flex items-center gap-2">
@@ -250,7 +252,7 @@ export function SkillsPage() {
             </p>
             <div className="mt-3 space-y-3">
               {data.jobs.map((job) => (
-                <Card key={job.id}>
+                <Card key={job.id} className={CARD_ACCENT}>
                   <div className="flex items-center justify-between gap-2">
                     <a
                       href={job.url}

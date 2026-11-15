@@ -380,3 +380,69 @@ export function LandingIconsBackground() {
     </div>
   );
 }
+
+const POINT_A_B_CLUSTERS: { top: string; left: string; rotate: number; scale: number }[] = [
+  { top: "5%", left: "8%", rotate: -3, scale: 1 },
+  { top: "11%", left: "78%", rotate: 4, scale: 0.9 },
+  { top: "24%", left: "40%", rotate: 2, scale: 0.85 },
+  { top: "34%", left: "90%", rotate: -5, scale: 1 },
+  { top: "46%", left: "14%", rotate: 3, scale: 0.9 },
+  { top: "56%", left: "62%", rotate: -2, scale: 0.95 },
+  { top: "68%", left: "6%", rotate: 5, scale: 0.9 },
+  { top: "78%", left: "82%", rotate: -4, scale: 1 },
+  { top: "90%", left: "36%", rotate: 3, scale: 0.9 },
+];
+
+type LearnClusterKind = "book" | "ai-laptop";
+
+const LEARN_CLUSTERS: { top: string; left: string; rotate: number; scale: number; kind: LearnClusterKind }[] = [
+  { top: "4%", left: "6%", rotate: -4, scale: 1, kind: "book" },
+  { top: "8%", left: "84%", rotate: 5, scale: 0.9, kind: "ai-laptop" },
+  { top: "22%", left: "46%", rotate: -3, scale: 0.9, kind: "book" },
+  { top: "30%", left: "12%", rotate: 4, scale: 0.95, kind: "ai-laptop" },
+  { top: "38%", left: "88%", rotate: -5, scale: 1, kind: "book" },
+  { top: "50%", left: "60%", rotate: 3, scale: 0.9, kind: "ai-laptop" },
+  { top: "60%", left: "8%", rotate: -4, scale: 0.95, kind: "book" },
+  { top: "70%", left: "80%", rotate: 4, scale: 1, kind: "ai-laptop" },
+  { top: "80%", left: "40%", rotate: -3, scale: 0.9, kind: "book" },
+  { top: "92%", left: "64%", rotate: 5, scale: 0.9, kind: "ai-laptop" },
+];
+
+// Same layout as the other page backgrounds, but for the Learn page: just
+// books (squiggly lines standing in for course material) and "AI" laptops,
+// standalone — no person icon.
+export function LearnIconsBackground() {
+  return (
+    <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
+      <AmbientGlow className="h-full" />
+      {LEARN_CLUSTERS.map((c, i) => (
+        <div
+          key={i}
+          className="absolute text-primary-500/[0.22]"
+          style={{ top: c.top, left: c.left, transform: `rotate(${c.rotate}deg) scale(${c.scale})` }}
+        >
+          {c.kind === "book" ? <SquigglyBookIcon className="h-8 w-8" /> : <AiLaptopIcon className="h-8 w-8" />}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Same layout as the other page backgrounds, but for the Skills page: only
+// the "A → B" learning-journey icon from the landing page, repeated.
+export function SkillsIconsBackground() {
+  return (
+    <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
+      <AmbientGlow className="h-full" />
+      {POINT_A_B_CLUSTERS.map((c, i) => (
+        <div
+          key={i}
+          className="absolute text-primary-500/[0.22]"
+          style={{ top: c.top, left: c.left, transform: `rotate(${c.rotate}deg) scale(${c.scale})` }}
+        >
+          <PointAToBIcon className="h-7 w-16" />
+        </div>
+      ))}
+    </div>
+  );
+}
