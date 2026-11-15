@@ -10,8 +10,8 @@ Neither establishes independently verified competency.
 
 ## The learning journey
 
-1. **Build your profile.** Sign in with Supabase Auth, upload a PDF/DOCX résumé or enter skills manually, then review and confirm the profile.
-2. **Choose a direction.** Set a target role, location and seniority. Search live job postings through Keenable and select postings for comparison.
+1. **Build your profile.** Sign in with Auth, upload a PDF/DOCX résumé or enter skills manually, then review and confirm the profile.
+2. **Choose a direction.** Set a target role, location and seniority. Search live job postings through API search and select postings for comparison.
 3. **Understand the gaps.** Compare confirmed skills with sourced job requirements. Saved gap analyses include supporting excerpts and links. Missing evidence is not treated as proof that you lack a skill.
 4. **Choose resources and a goal.** Discover free, paid, mixed and unknown-price resources for a selected gap. Choose resources, write a concrete learning goal, and select text, hands-on practice or both.
 5. **Learn at your pace.** Review and accept a plan, generate milestone material, mark milestones complete or reopen them, and return to saved work.
@@ -21,20 +21,9 @@ Neither establishes independently verified competency.
 Resource selection does not purchase or enroll in courses. Hands-on activities are
 completed outside the app; submitted code is not executed.
 
-## Current scope
-
-| Available in the integrated flow | Boundaries and unfinished work |
-| --- | --- |
-| Supabase sign-up/sign-in, résumé parsing and profile confirmation | Interest analysis and résumé critique still use mock responses |
-| Live job discovery, source-backed requirements and saved gap analyses | Matching uses canonical skill names; listings can be stale and source validation can reject model output |
-| Saved resources, accepted plans and generated milestone material | Chat tutoring, an interactive practice arena and inline video delivery are not enabled for these plans |
-| Saved milestone completion, formative learning checks and progress recommendations | No independent mastery certification or automatic profile-skill promotion; learning-check retakes are deferred |
-| Shared OpenAI/Nebius model gateway and optional Langfuse tracing | Broader durable workflow recovery and the canonical `/api/v1` integration remain future work |
-| Current synchronous `/api` backend | Résumé drafting/export, independent assessment UI, diagnostics and wellbeing are incomplete or placeholders |
-
-The Progress page covers the latest 50 saved resource-based plans. Quiz scoring uses
-a server-held, AI-generated answer key; written feedback is also AI-generated.
-Neither has been independently reviewed. A successful check does not close a
+The Progress page covers the latest 50 saved resource-based plans. Quiz scoring uses\
+a server-held, AI-generated answer key; written feedback is also AI-generated.\
+A successful check does not close a\
 job-market skill gap or add verified evidence.
 
 ## Stack and repository layout
