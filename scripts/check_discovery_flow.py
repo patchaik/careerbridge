@@ -1,6 +1,6 @@
 """Live job -> gap -> resource discovery, reload and stage timing checks.
 
-Uses a disposable learner and a seeded SQL gap for the resource check.
+Uses a disposable learner and a seeded skill gap for the resource check.
 Job search and resource discovery use live providers; public catalog entries remain.
 Run with server credentials loaded and an API using the same development project.
 """
@@ -22,6 +22,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://127.0.0.1:8003")
     parser.add_argument("--output", required=True)
+    parser.add_argument("--skill", default="SQL")
+    parser.add_argument("--resources-only", action="store_true")
     args = parser.parse_args()
     if os.getenv("CAREERBRIDGE_ENV") not in {"development", "test"}:
         parser.error("Use development/test Supabase")
@@ -48,7 +50,9 @@ def main():
             timings["total"]
             >= sum(timings[k] for k in ("search", "fetch", "model", "save")) - 1
         )
-        report[name] = {"stages_ms": timings, "http_ms": round(elapsed, 3)}
+        report[name] = {"stages_ms": timings, "http_ms": round(elapsed, 3),
+                        "trace_id": workflow["state_json"].get("trace_id"),
+                        "diagnostics": workflow["state_json"].get("diagnostics")}
         print(name, json.dumps(report[name]), flush=True)
         return result
 
@@ -103,46 +107,48 @@ def main():
                     json={"target_role": "Business Analyst", "location": "remote"},
                 )
             )
-            found = measured(
-                client, "/api/jobs/search", {"goal_id": goal["id"], "limit": 5}, "jobs"
-            )
-            assert (
-                found["jobs"]
-                and found["source"] == "keenable"
-                and not found["fallback_used"]
-            )
-            posting_ids = [job["id"] for job in found["jobs"]]
-            for job in found["jobs"]:
-                assert checked(client.get("/api/jobs/" + job["id"])) == job
-                assert len(jobs.list_requirements(job["id"])) == len(
-                    job["requirements"]
+            found = {"jobs": []}
+            if not args.resources_only:
+                found = measured(
+                    client, "/api/jobs/search", {"goal_id": goal["id"], "limit": 5}, "jobs"
                 )
-                assert all(
-                    r["skill"].casefold() in r["excerpt"].casefold()
-                    for r in job["requirements"]
+                assert (
+                    found["jobs"]
+                    and found["source"] == "keenable"
+                    and not found["fallback_used"]
                 )
-            analysis = checked(
-                client.post(
-                    "/api/skills/analyze",
-                    json={
-                        "goal_id": goal["id"],
-                        "profile_id": profile["id"],
-                        "job_ids": posting_ids,
-                    },
+                posting_ids = [job["id"] for job in found["jobs"]]
+                for job in found["jobs"]:
+                    assert checked(client.get("/api/jobs/" + job["id"])) == job
+                    assert len(jobs.list_requirements(job["id"])) == len(
+                        job["requirements"]
+                    )
+                    assert all(
+                        r["skill"].casefold() in r["excerpt"].casefold()
+                        for r in job["requirements"]
+                    )
+                analysis = checked(
+                    client.post(
+                        "/api/skills/analyze",
+                        json={
+                            "goal_id": goal["id"],
+                            "profile_id": profile["id"],
+                            "job_ids": posting_ids,
+                        },
+                    )
                 )
-            )
-            assert (
-                checked(client.get("/api/gap-analyses/" + analysis["id"])) == analysis
-            )
-            assert analysis["gaps"]
+                assert (
+                    checked(client.get("/api/gap-analyses/" + analysis["id"])) == analysis
+                )
+                assert analysis["gaps"]
             # A stable gap fixture keeps resource tests independent of changing job listings.
             fixture = jobs.upsert_job_posting(
                 {
                     "provider": "cached",
                     "provider_job_id": "discovery-check-" + uuid4().hex,
-                    "title": "Synthetic SQL requirement",
+                    "title": f"Synthetic {args.skill} requirement",
                     "url": "https://example.com/discovery-check",
-                    "description": "Synthetic fixture. Required: SQL.",
+                    "description": f"Synthetic fixture. Required: {args.skill}.",
                 }
             )
             posting_ids.append(fixture["id"])
@@ -150,9 +156,9 @@ def main():
                 fixture["id"],
                 [
                     {
-                        "skill": "SQL",
+                        "skill": args.skill,
                         "importance": "required",
-                        "excerpt": "Required: SQL.",
+                        "excerpt": f"Required: {args.skill}.",
                     }
                 ],
             )
@@ -166,7 +172,7 @@ def main():
                     },
                 )
             )
-            skill = "SQL"
+            skill = args.skill
             resources = measured(
                 client,
                 "/api/resources/search",
@@ -195,6 +201,7 @@ def main():
                 r["id"]: r["url"] for r in items
             }
             assert all(r["learning_evidence"] for r in items)
+            assert resources["free"] and resources["paid"], "Expected both free and paid resources in this live fixture"
             report.update(
                 passed=True,
                 skill=skill,

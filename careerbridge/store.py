@@ -27,6 +27,7 @@ from database.client import DBError
 from careerbridge.analyst import analyst, resume_routing
 from careerbridge.model_gateway import ModelError, load_routing, utcnow
 from careerbridge.timings import measure
+from careerbridge.tracing import trace, trace_id
 from careerbridge.prompts.career_analyst import resume_suite
 from careerbridge.prompts.search_agent import job_suite
 from careerbridge.prompts.resources import resource_suite
@@ -650,36 +651,70 @@ def discover_resources_flow(user_id: str, analysis_id: str, skill: str) -> dict:
         raise ApiError(422, "validation_error", "Choose a skill from this gap analysis")
     skill = gap["skill"]
     wf = call(users.create_workflow, user_id, analysis["goal_id"])
-    state = {"kind": "discover_resources", "status": "running", "stage": "searching", "timings_ms": timings}
-    try:
-        routing = load_routing(os.getenv("RESOURCE_MODEL_ROUTING_PATH", "deployment/resource-model-routing.yaml"))
-        task = resource_suite()["tasks"]["resource_extract"]
-        state.update(model_routing=routing, prompt_version=task["prompt_version"],
-                     output_schema_version=task["output_schema_version"])
-        call(users.save_workflow_state, wf["id"], "LEARNING", state)
-        result = resource_search_agent.invoke({"skill": skill, "user_id": user_id,
-                    "workflow_id": wf["id"], "model_routing": routing, "timings_ms": timings})["result"]
-        with measure(timings, "save"):
-            for kind in ("free", "paid", "mixed", "unknown"):
-                for item in result[kind]:
-                    row = call(learning.add_resource, skill, {"title": item["title"], "url": item["url"],
-                        "price_type": kind, "provider": "keenable", "modality": item["format"]})
-                    call(learning.mark_resource_verified, row["id"])
-                    item["id"] = row["id"]
-        # The existing resource table is a current catalog. The owned workflow
-        # retains this search's immutable price/access/coverage evidence for reload.
-        result.update(workflow_id=wf["id"], analysis_id=analysis_id, goal_id=analysis["goal_id"])
-        timings["total"] = round((perf_counter() - started) * 1000, 3)
-        state.update(status="complete", stage="complete", result=result)
-        call(users.save_workflow_state, wf["id"], "LEARNING", state)
-        return result
-    except Exception as exc:
-        timings["total"] = round((perf_counter() - started) * 1000, 3)
-        state.update(status="failed", stage="failed", error=exc.code if isinstance(exc, ModelError) else "resource_search_failed")
-        call(users.save_workflow_state, wf["id"], "LEARNING", state)
-        if isinstance(exc, ApiError):
-            raise
-        raise ApiError(503, "provider_unavailable", "Resource discovery is unavailable. Please retry; no mock results were substituted.") from exc
+    diagnostics = {"stage": "configuration"}
+    state = {"kind": "discover_resources", "status": "running", "stage": "searching",
+             "timings_ms": timings, "diagnostics": diagnostics}
+    with trace("discover-resources", user_id=user_id, workflow_id=wf["id"],
+               input={"skill": skill, "access": ["free", "paid"]}) as observation:
+        state["trace_id"] = trace_id()
+        try:
+            routing = load_routing(os.getenv("RESOURCE_MODEL_ROUTING_PATH", "deployment/resource-model-routing.yaml"))
+            task = resource_suite()["tasks"]["resource_extract"]
+            state.update(model_routing=routing, prompt_version=task["prompt_version"],
+                         output_schema_version=task["output_schema_version"])
+            diagnostics["stage"] = "save"
+            call(users.save_workflow_state, wf["id"], "LEARNING", state)
+            result = resource_search_agent.invoke({"skill": skill, "user_id": user_id,
+                        "workflow_id": wf["id"], "model_routing": routing,
+                        "timings_ms": timings, "diagnostics": diagnostics})["result"]
+            diagnostics["stage"] = "save"
+            with measure(timings, "save"), trace("save-resources",
+                    input={"resource_count": sum(len(result[k]) for k in ("free", "paid", "mixed", "unknown"))}) as saved:
+                for kind in ("free", "paid", "mixed", "unknown"):
+                    for item in result[kind]:
+                        row = call(learning.add_resource, skill, {"title": item["title"], "url": item["url"],
+                            "price_type": kind, "provider": "keenable", "modality": item["format"]})
+                        call(learning.mark_resource_verified, row["id"])
+                        item["id"] = row["id"]
+                # Retain immutable price/coverage evidence for reload.
+                result.update(workflow_id=wf["id"], analysis_id=analysis_id, goal_id=analysis["goal_id"])
+                state.update(status="complete", stage="complete", result=result)
+                call(users.save_workflow_state, wf["id"], "LEARNING", state)
+                saved.update(output={"status": "saved"})
+            timings["total"] = round((perf_counter() - started) * 1000, 3)
+            diagnostics["stage"] = "complete"
+            call(users.save_workflow_state, wf["id"], "LEARNING", state)
+            observation.update(output={"counts": {k: len(result[k]) for k in ("free", "paid", "mixed", "unknown")}},
+                               metadata={"timings_ms": timings})
+            return result
+        except Exception as exc:
+            timings["total"] = round((perf_counter() - started) * 1000, 3)
+            code = exc.code if isinstance(exc, ModelError) else "resource_discovery_failed"
+            diagnostics.update(error_code=code, exception_type=type(exc).__name__)
+            if isinstance(exc, ModelError) and exc.diagnostics:
+                diagnostics["model_validation"] = exc.diagnostics
+            stage = diagnostics["stage"]
+            state.update(status="failed", stage="failed", error=code)
+            observation.update(level="ERROR", status_message=code,
+                               output={"status": "failed", "stage": stage},
+                               metadata={"diagnostics": diagnostics, "timings_ms": timings})
+            try:
+                call(users.save_workflow_state, wf["id"], "LEARNING", state)
+            except ApiError:
+                pass  # The trace still records the failure if Supabase is unavailable.
+            messages = {
+                "configuration": "Resource discovery is not configured. Please contact support.",
+                "search": "The resource search service could not complete the search. Please retry.",
+                "fetch": "Resource pages could not be read. Please retry.",
+                "extraction": "The model could not extract verified resources from the pages. Please retry.",
+                "save": "Resources could not be saved. Please retry.",
+            }
+            message = messages.get(stage, "Resource discovery failed. Please retry.")
+            if code in {"provider_not_configured", "capability_unavailable", "unsupported_route"}:
+                message = messages["configuration"]
+            elif code == "invalid_output":
+                message = "Resources were found, but their details could not be verified against the source pages. Please retry."
+            raise ApiError(503, "provider_unavailable", f"{message} Reference: {wf['id']}") from exc
 
 
 def get_resource_search_flow(user_id: str, workflow_id: str) -> dict:

@@ -11,10 +11,11 @@ from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, ConfigDict, Field
 
 from careerbridge.prompts.search_agent import job_suite, job_source_supported
-from careerbridge.prompts.resources import resource_suite, resource_source_supported
+from careerbridge.prompts.resources import resource_suite, resource_validation_issues
 from careerbridge.model_gateway import ModelError
 from careerbridge.model_tasks import generate_task
 from careerbridge.timings import measure
+from careerbridge.tracing import trace
 
 
 def search(query: str, limit: int = 10) -> list[dict]:
@@ -189,6 +190,7 @@ class ResourceState(TypedDict, total=False):
     workflow_id: str
     model_routing: dict
     timings_ms: dict
+    diagnostics: dict
     result: dict
 
 
@@ -198,12 +200,19 @@ def find_resources(state: ResourceState):
     pages, seen = [], set()
     had_results = False
     timings = state.setdefault("timings_ms", {})
+    diagnostics = state.setdefault("diagnostics", {})
     for query in queries:
-        with measure(timings, "search"):
+        diagnostics["stage"] = "search"
+        with measure(timings, "search"), trace("search-resources", as_type="retriever",
+                input={"skill": skill, "access": "paid" if " paid beginner" in query else "free"}) as observation:
             results = search(query, 6)
+            observation.update(output={"result_count": len(results)})
         had_results = had_results or bool(results)
-        with measure(timings, "fetch"):
+        diagnostics["stage"] = "fetch"
+        with measure(timings, "fetch"), trace("fetch-resource-pages", as_type="retriever",
+                input={"candidate_count": min(len(results), 5)}) as observation:
             fetched = fetch_pages(results[:5], 3)
+            observation.update(output={"page_count": len(fetched)})
         for page in fetched:
             if page["url"] not in seen:
                 seen.add(page["url"])
@@ -215,9 +224,23 @@ def find_resources(state: ResourceState):
 
 def analyze_resources(state: ResourceState):
     data = {"skill": state["skill"], "pages": [{"content": p["content"]} for p in state["pages"]]}
+    diagnostics = state.setdefault("diagnostics", {})
+    diagnostics.update(stage="extraction", page_count=len(state["pages"]), validation_attempts=[])
+
+    def validate_resources(output, source):
+        issues = resource_validation_issues(output, source)
+        diagnostics["validation_attempts"].append({"resource_count": len(output["resources"]), "issues": issues})
+        with trace("validate-resource-evidence", as_type="guardrail",
+                   input={"page_count": len(source["pages"]), "resource_count": len(output["resources"])}) as observation:
+            observation.update(output={"valid": not issues, "issues": issues},
+                               level="WARNING" if issues else "DEFAULT")
+        if issues:
+            raise ModelError("invalid_output", {"reason": "source_validation", "issues": issues})
+        return True
+
     with measure(state.setdefault("timings_ms", {}), "model"):
         output = generate_task(state, resource_suite(), "resource_extract", "learning_resources", data,
-                                resource_source_supported) if state["pages"] else {"resources": []}
+                                validate_resources) if state["pages"] else {"resources": []}
     extracted = ResourceExtraction.model_validate(output)
     now = datetime.now(timezone.utc).isoformat()
     groups = {kind: [] for kind in ("free", "paid", "mixed", "unknown")}
