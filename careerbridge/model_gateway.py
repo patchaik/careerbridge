@@ -15,6 +15,7 @@ from uuid import UUID, uuid4
 import httpx
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker, ValidationError
+from careerbridge.tracing import generation
 
 CONTRACT = Path(__file__).resolve().parents[1] / "contracts/v0.1/schemas"
 ADAPTER_VERSION = "chat-compat-v1"
@@ -37,8 +38,9 @@ ENDPOINTS = {
 class ModelError(Exception):
     """Stable safe code; never includes provider bodies or source text."""
 
-    def __init__(self, code):
+    def __init__(self, code, diagnostics=None):
         self.code = code
+        self.diagnostics = diagnostics
         super().__init__(code)
 
 
@@ -341,6 +343,11 @@ class ModelGateway:
             transient = False
             delay_header = None
             error = None
+            observation = generation("generate-" + name, model=profile["model"],
+                input={"task": name, "content": "omitted"},
+                metadata={"provider": profile["provider"], "attempt": attempt + 1,
+                          "prompt_version": ctx.prompt_version, "schema_version": ctx.output_schema_version,
+                          "workflow_id": str(ctx.workflow_id), "routing_revision": self.revision})
             try:
                 response = self.client.post(
                     profile["base_url"].rstrip("/") + "/chat/completions",
@@ -381,7 +388,10 @@ class ModelGateway:
             except (httpx.TimeoutException, httpx.NetworkError):
                 transient = True
                 error = ModelError("provider_unavailable")
-            except (ValidationError, ValueError, KeyError, TypeError):
+            except ValidationError as exc:
+                error = ModelError("invalid_output", {"reason": "schema_validation",
+                    "validator": exc.validator, "schema_path": list(exc.absolute_schema_path)[:16]})
+            except (ValueError, KeyError, TypeError):
                 error = ModelError("invalid_output")
             except ModelError as exc:
                 error = exc
@@ -389,6 +399,14 @@ class ModelGateway:
                 if error and error.code in ("refused", "incomplete", "invalid_output"):
                     event["status"] = error.code
                 event["latency_ms"] = max(0, round((time.monotonic() - start) * 1000))
+                observation.update(model=event["returned_model"] or profile["model"],
+                    usage_details={k: event[v] for k, v in (("input", "input_tokens"), ("output", "output_tokens")) if event[v] is not None},
+                    output={"status": event["status"]},
+                    level="ERROR" if error else "DEFAULT",
+                    status_message=error.code if error else None,
+                    metadata={"provider_request_id": event["provider_request_id"],
+                              "validation": error.diagnostics if error else None})
+                observation.end()
                 validate(contract_schema("model-invocation"), event)
                 self.record(event)
             if error is None:
@@ -406,7 +424,8 @@ class ModelGateway:
                 messages = messages + [
                     {
                         "role": "system",
-                        "content": "The previous attempt failed validation. Re-read the input data and return valid, source-supported JSON for the same schema.",
+                        "content": "The previous attempt failed validation. Re-read the input data and return valid, source-supported JSON for the same schema."
+                        + (" Validation diagnostics: " + json.dumps(error.diagnostics) if error.diagnostics else ""),
                     }
                 ]
                 continue

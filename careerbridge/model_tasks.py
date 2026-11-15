@@ -9,6 +9,7 @@ from careerbridge.model_gateway import (
 )
 from database import users
 from database.client import DBError
+from careerbridge.tracing import trace
 
 
 def generate_task(state, suite, task_name, schema_id, data, validate_business):
@@ -39,8 +40,12 @@ def generate_task(state, suite, task_name, schema_id, data, validate_business):
 
     gateway = ModelGateway(routing, suite, record)
     try:
-        return gateway.generate_json(
-            task_name, schema_id, data, context, validate_business=validate_business
-        )["validated_data"]
+        with trace("run-" + task_name, user_id=state["user_id"], workflow_id=state["workflow_id"],
+                   input={"task": task_name, "content": "omitted"}) as observation:
+            result = gateway.generate_json(
+                task_name, schema_id, data, context, validate_business=validate_business
+            )["validated_data"]
+            observation.update(output={"status": "validated"})
+            return result
     finally:
         gateway.close()

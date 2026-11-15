@@ -6,6 +6,7 @@ and shape the response. No business logic lives here.
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 from typing import Literal, Optional
 
 from fastapi import Depends, FastAPI, Header, Request
@@ -19,10 +20,17 @@ from database.client import DBError
 
 from careerbridge import store
 from careerbridge.errors import ApiError, db_error_to_api_error
+from careerbridge.tracing import flush
 
 MAX_FILE_SIZE = 5 * 1024 * 1024
 
-app = FastAPI(title="CareerBridge API", version="0.1.0")
+@asynccontextmanager
+async def lifespan(_app):
+    yield
+    flush()
+
+
+app = FastAPI(title="CareerBridge API", version="0.1.0", lifespan=lifespan)
 
 cors_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3002").split(",") if o.strip()]
 # allow_headers=["*"] already covers Authorization (the Supabase bearer token).

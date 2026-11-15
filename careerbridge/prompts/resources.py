@@ -13,6 +13,9 @@ RESOURCE_PROMPT = (
     "Classify access as free only with an explicit free-access statement, paid only with explicit payment "
     "or price evidence, mixed for free and paid tiers, otherwise unknown. Trials/previews alone are not free. "
     "Copy the exact short price/access excerpt; use an empty string when it is absent. "
+    "Quote contiguous visible words; Markdown links may be quoted by their label. "
+    "For free classification the evidence must say free or no cost; open-source alone is unknown. "
+    "For paid classification it must contain paid or a numeric USD/EUR/GBP or $/€/£ price. "
     "Do not invent prices, claim a certificate is a professional credential, or add URLs. "
     "Missing evidence: omit irrelevant resources; an empty resources list is valid. "
     "Output: JSON matching the supplied schema. page_index is zero-based; one resource per page."
@@ -20,39 +23,46 @@ RESOURCE_PROMPT = (
 
 
 def evidence_text(text):
-    """Compare rendered words, allowing only inline Markdown and whitespace changes."""
+    """Compare visible words, not Markdown link destinations or inline formatting."""
+    text = re.sub(r"(?<!!)\[([^\]\n]+)\]\((?:[^\s()]|\([^()\n]*\))+\)", r"\1", text)
     text = re.sub(r"(?<!\w)(\*{1,2}|_{1,2}|`{1,3})(?=\S)(.+?)(?<=\S)\1(?!\w)", r"\2", text)
     return re.sub(r"\s+", " ", text).strip()
 
 
 def resource_source_supported(output, data):
+    return not resource_validation_issues(output, data)
+
+
+def resource_validation_issues(output, data):
+    """Safe field-level diagnostics: no page text or model output is logged."""
+    issues = []
     seen = set()
-    for item in output["resources"]:
+    for position, item in enumerate(output["resources"]):
         index = item["page_index"]
+        def reject(field, reason):
+            issues.append({"resource_index": position, "page_index": index,
+                           "field": field, "reason": reason})
         if index < 0 or index >= len(data["pages"]) or index in seen:
-            return False
+            reject("page_index", "out_of_range_or_duplicate")
+            continue
         seen.add(index)
         text = evidence_text(data["pages"][index]["content"])
-        if (
-            not item["title"].strip()
-            or evidence_text(item["title"]) not in text
-            or not item["learning_evidence"].strip()
-            or evidence_text(item["learning_evidence"]) not in text
-            or evidence_text(item["price_evidence"]) not in text
-        ):
-            return False
+        for field in ("title", "learning_evidence", "price_evidence"):
+            quote = evidence_text(item[field])
+            if (field != "price_evidence" and not quote) or quote not in text:
+                reject(field, "not_in_source")
         price = item["price_evidence"].casefold()
         free = bool(re.search(r"\bfree\b|\bno cost\b", price))
         paid = bool(re.search(r"[$€£]\s*\d|\bpaid\b|\d\s*(usd|eur|gbp)\b", price))
         trial = bool(re.search(r"\btrial\b|\bpreview\b", price))
         kind = item["price_type"]
         if kind == "free" and (not free or paid or trial):
-            return False
+            reject("price_type", "unsupported_free_access")
         if kind == "paid" and (not paid or free):
-            return False
+            reject("price_type", "unsupported_paid_access")
         if kind == "mixed" and not (free and paid):
-            return False
-    return True
+            reject("price_type", "unsupported_mixed_access")
+    return issues
 
 
 def resource_suite():
@@ -66,7 +76,7 @@ def resource_suite():
     )
     task = {
         "prompt": RESOURCE_PROMPT,
-        "prompt_version": "learning-resources-v1",
+        "prompt_version": "learning-resources-v2",
         "output_schema_version": "learning-resources-v1",
         "schema_id": "learning_resources",
         "input_schema": {

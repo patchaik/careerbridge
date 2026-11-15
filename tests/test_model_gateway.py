@@ -241,6 +241,21 @@ def test_repair_can_succeed(setup):
     assert [e["status"] for e in events] == ["invalid_output", "succeeded"]
 
 
+def test_business_diagnostics_are_sent_to_bounded_repair(setup):
+    g, ctx, events, calls = gateway(setup, lambda _: httpx.Response(200, json=response()))
+    attempts = []
+    def check(output, data):
+        attempts.append(output)
+        if len(attempts) == 1:
+            raise ModelError("invalid_output", {"reason": "source_validation", "field": "price_evidence"})
+        return True
+    g.generate_json("profile_extract", "excerpt", {"source": "SQL"}, ctx, validate_business=check)
+    assert len(calls) == 2
+    repair = json.loads(calls[1].content)["messages"][-1]["content"]
+    assert "price_evidence" in repair and "source_validation" in repair
+    assert [e["status"] for e in events] == ["invalid_output", "succeeded"]
+
+
 @pytest.mark.parametrize("status", [401, 403, 400, 302])
 def test_permanent_error_never_falls_back(setup, status):
     setup[0]["cross_provider_fallback"] = {
