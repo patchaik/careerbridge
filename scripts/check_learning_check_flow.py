@@ -80,6 +80,18 @@ def main():
                 c.post("/api/goals", json={"target_role": "Synthetic data analyst"})
             )
 
+            from jsonschema import Draft202012Validator, FormatChecker
+
+            progress_schema = Draft202012Validator(
+                json.loads(
+                    Path(
+                        "contracts/v0.1/schemas/progress-overview.schema.json"
+                    ).read_text()
+                ),
+                format_checker=FormatChecker(),
+            )
+            progress_schema.validate(checked(c.get("/api/progress")))
+
             def seed(mode):
                 fixtures = check_suite()["cases"]
                 data = copy.deepcopy(fixtures[0 if mode == "text" else 1]["input"])
@@ -268,6 +280,34 @@ def main():
                     }
                 )
                 print(json.dumps(report["modes"][-1]), flush=True)
+            # Progress is a read-only projection of the saved check results.
+            overview = checked(c.get("/api/progress"))
+            progress_schema.validate(overview)
+            assert overview["summary"]["checks_completed"] == 3
+            assert overview["summary"]["plans_completed"] == 3
+            assert (
+                overview["summary"]["milestones_completed"]
+                == overview["summary"]["milestones_total"]
+                == 4
+            )
+            assert overview["summary"]["plans_to_revisit"] >= 2
+            assert overview["recommendations"][0]["kind"] == "revisit"
+            assert "correct_option" not in json.dumps(overview)
+            assert "practice_response" not in json.dumps(overview)
+            assert checked(c.get("/api/progress")) == overview
+            other = checked(
+                c.get(
+                    "/api/progress", headers={"Authorization": "Bearer " + other_token}
+                )
+            )
+            assert other["plans"] == [] and other["goal"] is None
+            report["progress"] = {
+                "saved_results": True,
+                "read_only_replay": True,
+                "owner_isolation": True,
+                "schema_valid": True,
+                "summary": overview["summary"],
+            }
             events = users.list_events(identities[0])
             counts = {
                 task: sum(

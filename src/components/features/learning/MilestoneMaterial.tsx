@@ -1,3 +1,4 @@
+import { SourceLink } from "../search/SourceLink";
 import { useState } from "react";
 import { generateMaterial, type MilestoneMaterial as Material } from "../../../lib/api/materials";
 import { priceLabels } from "../../../lib/api/resources";
@@ -63,7 +64,7 @@ export function MilestoneMaterial({ pathId, milestoneId, saved, onSaved }: {
       </section>
       <section><h4 className="font-medium">Continue with these saved resources</h4>
         <ul className="mt-1 space-y-1">{material.resources.map(resource => <li key={resource.id}>
-          <a href={resource.url} target="_blank" rel="noreferrer" className="text-primary-700 underline">{resource.title}</a>
+          <SourceLink url={resource.url}>{resource.title}</SourceLink>
           <span className="ml-2 text-xs text-neutral-600">{priceLabels[resource.price_type]}</span>
         </li>)}</ul>
       </section>

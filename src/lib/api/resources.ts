@@ -1,3 +1,4 @@
+import { sourceUrl } from "../sourceUrl";
 import { apiRequest } from "./client";
 
 export type PriceType = "free" | "paid" | "mixed" | "unknown";
@@ -30,6 +31,38 @@ export const priceLabels: Record<PriceType, string> = {
   unknown: "Price unknown",
 };
 export const priceTypes: PriceType[] = ["free", "paid", "mixed", "unknown"];
+// Ignore advertising query parameters, but keep parameters that can identify
+// a different course or lesson (for example, a video ID).
+function resourceKey(resource: SavedResource) {
+  const url = sourceUrl(resource.url);
+  if (!url) return resource.id;
+  const campaign = url.searchParams.has("campaignid") || url.searchParams.has("adgroupid");
+  const tracking: string[] = [];
+  url.searchParams.forEach((_value, key) => {
+    if (/^(utm_.*|gclid|fbclid|msclkid)$/i.test(key) || (campaign &&
+      /^(campaignid|adgroupid|assetgroupid|creativeid|device|devicemodel|extensionid|keyword|matchtype|network|placement|targetid)$/i.test(key))) {
+      tracking.push(key);
+    }
+  });
+  tracking.forEach(key => url.searchParams.delete(key));
+  url.searchParams.sort();
+  return url.href;
+}
+
+export function uniqueResources(search: ResourceSearch): ResourceSearch {
+  const seen = new Set<string>();
+  const result = { ...search };
+  for (const kind of priceTypes) {
+    result[kind] = search[kind].filter(resource => {
+      const key = resourceKey(resource);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  return result;
+}
+
 export function discoverResources(analysis_id: string, skill: string) {
   return apiRequest<ResourceSearch>("/api/resources/search", {
     method: "POST",

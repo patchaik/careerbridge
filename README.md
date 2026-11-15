@@ -30,3 +30,5 @@ Use the setup guide above for current behavior; older integration notes contain
 historical mock-auth and draft competency-template descriptions. Reviewed templates
 are not required for resource-based learning plans. Broader `/api/v1` workflow and
 independent assessment integration are still future work.
+
+See [saved progress and next steps](docs/PROGRESS_OVERVIEW.md) for the progress dashboard and recommendation rules.

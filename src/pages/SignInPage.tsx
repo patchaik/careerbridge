@@ -1,6 +1,6 @@
 import { Eye, EyeOff } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AuthLayout } from "../components/features/auth/AuthLayout";
 import { CaptchaModal } from "../components/features/auth/CaptchaModal";
 import { Alert } from "../components/ui/Alert";
@@ -17,6 +17,7 @@ interface FormErrors {
 
 export function SignInPage() {
   const navigate = useNavigate();
+  const from = useLocation().state?.from;
   const { signIn, isSigningIn, resendVerificationEmail, isResendingVerification } = useAuth();
   const { furthestStepIndex } = useJourney();
 
@@ -50,7 +51,12 @@ export function SignInPage() {
     setCaptchaOpen(false);
     try {
       await signIn(email, password);
-      navigate(furthestStepIndex === 0 ? "/start" : MAIN_PATH[furthestStepIndex]);
+      const isKnownPage = [...MAIN_PATH, "/recommendations"].includes(from?.pathname);
+      navigate(isKnownPage ? {
+        pathname: from.pathname,
+        search: typeof from.search === "string" ? from.search : "",
+        hash: typeof from.hash === "string" ? from.hash : "",
+      } : furthestStepIndex === 0 ? "/start" : MAIN_PATH[furthestStepIndex], { replace: true });
     } catch (err) {
       if (err instanceof EmailNotVerifiedError) {
         setUnverifiedEmail(email);

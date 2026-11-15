@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { SourceLink } from "../components/features/search/SourceLink";
 import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -12,6 +13,7 @@ import { priceLabels } from "../lib/api/resources";
 
 export function LearnPage() {
   const [params] = useSearchParams();
+  const { hash } = useLocation();
   const id = params.get("path");
   const currentPath = useRef(id);
   const [plan, setPlan] = useState<LearningPlan | null>(null);
@@ -51,6 +53,12 @@ export function LearnPage() {
       active = false;
     };
   }, [id]);
+  useEffect(() => {
+    if (!hash || !plan || plan.id !== id) return;
+    try {
+      document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({ block: "start" });
+    } catch { /* Ignore a malformed fragment. */ }
+  }, [hash, id, plan]);
   async function accept() {
     if (!plan) return;
     setBusy(true);
@@ -83,6 +91,7 @@ export function LearnPage() {
     <div className="relative mx-auto max-w-3xl px-4 py-12">
       <LearnIconsBackground />
       <h1 className={`text-2xl font-semibold sm:text-3xl ${GRADIENT_HEADING}`}>{id ? "Your learning plan" : "My learning"}</h1>
+      <Link to="/progress" className="mt-2 mr-4 inline-block text-primary-700 underline">Overall progress and next steps</Link>
       {id && <Link to="/learn" className="mt-2 inline-block text-primary-700 underline">All saved plans</Link>}
       {error && (
         <Alert variant="danger" className="mt-4">
@@ -105,8 +114,8 @@ export function LearnPage() {
         </Card>)}
         <p className="mt-4">
           {plans.length ? "Your 50 most recent plans appear here. " : "No saved plans yet. "}
-          <Link to="/courses" className="text-primary-700 underline">
-            Choose a skill and resources
+          <Link to="/progress" className="text-primary-700 underline">
+            Find your next skill
           </Link>
         </p>
       </div>}
@@ -131,10 +140,12 @@ export function LearnPage() {
                 value={plan.progress.completed} max={plan.progress.total} />
               {plan.progress.next_milestone_id ? <a className="mt-2 inline-block text-primary-700 underline"
                 href={`#milestone-${plan.progress.next_milestone_id}`}>Continue with your next milestone</a>
-                : <p className="mt-2 text-success-700">Learning plan complete. You can revisit any material below.</p>}
+                : <>
+                    <p className="mt-2 text-success-700">Learning plan complete. You can revisit any material below.</p>
+                    <a href="#learning-check" className="mt-2 inline-block text-primary-700 underline">Go to learning check</a>
+                  </>}
             </div>}
           </Card>
-          {plan.status !== "proposed" && <LearningCheck key={plan.id} pathId={plan.id} completed={plan.status === "completed"} />}
           <ol className="space-y-4">
             {plan.milestones.map((m, index) => (
               <li key={m.id} id={`milestone-${m.id}`} className="scroll-mt-20">
@@ -156,14 +167,7 @@ export function LearnPage() {
                       const r = plan.resources.find((item) => item.id === rid);
                       return r ? (
                         <li key={rid}>
-                          <a
-                            href={r.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-primary-700 underline"
-                          >
-                            {r.title}
-                          </a>
+                          <SourceLink url={r.url}>{r.title}</SourceLink>
                           <span className="ml-2 text-xs text-neutral-600">
                             {priceLabels[r.price_type]}
                           </span>
@@ -192,6 +196,7 @@ export function LearnPage() {
               </li>
             ))}
           </ol>
+          {plan.status !== "proposed" && <LearningCheck key={plan.id} pathId={plan.id} completed={plan.status === "completed"} />}
           <p className="text-sm text-neutral-600">
             This is an AI-generated learning plan. Progress checks are for your
             own practice, not certification or independent skill assessment.

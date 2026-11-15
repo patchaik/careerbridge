@@ -1,0 +1,444 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "goal",
+    "gaps",
+    "verified_evidence",
+    "next_action",
+    "summary",
+    "plans",
+    "recommendations",
+    "plan_limit",
+    "independently_verified"
+  ],
+  "properties": {
+    "goal": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Goal"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "skill",
+          "status"
+        ],
+        "properties": {
+          "skill": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "learning",
+              "assessing",
+              "demonstrated"
+            ]
+          },
+          "path_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      }
+    },
+    "verified_evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/VerifiedEvidence"
+      }
+    },
+    "next_action": {
+      "type": "string"
+    },
+    "summary": {
+      "$ref": "#/$defs/ProgressSummary"
+    },
+    "plans": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProgressPlan"
+      },
+      "maxItems": 50
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/NextLearningStep"
+      },
+      "maxItems": 5
+    },
+    "plan_limit": {
+      "const": 50
+    },
+    "independently_verified": {
+      "const": false
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Goal": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/GoalInput"
+        },
+        {
+          "type": "object",
+          "required": [
+            "id",
+            "user_id",
+            "is_active"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "user_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "is_active": {
+              "type": "boolean"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      ]
+    },
+    "GoalInput": {
+      "type": "object",
+      "required": [
+        "target_role"
+      ],
+      "properties": {
+        "target_role": {
+          "type": "string",
+          "example": "Software Engineer, AI Applications"
+        },
+        "location": {
+          "type": "string",
+          "example": "Bay Area"
+        },
+        "seniority": {
+          "type": "string",
+          "example": "mid"
+        },
+        "learning_goal": {
+          "type": "string"
+        },
+        "modality": {
+          "$ref": "#/$defs/Modality"
+        }
+      }
+    },
+    "Modality": {
+      "type": "string",
+      "enum": [
+        "text",
+        "hands_on",
+        "both"
+      ]
+    },
+    "VerifiedEvidence": {
+      "type": "object",
+      "required": [
+        "id",
+        "skill",
+        "scope",
+        "verified_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "skill": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string",
+          "example": "Guided project: 3-document RAG pipeline"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "attempt_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "verified_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "ProgressSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plans_total",
+        "plans_accepted",
+        "plans_completed",
+        "milestones_completed",
+        "milestones_total",
+        "checks_completed",
+        "plans_to_revisit"
+      ],
+      "properties": {
+        "plans_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plans_accepted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plans_completed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "milestones_completed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "milestones_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "checks_completed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plans_to_revisit": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "ProgressPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path_id",
+        "goal_id",
+        "skill",
+        "objective",
+        "status",
+        "progress",
+        "check_status",
+        "check_result",
+        "revisit"
+      ],
+      "properties": {
+        "path_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "goal_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "skill": {
+          "type": "string"
+        },
+        "objective": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "proposed",
+            "approved",
+            "in_progress",
+            "paused",
+            "completed"
+          ]
+        },
+        "progress": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "completed",
+            "total",
+            "next_milestone_id"
+          ],
+          "properties": {
+            "completed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "next_milestone_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "check_status": {
+          "enum": [
+            "not_started",
+            "new",
+            "generating",
+            "ready",
+            "grading",
+            "feedback_pending",
+            "completed"
+          ]
+        },
+        "check_result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProgressCheckResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revisit": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RevisitMilestone"
+          }
+        }
+      }
+    },
+    "ProgressCheckResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "quiz_score",
+        "quiz_total",
+        "criteria_met",
+        "criteria_total",
+        "submitted_at"
+      ],
+      "properties": {
+        "quiz_score": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "quiz_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "criteria_met": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "criteria_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "submitted_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "RevisitMilestone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "milestone_id",
+        "title",
+        "reasons"
+      ],
+      "properties": {
+        "milestone_id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "NextLearningStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "title",
+        "reason",
+        "href",
+        "path_id",
+        "skill"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "revisit",
+            "continue_plan",
+            "learning_check",
+            "accept_plan",
+            "learn_gap",
+            "set_goal",
+            "review_gaps",
+            "review_learning"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "href": {
+          "type": "string",
+          "pattern": "^/(learn|courses|start|target)([?#].*)?$"
+        },
+        "path_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "skill": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
