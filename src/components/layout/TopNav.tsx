@@ -18,7 +18,7 @@ const groups: GroupDef[] = [
   { label: "Profile", to: "/start", matches: ["/start", "/interests", "/critique"] },
   { label: "Direction", to: "/target", matches: ["/target", "/recommendations"] },
   { label: "Skills", to: "/skills", matches: ["/skills"] },
-  { label: "Learn", to: "/courses", matches: ["/courses", "/learn", "/arena"] },
+  { label: "Learn", to: "/learn", matches: ["/courses", "/learn", "/arena"] },
   { label: "Prove", to: "/assessment", matches: ["/assessment", "/resume", "/jobs"] },
   { label: "Progress", to: "/progress", matches: ["/progress"] },
 ].map((g) => ({ ...g, firstIndex: MAIN_PATH.indexOf(g.to as (typeof MAIN_PATH)[number]) }));
@@ -115,7 +115,7 @@ export function TopNav() {
         <nav aria-label="Journey groups" className="overflow-x-auto">
           <ol className="flex items-center gap-1 sm:gap-2">
             {groups.map((group, i) => {
-              const unlocked = furthestStepIndex >= group.firstIndex;
+              const unlocked = (isSignedIn && group.to === "/learn") || furthestStepIndex >= group.firstIndex;
               const isCurrent = group.matches.some(
                 (m) => location.pathname === m || location.pathname.startsWith(`${m}/`),
               );

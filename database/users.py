@@ -211,6 +211,14 @@ def get_path_workflow(user_id: str, path_id: str) -> Optional[dict]:
         .limit(1), "Find learning plan snapshot"))
 
 
+def list_path_workflows(user_id: str, path_ids: list[str]) -> list[dict]:
+    if not path_ids:
+        return []
+    return run(table("workflow_runs").select("state_json").eq("user_id", user_id)
+        .contains("state_json", {"kind": "generate_path", "status": "complete"})
+        .in_("state_json->result->>id", path_ids), "Read saved plan snapshots")
+
+
 def list_lesson_workflows(user_id: str, path_id: str, milestone_id: Optional[str] = None) -> list[dict]:
     """Read completed material snapshots; a GET never invokes a model."""
     match = {"kind": "generate_lesson", "status": "complete", "path_id": path_id}

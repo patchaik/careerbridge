@@ -4,10 +4,11 @@ import { priceLabels } from "../../../lib/api/resources";
 import { Alert } from "../../ui/Alert";
 import { Button } from "../../ui/Button";
 
-export function MilestoneMaterial({ pathId, milestoneId, saved }: {
+export function MilestoneMaterial({ pathId, milestoneId, saved, onSaved }: {
   pathId: string;
   milestoneId: string;
   saved?: Material;
+  onSaved: (material: Material) => void;
 }) {
   const [material, setMaterial] = useState(saved);
   const [busy, setBusy] = useState(false);
@@ -16,7 +17,11 @@ export function MilestoneMaterial({ pathId, milestoneId, saved }: {
     if (busy) return;
     setBusy(true);
     setError("");
-    try { setMaterial(await generateMaterial(pathId, milestoneId)); }
+    try {
+      const result = await generateMaterial(pathId, milestoneId);
+      setMaterial(result);
+      onSaved(result);
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Couldn't generate learning material."); }
     finally { setBusy(false); }
   }

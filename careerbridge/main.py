@@ -13,7 +13,7 @@ from fastapi import Depends, FastAPI, Header, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, StrictBool, field_validator
 
 from database import admin, users
 from database.client import DBError
@@ -330,6 +330,22 @@ class GeneratePathBody(BaseModel):
 @app.post("/api/paths/generate", status_code=201)
 def generate_path(body: GeneratePathBody, user_id: str = Depends(current_user_id)):
     return store.generate_path_flow(user_id, **body.model_dump())
+
+
+@app.get("/api/paths")
+def list_paths(user_id: str = Depends(current_user_id)):
+    return store.list_paths_flow(user_id)
+
+
+class MilestoneCompletionBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    done: StrictBool
+
+
+@app.put("/api/paths/{path_id}/milestones/{milestone_id}/completion")
+def complete_milestone(path_id: str, milestone_id: str, body: MilestoneCompletionBody,
+                       user_id: str = Depends(current_user_id)):
+    return store.complete_milestone_flow(path_id, milestone_id, body.done, user_id)
 
 
 @app.get("/api/paths/{path_id}")

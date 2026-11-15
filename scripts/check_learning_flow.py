@@ -19,7 +19,9 @@ def main():
     parser.add_argument("--output", required=True)
     parser.add_argument("--keep-for-browser", action="store_true")
     parser.add_argument("--materials", action="store_true", help="Generate and reload every milestone lesson")
+    parser.add_argument("--progress", action="store_true", help="Check saved completion, reopen, concurrency and resume (includes materials)")
     args = parser.parse_args()
+    args.materials = args.materials or args.progress
     if os.getenv("CAREERBRIDGE_ENV") not in {"development", "test"}:
         parser.error("Use a development/test Supabase project")
     identities, posting, report = [], None, {}
@@ -172,6 +174,8 @@ def main():
                     first = plan["milestones"][0]["id"]
                     assert c.post(f"/api/paths/{plan['id']}/milestones/{first}/material").status_code == 409
                     assert checked(c.get(f"/api/paths/{plan['id']}/materials")) == {"materials": []}
+                    if args.progress:
+                        assert c.put(f"/api/paths/{plan['id']}/milestones/{first}/completion", json={"done": True}).status_code == 409
                 accepted = checked(c.put(f"/api/paths/{plan['id']}/approve"))
                 assert accepted["status"] == "approved"
                 assert checked(c.put(f"/api/paths/{plan['id']}/approve")) == accepted
@@ -189,6 +193,8 @@ def main():
                     ).status_code
                     == 409
                 )
+                if args.progress:
+                    assert c.put(f"/api/paths/{plan['id']}/milestones/{first}/completion", json={"done": True}).status_code == 409
                 if args.materials:
                     import jsonschema
                     schema = json.loads(Path("contracts/v0.1/schemas/milestone-material.schema.json").read_text())
@@ -207,6 +213,28 @@ def main():
                         generated.append(material)
                     assert checked(c.get(f"/api/paths/{plan['id']}/materials")) == {"materials": generated}
                     report.setdefault("materials", []).append({"mode": mode, "count": len(generated), "saved_reloaded": True})
+                    if args.progress:
+                        from concurrent.futures import ThreadPoolExecutor
+                        def mark(mid, done):
+                            return checked(c.put(f"/api/paths/{plan['id']}/milestones/{mid}/completion", json={"done": done}))
+                        # Independent milestones submitted together must not lose either flag.
+                        with ThreadPoolExecutor(max_workers=3) as pool:
+                            list(pool.map(lambda m: mark(m["id"], True), plan["milestones"]))
+                        complete = checked(c.get("/api/paths/" + plan["id"]))
+                        assert complete["status"] == "completed"
+                        assert complete["progress"] == {"completed": len(generated), "total": len(generated), "next_milestone_id": None}
+                        assert all(m["done"] for m in learning.get_path(plan["id"])["milestones_json"])
+                        assert mark(first, True) == complete
+                        assert c.put(f"/api/paths/{plan['id']}/status", json={"status": "in_progress"}).status_code == 409
+                        resumed = mark(first, False)
+                        assert resumed["status"] == "in_progress" and resumed["progress"]["next_milestone_id"] == first
+                        assert resumed["progress"]["completed"] == len(generated) - 1
+                        assert checked(c.get("/api/paths/" + plan["id"])) == resumed
+                        assert next(p for p in checked(c.get("/api/paths"))["plans"] if p["id"] == plan["id"]) == resumed
+                        assert not resumed["assessment_available"]
+                        report.setdefault("progress", []).append({"mode": mode, "concurrent_completion": True,
+                            "supabase_flags": True, "repeat": True, "reopen_reload_list": True, "no_verified_skill": True})
+
                 report["modes"].append(
                     {
                         "mode": mode,
@@ -252,6 +280,10 @@ def main():
             )
             if args.materials:
                 assert c.post(f"/api/paths/{plan['id']}/milestones/m1/material", headers={"Authorization": "Bearer " + other}).status_code == 404
+            if args.progress:
+                assert c.put(f"/api/paths/{plan['id']}/milestones/m1/completion", json={"done": True}, headers={"Authorization": "Bearer " + other}).status_code == 404
+                assert checked(c.get("/api/paths", headers={"Authorization": "Bearer " + other})) == {"plans": []}
+                assert c.put(f"/api/paths/{plan['id']}/milestones/missing/completion", json={"done": True}).status_code == 404
             events = run(
                 table("audit_events")
                 .select("detail_json")

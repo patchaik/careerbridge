@@ -69,7 +69,7 @@ function App() {
               />
               <Route
                 path="/learn"
-                element={<Protected index={7}><LearnPage /></Protected>}
+                element={<Protected><LearnPage /></Protected>}
               />
               <Route
                 path="/arena"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Optional
 
 from .client import (DBError, delete_by_id, first, get_by_id, now_iso, require, run,
@@ -51,6 +52,26 @@ def update_milestones(path_id: str, milestones: list[dict]) -> dict:
     items = validate_all(Milestone, milestones, "milestone")
     return require(first(run(table("learning_paths").update({"milestones_json": items})
                              .eq("id", path_id), "Update milestones")), "Learning path")
+
+
+def compare_and_set_progress(path: dict, milestones: list[dict], status: str) -> bool:
+    """Atomically save flags + status only if the snapshot has not changed."""
+    items = validate_all(Milestone, milestones, "milestone")
+    try:
+        return bool(run(table("learning_paths").update({"milestones_json": items, "status": status})
+            .eq("id", path["id"]).eq("status", path["status"])
+            .eq("milestones_json", json.dumps(path["milestones_json"])), "Save learning progress"))
+    except DBError as exc:
+        if "Server disconnected" not in str(exc):
+            raise
+        # The response may be lost after commit. Reload before the caller's bounded
+        # retry; assigning the same flag is safe even if the first write succeeded.
+        return False
+
+
+def list_owned_paths(user_id: str) -> list[dict]:
+    return run(table("learning_paths").select("*, career_goals!inner(user_id)")
+        .eq("career_goals.user_id", user_id).order("created_at", desc=True).limit(50), "List saved plans")
 
 
 def delete_path(path_id: str) -> bool:
