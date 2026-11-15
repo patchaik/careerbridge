@@ -195,13 +195,33 @@ def confirm_profile_flow(profile_id: str, skills_payload: list[dict],
         profile = call(profiles.get_profile, profile_id)
         if not profile:
             raise ApiError(404, "not_found", "Profile not found")
-        for skill_id in remove_skill_ids or []:
-            call(profiles.delete_skill_evidence, skill_id)
+        existing = call(profiles.list_skill_evidence, profile_id)
+        by_skill = {row["skill_id"]: row for row in existing}
+        removals = set(remove_skill_ids or [])
+        if not removals <= {row["id"] for row in existing}:
+            raise ApiError(404, "not_found", "Skill evidence not found for this profile")
+        updates = []
         for item in skills_payload:
             status = item["status"]
             evidence_type = "resume" if status in ("present", "user_confirmed") else "self_reported"
-            call(profiles.add_skill_evidence, profile_id, item["skill"], evidence_type,
-                 excerpt=item.get("excerpt"), status=status)
+            excerpt = item.get("excerpt")
+            if evidence_type == "resume":
+                skill = call(profiles.find_skill, item["skill"])
+                previous = by_skill.get(skill["id"] if skill else item["skill"])
+                if (not previous or previous["id"] in removals
+                        or previous["evidence_type"] != "resume" or not previous.get("excerpt")):
+                    raise ApiError(422, "validation_error", "This skill has no saved résumé evidence. Add it as self-reported.")
+                if excerpt is not None and excerpt != previous["excerpt"]:
+                    raise ApiError(422, "validation_error", "Confirmation cannot replace the original résumé excerpt.")
+                # The UI confirms names/statuses, not evidence. Preserve the
+                # server-owned excerpt even when the request omits it.
+                excerpt = previous["excerpt"]
+            updates.append((item["skill"], evidence_type, excerpt, status))
+        for evidence_id in removals:
+            call(profiles.delete_skill_evidence, evidence_id)
+        for skill, evidence_type, excerpt, status in updates:
+            call(profiles.add_skill_evidence, profile_id, skill, evidence_type,
+                 excerpt=excerpt, status=status)
         call(profiles.confirm_profile, profile_id)
         if clear_resume_text:
             call(profiles.clear_parsed_text, profile_id)

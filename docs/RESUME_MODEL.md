@@ -17,10 +17,26 @@ The local deployment uses a 32,768 input-token budget enforced conservatively as
 
 ## Verification and limits
 
-- 49 Python tests passed, including nine new extraction/source/audit/failure/consent checks; 14 SQL integration tests remain skipped without a disposable database.
+- 56 Python tests passed, including nine extraction/source/audit/failure/consent checks and seven confirmation regressions; 14 SQL integration tests remain skipped without a disposable database.
 - The actual résumé capability suite passed on configured OpenAI `gpt-6-luna`.
 - A synthetic DOCX uploaded through `/api/onboarding/parse` returned HTTP 201 and SQL evidence; private storage, one completed workflow and its linked durable OpenAI invocation were verified. The synthetic account/profile were deleted after verification.
 - UI loading/disabled states now cover the synchronous HTTP request, rather than waiting for the legacy local workflow wrapper.
+
+### Upload and confirmation verification
+
+A live HTTP test used the UI's exact confirmation payload (skill names/statuses, without excerpts). It exposed a bug: confirmation upserted `excerpt=null` over all three valid extraction excerpts. The store now takes résumé evidence from the existing server record, preserves it when omitted by the client, and rejects replacement excerpts or promotion of unsupported skills to résumé evidence. Removal IDs are checked against the current profile before writes.
+
+After the fix, a synthetic résumé uploaded through OpenAI returned HTTP 201, and confirmation returned HTTP 200. Supabase retained all three evidence IDs and exact excerpts:
+
+| Skill | Stored excerpt | Stored source/status |
+| --- | --- | --- |
+| SQL | I used SQL to query a database. | resume / present |
+| Python | I wrote Python scripts. | resume / present |
+| Docker | I deployed applications with Docker. | resume / present |
+
+The stored file matched the uploaded bytes, `confirmed_at` was set, API reload matched the saved profile, and replaying the same idempotency key left the response unchanged with exactly one upload workflow and one confirmation workflow. The upload's successful OpenAI invocation remained linked. Synthetic accounts, profiles and uploaded files were removed after both the failing reproduction and passing test.
+
+This tested the running HTTP API with the UI payload and direct Supabase verification, not browser automation. Replay was verified within one server process; restart-safe idempotency remains AF-01 work. Existing excerpts erased before this fix are not reconstructed automatically; re-upload the original résumé to regenerate them. No existing user records were repaired or modified by this test.
 
 This is a local preview on the legacy API: JWT authentication and the canonical durable worker remain AF-01 work. Other agents still use their existing model adapters. No DB migration, new table, new SDK or provider fallback was added. A quoted excerpt establishes source support, not independently verified skill proficiency.
 
