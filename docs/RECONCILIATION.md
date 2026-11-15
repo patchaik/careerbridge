@@ -1,5 +1,7 @@
 # Stitch reconciliation and validation
 
+> **Upload follow-up:** Résumé extraction now uses the shared gateway with durable audit metadata. See [live résumé setup and verification](RESUME_MODEL.md). The checks below describe the earlier reconciliation snapshot.
+
 ## Baseline and scope
 
 The baseline is `stitch-1` at `4ff822772395f11b6b26c3f6efbe500a7402b765`. It already contains the original UI, agent and DB branches plus three newer integration commits. Those commits removed `careerbridge/db.py`, `worker.py` and the static test UI, added `careerbridge/store.py`, and connected the onboarding UI to Supabase-backed legacy routes. Preserve these changes; do not reintroduce the old initializer or rebuild this integration from scratch.

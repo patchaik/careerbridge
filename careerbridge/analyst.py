@@ -1,28 +1,52 @@
 """Career Analyst: parse a resume and extract evidence-backed skills."""
+
 import io
 import os
 import re
+from datetime import timedelta
+from pathlib import Path
 from typing import TypedDict
 from zipfile import ZipFile
 
 from docx import Document
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from pypdf import PdfReader
+import yaml
+from jsonschema import ValidationError
+
+from database import users
+from database.client import DBError
 
 from careerbridge.mock_skills import extract_mock_skills
-from careerbridge.prompts.career_analyst import EXTRACT_SKILLS
+from careerbridge.model_gateway import (
+    ExecutionContext,
+    ModelError,
+    ModelGateway,
+    pin_routing,
+    utcnow,
+)
+from careerbridge.prompts.career_analyst import resume_suite, source_supported
 from careerbridge.schemas import ExtractedSkills, Skill
 
 
 class AnalystState(TypedDict, total=False):
     workflow_id: str
+    user_id: str
+    model_routing: dict
+    invocation_id: str | None
     file_type: str
     file_data: bytes
     text: str
     skills: list[dict]
     extraction_mode: str
+
+
+def resume_routing():
+    path = Path(os.getenv("MODEL_ROUTING_PATH", "deployment/model-routing.yaml"))
+    try:
+        return pin_routing(yaml.safe_load(path.read_text()))
+    except (OSError, ValueError, TypeError, yaml.YAMLError, ValidationError) as exc:
+        raise ModelError("provider_not_configured") from exc
 
 
 def parse_resume(state: AnalystState):
@@ -52,21 +76,67 @@ def extract_skills(state: AnalystState):
     if mode == "mock":
         # A deterministic fixture (careerbridge/mock_skills.py), only matching
         # skills actually present in the text — no AI calls.
-        result = ExtractedSkills(skills=[Skill(**item) for item in extract_mock_skills(state["text"])])
+        result = ExtractedSkills(
+            skills=[Skill(**item) for item in extract_mock_skills(state["text"])[:30]]
+        )
     elif mode == "llm":
-        model = ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"), temperature=0)
-        result = model.with_structured_output(ExtractedSkills).invoke([
-            SystemMessage(content=EXTRACT_SKILLS),
-            HumanMessage(content=state["text"]),
-        ])
+        suite = resume_suite()
+        task = suite["tasks"]["profile_extract"]
+        routing = state["model_routing"]
+        context = ExecutionContext(
+            state["workflow_id"],
+            state["user_id"],
+            routing["revision"],
+            task["prompt_version"],
+            task["output_schema_version"],
+            utcnow() + timedelta(seconds=routing["config"]["timeout_seconds"]),
+        )
+
+        def record(event):
+            # The separate REST write commits even if later profile storage fails.
+            try:
+                saved = users.log_event(
+                    state["user_id"],
+                    "model_invocation",
+                    "workflow",
+                    state["workflow_id"],
+                    event,
+                )
+            except DBError as exc:
+                raise ModelError("invocation_not_recorded") from exc
+            if not saved:
+                raise ModelError("invocation_not_recorded")
+
+        gateway = ModelGateway(routing, suite, record)
+        try:
+            generated = gateway.generate_json(
+                "profile_extract",
+                "resume_skills",
+                {"source": state["text"]},
+                context,
+                validate_business=source_supported,
+            )
+            result = ExtractedSkills.model_validate(generated["validated_data"])
+        finally:
+            gateway.close()
     else:
         raise ValueError("CAREERBRIDGE_ANALYST_MODE must be llm or mock")
+
     # Only retain excerpts actually present in the extracted text.
-    normalize = lambda text: re.sub(r"\s+", " ", text).strip().casefold()
+    def normalize(text):
+        return re.sub(r"\s+", " ", text).strip().casefold()
+
     source = normalize(state["text"])
-    skills = [dict(skill.model_dump(), source="resume") for skill in result.skills
-              if normalize(skill.evidence) and normalize(skill.evidence) in source]
-    return {"skills": skills, "extraction_mode": mode}
+    skills = [
+        dict(skill.model_dump(), source="resume")
+        for skill in result.skills
+        if normalize(skill.evidence) and normalize(skill.evidence) in source
+    ]
+    return {
+        "skills": skills,
+        "extraction_mode": mode,
+        "invocation_id": generated["invocation_id"] if mode == "llm" else None,
+    }
 
 
 builder = StateGraph(AnalystState)
