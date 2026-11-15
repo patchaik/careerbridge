@@ -18,6 +18,7 @@ def main():
     parser.add_argument("--base-url", default="http://127.0.0.1:8003")
     parser.add_argument("--output", required=True)
     parser.add_argument("--keep-for-browser", action="store_true")
+    parser.add_argument("--materials", action="store_true", help="Generate and reload every milestone lesson")
     args = parser.parse_args()
     if os.getenv("CAREERBRIDGE_ENV") not in {"development", "test"}:
         parser.error("Use a development/test Supabase project")
@@ -167,6 +168,10 @@ def main():
                     and not plan["assessment_available"]
                 )
                 assert checked(c.get("/api/paths/" + plan["id"])) == plan
+                if args.materials:
+                    first = plan["milestones"][0]["id"]
+                    assert c.post(f"/api/paths/{plan['id']}/milestones/{first}/material").status_code == 409
+                    assert checked(c.get(f"/api/paths/{plan['id']}/materials")) == {"materials": []}
                 accepted = checked(c.put(f"/api/paths/{plan['id']}/approve"))
                 assert accepted["status"] == "approved"
                 assert checked(c.put(f"/api/paths/{plan['id']}/approve")) == accepted
@@ -184,6 +189,24 @@ def main():
                     ).status_code
                     == 409
                 )
+                if args.materials:
+                    import jsonschema
+                    schema = json.loads(Path("contracts/v0.1/schemas/milestone-material.schema.json").read_text())
+                    generated = []
+                    for milestone in plan["milestones"]:
+                        route = f"/api/paths/{plan['id']}/milestones/{milestone['id']}/material"
+                        material = checked(c.post(route))
+                        jsonschema.Draft202012Validator(schema, format_checker=jsonschema.FormatChecker()).validate(material)
+                        assert material["content"]["mode"] == milestone["mode"]
+                        assert (material["content"]["practice"] is not None) == (milestone["mode"] == "hands_on")
+                        assert set(material["content"]["resource_ids"]) <= set(milestone["resource_ids"])
+                        assert material["resources"] == [r for r in plan["resources"] if r["id"] in material["content"]["resource_ids"]]
+                        assert checked(c.post(route)) == material
+                        wf = users.get_workflow(material["workflow_id"])
+                        assert wf["state_json"]["result"] == material
+                        generated.append(material)
+                    assert checked(c.get(f"/api/paths/{plan['id']}/materials")) == {"materials": generated}
+                    report.setdefault("materials", []).append({"mode": mode, "count": len(generated), "saved_reloaded": True})
                 report["modes"].append(
                     {
                         "mode": mode,
@@ -204,6 +227,7 @@ def main():
             for route in (
                 "/api/resource-searches/" + found["workflow_id"],
                 "/api/paths/" + plan["id"],
+                *([f"/api/paths/{plan['id']}/materials"] if args.materials else []),
             ):
                 assert (
                     c.get(
@@ -226,6 +250,8 @@ def main():
                 ).status_code
                 == 404
             )
+            if args.materials:
+                assert c.post(f"/api/paths/{plan['id']}/milestones/m1/material", headers={"Authorization": "Bearer " + other}).status_code == 404
             events = run(
                 table("audit_events")
                 .select("detail_json")
@@ -239,6 +265,8 @@ def main():
             ]
             assert any(e.get("task") == "resource_extract" for e in successful)
             assert sum(e.get("task") == "path_plan" for e in successful) == 3
+            if args.materials:
+                assert sum(e.get("task") == "lesson" for e in successful) == sum(m["count"] for m in report["materials"])
             report.update(
                 owner_checks=True,
                 selected_resource_boundary=True,

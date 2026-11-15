@@ -334,6 +334,17 @@ def approve_path(path_id: str, user_id: str = Depends(current_user_id)):
     return store.approve_path_flow(path_id, user_id)
 
 
+
+@app.get("/api/paths/{path_id}/materials")
+def get_materials(path_id: str, user_id: str = Depends(current_user_id)):
+    return store.get_materials_flow(path_id, user_id)
+
+
+@app.post("/api/paths/{path_id}/milestones/{milestone_id}/material")
+def generate_material(path_id: str, milestone_id: str, user_id: str = Depends(current_user_id)):
+    return store.generate_material_flow(path_id, milestone_id, user_id)
+
+
 class PathStatusBody(BaseModel):
     status: Literal["in_progress", "paused", "completed"]
 

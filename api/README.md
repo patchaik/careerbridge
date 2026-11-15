@@ -38,7 +38,8 @@ bad input → 422 `validation_error`.
 | 5. Gaps | `POST /api/skills/analyze` · `GET /api/gap-analyses/{id}` | Up to 10 gaps, each citing its jobs |
 | 6. Path | `POST /api/paths/generate` · `PUT /api/paths/{id}/approve` · `PUT /api/paths/{id}/status` | Propose from saved resources + skill goal + modality; accept without a rubric; pause |
 | | `POST /api/resources/search` · `GET /api/resource-searches/{workflow_id}` | Discover, save and reload free/paid/mixed/unknown resource evidence |
-| 7. Learn | `POST /api/arena/tutor` · `POST /api/arena/practice` | Tutor and practice (P1) |
+| 7. Learn | `POST /api/paths/{path_id}/milestones/{milestone_id}/material` · `GET /api/paths/{path_id}/materials` | Generate and reload saved milestone lessons after acceptance |
+| Future | `POST /api/arena/tutor` · `POST /api/arena/practice` | Chat tutor and practice feedback (not enabled for these plans) |
 | 8. Assess | `POST /api/assessments/start` · `POST /api/assessments/submit` | Graded against the frozen rubric |
 | | `GET /api/progress` | Gap status, evidence, next action |
 | 9. Résumé | `POST /api/resumes/draft` · `PATCH /api/resumes/{id}` | Evidence-backed suggested edits |

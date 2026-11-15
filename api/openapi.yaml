@@ -612,6 +612,70 @@ paths:
                     items: { $ref: "#/components/schemas/Resource" }
 
   # -------------------------------------------------------------------- Arena
+  /api/paths/{path_id}/materials:
+    get:
+      tags:
+      - Learning
+      summary: Reload saved milestone material without a model call
+      operationId: getMilestoneMaterials
+      security:
+      - BearerAuth: []
+      parameters:
+      - &id001
+        in: path
+        name: path_id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Saved material for this owned plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilestoneMaterialList'
+        '401':
+          description: Authentication required
+        '404':
+          description: Plan not found or not owned
+  /api/paths/{path_id}/milestones/{milestone_id}/material:
+    post:
+      tags:
+      - Learning
+      summary: Generate or return saved material for one accepted milestone
+      description: Uses the milestone mode and immutable saved resource descriptions.
+        One model call per new milestone, with bounded gateway repair. Repeats return
+        the saved result; GET never generates. No request body or provider overrides.
+      operationId: generateMilestoneMaterial
+      security:
+      - BearerAuth: []
+      parameters:
+      - *id001
+      - in: path
+        name: milestone_id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Generated and saved, or previously saved material
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilestoneMaterial'
+        '401':
+          description: Authentication required
+        '403':
+          description: Processing consent required
+        '404':
+          description: Plan/milestone not found or not owned
+        '409':
+          description: Plan not accepted, legacy plan, missing saved resources or generation
+            in progress
+        '503':
+          description: Model generation failed; no completed material saved
+
   /api/arena/tutor:
     post:
       tags: [Arena]
@@ -1562,6 +1626,172 @@ components:
       - resources
       - rubric
       - assessment_available
+
+    LessonCheck:
+      additionalProperties: false
+      properties:
+        question:
+          maxLength: 800
+          minLength: 1
+          title: Question
+          type: string
+        answer:
+          maxLength: 800
+          minLength: 1
+          title: Answer
+          type: string
+      required:
+      - question
+      - answer
+      title: LessonCheck
+      type: object
+    LessonPractice:
+      additionalProperties: false
+      properties:
+        setup:
+          maxLength: 1200
+          minLength: 1
+          title: Setup
+          type: string
+        steps:
+          items:
+            maxLength: 800
+            minLength: 1
+            type: string
+          maxItems: 6
+          minItems: 2
+          title: Steps
+          type: array
+        deliverable:
+          maxLength: 800
+          minLength: 1
+          title: Deliverable
+          type: string
+      required:
+      - setup
+      - steps
+      - deliverable
+      title: LessonPractice
+      type: object
+    LessonSection:
+      additionalProperties: false
+      properties:
+        heading:
+          maxLength: 150
+          minLength: 1
+          title: Heading
+          type: string
+        body:
+          maxLength: 3000
+          minLength: 1
+          title: Body
+          type: string
+      required:
+      - heading
+      - body
+      title: LessonSection
+      type: object
+    LessonContent:
+      additionalProperties: false
+      properties:
+        title:
+          maxLength: 150
+          minLength: 1
+          title: Title
+          type: string
+        mode:
+          enum:
+          - text
+          - hands_on
+          title: Mode
+          type: string
+        learning_objective:
+          maxLength: 600
+          minLength: 1
+          title: Learning Objective
+          type: string
+        sections:
+          items:
+            $ref: '#/components/schemas/LessonSection'
+          maxItems: 3
+          minItems: 1
+          title: Sections
+          type: array
+        example:
+          maxLength: 2500
+          minLength: 1
+          title: Example
+          type: string
+        practice:
+          anyOf:
+          - $ref: '#/components/schemas/LessonPractice'
+          - type: 'null'
+        self_checks:
+          items:
+            $ref: '#/components/schemas/LessonCheck'
+          maxItems: 3
+          minItems: 1
+          title: Self Checks
+          type: array
+        resource_ids:
+          items:
+            type: string
+          maxItems: 10
+          minItems: 1
+          title: Resource Ids
+          type: array
+      required:
+      - title
+      - mode
+      - learning_objective
+      - sections
+      - example
+      - practice
+      - self_checks
+      - resource_ids
+      title: LessonContent
+      type: object
+    MilestoneMaterial:
+      type: object
+      additionalProperties: false
+      properties:
+        path_id:
+          type: string
+          format: uuid
+        milestone_id:
+          type: string
+        workflow_id:
+          type: string
+          format: uuid
+        generated_at:
+          type: string
+          format: date-time
+        content:
+          $ref: '#/components/schemas/LessonContent'
+        resources:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/SavedLearningResource'
+      required:
+      - path_id
+      - milestone_id
+      - workflow_id
+      - generated_at
+      - content
+      - resources
+    MilestoneMaterialList:
+      type: object
+      additionalProperties: false
+      properties:
+        materials:
+          type: array
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/MilestoneMaterial'
+      required:
+      - materials
 
     Resource:
       type: object

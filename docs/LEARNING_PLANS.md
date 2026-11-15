@@ -97,8 +97,9 @@ local fixture file for a subsequent UI check. Never commit it. Shared public res
 catalog entries are retained; pre-existing user records are not deleted.
 
 Video resources can be opened on their provider's site. Inline video players,
-generated videos, interactive lessons, tutor delivery and graded activities are
-outside this implementation. Plans already present goals and milestones visually.
+generated videos, chat tutor delivery and graded activities remain outside this implementation.
+Accepted plans now support saved per-milestone text/hands-on material; see
+[LEARNING_MATERIAL.md](LEARNING_MATERIAL.md). Plans already present goals and milestones visually.
 
 ## Validation for this change
 

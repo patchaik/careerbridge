@@ -13,6 +13,10 @@ analysis; resource-grounded learning plans for selected gaps, without reviewed
 templates. Reviewed templates and grading remain a future assessment boundary,
 not a prerequisite for learning. There is no required RAG competency or grader.
 OpenAI and Nebius are interchangeable behind the internal model gateway.
+Accepted plans also support saved per-milestone original teaching using the milestone
+mode and saved resource excerpts. The deployed material contract is
+`schemas/milestone-material.schema.json`, with `/api` routes and invariants documented
+in `docs/LEARNING_MATERIAL.md`; generated self-checks do not establish mastery.
 
 Normative files:
   openapi.yaml / openapi.json           Same public API, alternative formats

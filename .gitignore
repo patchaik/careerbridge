@@ -46,3 +46,5 @@ deployment/invocations.jsonl
 deployment/resource-model-routing.yaml
 deployment/plan-model-routing.yaml
 *-check.private.json
+
+deployment/lesson-model-routing.yaml
