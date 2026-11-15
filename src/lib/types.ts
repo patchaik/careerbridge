@@ -63,6 +63,15 @@ export interface CandidateProfile {
   confirmedAt: string | null;
 }
 
+// A File object can't survive a reload (not serializable), so only its
+// metadata is persisted in journey state — enough for /start to show "you
+// already uploaded résumé.pdf" without holding onto the file itself.
+export interface ResumeMeta {
+  fileName: string;
+  uploadedAt: string;
+  status: "parsed" | "failed";
+}
+
 // --- /interests (POST /interests/analyze) ---
 
 // Where an interest came from: typed in by the candidate on /start, or

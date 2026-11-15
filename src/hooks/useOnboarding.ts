@@ -1,4 +1,4 @@
-import { buildProfile, confirmProfile, parseResume } from "../lib/api/onboarding";
+import { buildProfile, confirmProfile, getProfile, parseResume } from "../lib/api/onboarding";
 import { useAsyncAction } from "./useAsync";
 
 export function useParseResume() {
@@ -11,4 +11,8 @@ export function useBuildProfile() {
 
 export function useConfirmProfile() {
   return useAsyncAction(confirmProfile);
+}
+
+export function useGetProfile() {
+  return useAsyncAction(getProfile);
 }

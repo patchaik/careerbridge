@@ -1,16 +1,19 @@
-import { LoaderCircle, Lock, Sparkles, Upload } from "lucide-react";
+import { CheckCircle2, LoaderCircle, Lock, Pencil, Sparkles, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { TagInput } from "../components/ui/TagInput";
 import {
+  EXPERIENCE_LEVEL_OPTIONS,
   isProfileBasicsValid,
   ProfileBasics,
+  SITUATION_OPTIONS,
   yearsOfExperienceError,
 } from "../components/features/onboarding/ProfileBasics";
 import { useJourney } from "../context/JourneyContext";
-import { useBuildProfile, useParseResume } from "../hooks/useOnboarding";
+import { isReal } from "../lib/api/endpoints";
+import { useBuildProfile, useGetProfile, useParseResume } from "../hooks/useOnboarding";
 import { useWorkflowPolling } from "../hooks/useWorkflow";
 import type { CandidateProfile, CandidateSkillEvidence } from "../lib/types";
 
@@ -26,7 +29,17 @@ export function StartPage() {
     setExperienceLevel,
     yearsOfExperience,
     setYearsOfExperience,
+    draftSkills,
+    setDraftSkills,
+    draftFromResume,
+    setDraftFromResume,
+    draftResumeSkillEvidence,
+    setDraftResumeSkillEvidence,
+    resumeMeta,
+    setResumeMeta,
+    userInterests,
     setUserInterests,
+    profile,
     setProfile,
   } = useJourney();
 
@@ -35,26 +48,47 @@ export function StartPage() {
   const [resumeWorkflowId, setResumeWorkflowId] = useState<string | null>(null);
   const [buildError, setBuildError] = useState<string | null>(null);
 
-  const [skills, setSkills] = useState<string[]>([]);
-  const [fromResume, setFromResume] = useState<Set<string>>(new Set());
-  const [interests, setInterests] = useState<string[]>([]);
-  // Full evidence (excerpt, category, backend id) for skills parsed from the
-  // résumé, keyed by name — carried through to buildProfile so /interests
-  // can show excerpts instead of bare skill names.
-  const [resumeSkillEvidence, setResumeSkillEvidence] = useState<CandidateSkillEvidence[]>([]);
-  // Real mode only: the backend profile id created by parseResume, threaded
-  // through to buildProfile so it doesn't create a duplicate. Unused (stays
-  // null) in mock mode.
-  const [realProfileId, setRealProfileId] = useState<string | null>(null);
+  // Set only when a NEW résumé is parsed in THIS session — otherwise the
+  // existing confirmed/unconfirmed profile's own id is reused (see
+  // handleAnalyze), so editing without re-uploading doesn't create a
+  // duplicate backend profile every time.
+  const [sessionProfileId, setSessionProfileId] = useState<string | null>(null);
 
   const [buildWorkflowId, setBuildWorkflowId] = useState<string | null>(null);
   const settledRef = useRef(false);
 
+  // Once a profile is confirmed, /start shows a read-only summary with an
+  // "Edit" button rather than the editable form — there's nothing to review
+  // mid-flow anymore.
+  const [isEditing, setIsEditing] = useState(() => !profile?.confirmedAt);
+
   const parseResume = useParseResume();
   const buildProfile = useBuildProfile();
+  const getProfile = useGetProfile();
 
   const resumeWorkflow = useWorkflowPolling<{ skills: CandidateSkillEvidence[]; profileId?: string }>(resumeWorkflowId);
   const buildWorkflow = useWorkflowPolling<{ profile: CandidateProfile }>(buildWorkflowId);
+
+  const fromResume = new Set(draftFromResume);
+
+  // Returning to /start: the backend's copy of a confirmed profile is the
+  // source of truth for skills (another device/session could have changed
+  // them), so best-effort refresh it. Mock mode has no independent backend
+  // to refresh from — journey state's `profile` already is the full picture.
+  useEffect(() => {
+    if (!profile?.confirmedAt || !isReal("getProfile")) return;
+    let cancelled = false;
+    (async () => {
+      const refreshed = await getProfile.run(profile.id);
+      await Promise.resolve();
+      if (cancelled || !refreshed) return;
+      setProfile({ ...profile, skills: refreshed.skills, confirmedAt: refreshed.confirmedAt });
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run if the profile id itself changes
+  }, [profile?.id]);
 
   // Merge résumé-extracted skills into the shared skills list once parsing completes.
   useEffect(() => {
@@ -68,26 +102,31 @@ export function StartPage() {
       if (resumeWorkflow.status === "complete" && resumeWorkflow.result) {
         const evidence = resumeWorkflow.result.skills;
         const found = evidence.map((s) => s.skill);
-        setResumeSkillEvidence(evidence);
-        setSkills((prev) => {
-          const merged = [...prev];
-          for (const name of found) {
-            if (!merged.some((m) => m.toLowerCase() === name.toLowerCase())) merged.push(name);
-          }
-          return merged;
-        });
-        setFromResume((prev) => new Set([...prev, ...found]));
-        if (resumeWorkflow.result.profileId) setRealProfileId(resumeWorkflow.result.profileId);
+        setDraftResumeSkillEvidence(evidence);
+        const merged = [...draftSkills];
+        for (const name of found) {
+          if (!merged.some((m) => m.toLowerCase() === name.toLowerCase())) merged.push(name);
+        }
+        setDraftSkills(merged);
+        setDraftFromResume([...new Set([...draftFromResume, ...found])]);
+        if (resumeWorkflow.result.profileId) setSessionProfileId(resumeWorkflow.result.profileId);
         setParseError(null);
+        if (file) {
+          setResumeMeta({ fileName: file.name, uploadedAt: new Date().toISOString(), status: "parsed" });
+        }
       }
       if (resumeWorkflow.status === "failed") {
         setParseError(resumeWorkflow.error ?? "We couldn't read that file.");
+        if (file) {
+          setResumeMeta({ fileName: file.name, uploadedAt: new Date().toISOString(), status: "failed" });
+        }
       }
     })();
 
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- draftSkills/draftFromResume read at completion time, not reactive here
   }, [resumeWorkflow]);
 
   useEffect(() => {
@@ -101,7 +140,6 @@ export function StartPage() {
       if (buildWorkflow.status === "complete" && buildWorkflow.result) {
         settledRef.current = true;
         setProfile(buildWorkflow.result.profile);
-        setUserInterests(interests);
         navigate("/interests");
       }
       if (buildWorkflow.status === "failed") {
@@ -113,8 +151,8 @@ export function StartPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- interests captured at submit time, not reactive here
-  }, [buildWorkflow, navigate, setProfile, setUserInterests]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when buildWorkflow itself changes, not on every unrelated journey-state update that recreates setProfile
+  }, [buildWorkflow, navigate]);
 
   async function handleFileChange(next: File | null) {
     setFile(next);
@@ -136,21 +174,19 @@ export function StartPage() {
   }
 
   function handleSkillsChange(next: string[]) {
-    setSkills(next);
-    setFromResume((prev) => {
-      const nextSet = new Set(prev);
-      for (const name of prev) if (!next.includes(name)) nextSet.delete(name);
-      return nextSet;
-    });
+    setDraftSkills(next);
+    setDraftFromResume(draftFromResume.filter((name) => next.includes(name)));
   }
 
   function addSuggestedSkill(skill: string) {
-    if (!skills.some((s) => s.toLowerCase() === skill.toLowerCase())) setSkills([...skills, skill]);
+    if (!draftSkills.some((s) => s.toLowerCase() === skill.toLowerCase())) {
+      setDraftSkills([...draftSkills, skill]);
+    }
   }
 
   function addSuggestedInterest(interest: string) {
-    if (!interests.some((i) => i.toLowerCase() === interest.toLowerCase())) {
-      setInterests([...interests, interest]);
+    if (!userInterests.some((i) => i.toLowerCase() === interest.toLowerCase())) {
+      setUserInterests([...userInterests, interest]);
     }
   }
 
@@ -158,8 +194,8 @@ export function StartPage() {
   // whatever's currently in the flat skills tag list — preserving edits
   // (removals, manual additions) the user made after the résumé was parsed.
   function compileSkills(): CandidateSkillEvidence[] {
-    const byName = new Map(resumeSkillEvidence.map((e) => [e.skill.toLowerCase(), e]));
-    return skills.map((name) => {
+    const byName = new Map(draftResumeSkillEvidence.map((e) => [e.skill.toLowerCase(), e]));
+    return draftSkills.map((name) => {
       const existing = byName.get(name.toLowerCase());
       if (existing) return existing;
       return {
@@ -175,22 +211,23 @@ export function StartPage() {
 
   async function handleAnalyze() {
     if (!situation || !experienceLevel || yearsOfExperience === null) return;
-    if (!file && skills.length === 0) return;
+    if (!file && draftSkills.length === 0) return;
     settledRef.current = false;
     setBuildError(null);
+    const profileId = sessionProfileId ?? profile?.id;
     const result = await buildProfile.run({
       skills: compileSkills(),
       situation,
       experienceLevel,
       yearsOfExperience,
-      ...(realProfileId ? { profileId: realProfileId } : {}),
+      ...(profileId ? { profileId } : {}),
     });
     if (result) setBuildWorkflowId(result.workflowId);
   }
 
   const isParsingResume = parseResume.isLoading || (resumeWorkflow !== null && (resumeWorkflow.status === "pending" || resumeWorkflow.status === "running"));
   const isBuilding = buildProfile.isLoading || (buildWorkflow !== null && (buildWorkflow.status === "pending" || buildWorkflow.status === "running"));
-  const hasSkillsOrResume = Boolean(file) || skills.length > 0;
+  const hasSkillsOrResume = Boolean(file) || draftSkills.length > 0;
   const canSubmit = isProfileBasicsValid(situation, experienceLevel, yearsOfExperience) && hasSkillsOrResume;
 
   let disabledHint: string | null = null;
@@ -206,6 +243,86 @@ export function StartPage() {
         ? missing[0]
         : `${missing.slice(0, -1).join(", ")} and ${missing[missing.length - 1]}`;
     disabledHint = `Add ${joined} to continue.`;
+  }
+
+  const isAlreadyConfirmed = Boolean(profile?.confirmedAt);
+
+  // Read-only summary once confirmed, unless the user explicitly chose to edit.
+  if (isAlreadyConfirmed && !isEditing && profile) {
+    const situationLabel = SITUATION_OPTIONS.find((o) => o.value === profile.situation)?.label;
+    const experienceLabel = EXPERIENCE_LEVEL_OPTIONS.find((o) => o.value === profile.experienceLevel)?.label;
+
+    return (
+      <div className="mx-auto max-w-xl px-4 py-16">
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-2xl font-semibold text-neutral-900 sm:text-3xl">Your profile</h1>
+          <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>
+            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+            Edit
+          </Button>
+        </div>
+        <p className="mt-2 flex items-center gap-1.5 text-sm text-success-700">
+          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+          Confirmed
+        </p>
+
+        <div className="mt-6 space-y-6">
+          {resumeMeta && (
+            <section>
+              <h2 className="text-sm font-semibold text-neutral-800">Résumé</h2>
+              <p className="mt-1 text-sm text-neutral-600">
+                {resumeMeta.fileName} — uploaded {new Date(resumeMeta.uploadedAt).toLocaleDateString()}
+              </p>
+            </section>
+          )}
+
+          <section>
+            <h2 className="text-sm font-semibold text-neutral-800">Your skills</h2>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {profile.skills.map((skill) => (
+                <span
+                  key={skill.id ?? skill.skill}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-sm text-neutral-700"
+                >
+                  {skill.skill}
+                </span>
+              ))}
+            </div>
+          </section>
+
+          {userInterests.length > 0 && (
+            <section>
+              <h2 className="text-sm font-semibold text-neutral-800">Your interests</h2>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {userInterests.map((interest) => (
+                  <span
+                    key={interest}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-sm text-neutral-700"
+                  >
+                    {interest}
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Situation</h2>
+              <p className="mt-1 text-sm text-neutral-800">{situationLabel ?? "—"}</p>
+            </div>
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Experience</h2>
+              <p className="mt-1 text-sm text-neutral-800">{experienceLabel ?? "—"}</p>
+            </div>
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Years</h2>
+              <p className="mt-1 text-sm text-neutral-800">{profile.yearsOfExperience ?? "—"}</p>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -226,6 +343,21 @@ export function StartPage() {
               <Lock className="h-4 w-4 text-neutral-400" aria-hidden="true" />
               Private — used only to build your profile
             </div>
+
+            {resumeMeta && !file && (
+              <p className="mt-3 text-sm text-neutral-600">
+                Previously uploaded: <span className="font-medium">{resumeMeta.fileName}</span> (
+                {new Date(resumeMeta.uploadedAt).toLocaleDateString()})
+              </p>
+            )}
+
+            {isAlreadyConfirmed && (
+              <Alert variant="warning" className="mt-3">
+                Uploading a new résumé creates a new profile that will need to be confirmed again
+                on the next step.
+              </Alert>
+            )}
+
             <label htmlFor="resume-file" className="sr-only">
               Upload résumé (PDF or DOCX)
             </label>
@@ -275,7 +407,7 @@ export function StartPage() {
         <section>
           <h2 className="text-sm font-semibold text-neutral-800">Your skills</h2>
           <TagInput
-            value={skills}
+            value={draftSkills}
             onChange={handleSkillsChange}
             ariaLabel="Your skills"
             placeholder="Type a skill and press Enter"
@@ -289,7 +421,7 @@ export function StartPage() {
             }
           />
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {SUGGESTED_SKILLS.filter((s) => !skills.some((v) => v.toLowerCase() === s.toLowerCase())).map(
+            {SUGGESTED_SKILLS.filter((s) => !draftSkills.some((v) => v.toLowerCase() === s.toLowerCase())).map(
               (skill) => (
                 <button
                   key={skill}
@@ -310,15 +442,15 @@ export function StartPage() {
             Optional, but adding at least one helps us tailor what comes next.
           </p>
           <TagInput
-            value={interests}
-            onChange={setInterests}
+            value={userInterests}
+            onChange={setUserInterests}
             ariaLabel="Your interests"
             placeholder="e.g. Building backend systems"
             className="mt-2"
           />
           <div className="mt-2 flex flex-wrap gap-1.5">
             {SUGGESTED_INTERESTS.filter(
-              (i) => !interests.some((v) => v.toLowerCase() === i.toLowerCase()),
+              (i) => !userInterests.some((v) => v.toLowerCase() === i.toLowerCase()),
             ).map((interest) => (
               <button
                 key={interest}
@@ -348,10 +480,17 @@ export function StartPage() {
               {buildError}
             </Alert>
           )}
-          <Button onClick={handleAnalyze} disabled={!canSubmit || isBuilding || isParsingResume}>
-            <Upload className="h-4 w-4" aria-hidden="true" />
-            {isBuilding ? "Analyzing…" : "Analyze my experience"}
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button onClick={handleAnalyze} disabled={!canSubmit || isBuilding || isParsingResume}>
+              <Upload className="h-4 w-4" aria-hidden="true" />
+              {isBuilding ? "Analyzing…" : "Analyze my experience"}
+            </Button>
+            {isAlreadyConfirmed && (
+              <Button variant="ghost" onClick={() => setIsEditing(false)} disabled={isBuilding}>
+                Cancel
+              </Button>
+            )}
+          </div>
           {disabledHint && <p className="mt-2 text-xs text-neutral-500">{disabledHint}</p>}
         </div>
       </div>

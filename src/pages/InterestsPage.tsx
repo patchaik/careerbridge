@@ -1,4 +1,4 @@
-import { Check, CheckCircle2, Plus, X } from "lucide-react";
+import { Check, CheckCircle2, Pencil, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Alert } from "../components/ui/Alert";
@@ -14,7 +14,15 @@ import type { CandidateSkillEvidence } from "../lib/types";
 
 export function InterestsPage() {
   const navigate = useNavigate();
-  const { profile, setProfile, userInterests, selectedInterests, setSelectedInterests } = useJourney();
+  const {
+    profile,
+    setProfile,
+    userInterests,
+    selectedInterests,
+    setSelectedInterests,
+    selectedInterestLabels,
+    setSelectedInterestLabels,
+  } = useJourney();
   const analysis = useInterestAnalysis();
   const confirmAction = useConfirmProfile();
 
@@ -32,6 +40,9 @@ export function InterestsPage() {
   // before confirming — sent as remove_skill_ids so the backend deletes them.
   const [removedSkillIds, setRemovedSkillIds] = useState<Set<string>>(new Set());
   const [skillsConfirmed, setSkillsConfirmed] = useState(Boolean(profile?.confirmedAt));
+  // Once confirmed, show a saved summary instead of the full review UI,
+  // unless the user explicitly chose to edit.
+  const [isEditing, setIsEditing] = useState(() => !profile?.confirmedAt);
 
   useEffect(() => {
     if (profile) void analysis.run(profile.id, userInterests);
@@ -99,7 +110,9 @@ export function InterestsPage() {
   }
 
   function handleContinue() {
-    setSelectedInterests(Array.from(selected));
+    const ids = Array.from(selected);
+    setSelectedInterests(ids);
+    setSelectedInterestLabels(interests.filter((i) => selected.has(i.id)).map((i) => i.label));
     navigate("/critique");
   }
 
@@ -110,6 +123,62 @@ export function InterestsPage() {
         <Link to="/start" className="mt-4 inline-block text-sm font-medium text-primary-700 hover:underline">
           Go to Upload résumé
         </Link>
+      </div>
+    );
+  }
+
+  if (profile.confirmedAt && !isEditing) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16">
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-2xl font-semibold text-neutral-900 sm:text-3xl">Your interests</h1>
+          <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>
+            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+            Edit
+          </Button>
+        </div>
+        <p className="mt-2 flex items-center gap-1.5 text-sm text-success-700">
+          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+          Skills confirmed
+        </p>
+
+        <section className="mt-6">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+            Your skills
+          </h2>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {profile.skills.map((skill) => (
+              <span
+                key={skill.id ?? skill.skill}
+                className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-sm text-neutral-700"
+              >
+                {skill.skill}
+              </span>
+            ))}
+          </div>
+        </section>
+
+        {selectedInterestLabels.length > 0 && (
+          <section className="mt-6">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+              Your interests
+            </h2>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {selectedInterestLabels.map((label) => (
+                <span
+                  key={label}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-sm text-neutral-700"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <div className="mt-8 flex justify-end border-t border-neutral-200 pt-6">
+          <Button onClick={() => navigate("/critique")}>Continue</Button>
+        </div>
       </div>
     );
   }

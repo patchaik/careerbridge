@@ -80,6 +80,19 @@ export async function parseResume(
   }
 }
 
+// Refreshes a profile from the backend (the single source of truth for
+// confirmed skills once a profile exists) — used when returning to /start
+// or /interests, instead of trusting only what's cached in journey state.
+// Real mode only: mock mode has no independent "backend" to refresh from —
+// whatever's already in journey state's `profile` already is the full
+// picture, so this throws rather than silently no-op, and callers only call
+// it behind an isReal("getProfile") check.
+export async function getProfile(profileId: string): Promise<CandidateProfile> {
+  if (!isReal("getProfile")) throw new Error("getProfile is real-mode only");
+  const profile = await apiRequest<BackendProfile>(`/api/profiles/${profileId}`);
+  return mapBackendProfile(profile);
+}
+
 export interface BuildProfileInput {
   /** Full evidence for skills already known (résumé-parsed, with excerpts, or
    * typed in manually with id: null). */
