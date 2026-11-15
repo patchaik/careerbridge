@@ -1,6 +1,8 @@
 contract_version: 0.1.0
-status: Logical target schema; not executable DDL or a migration. Implement typed
-  repositories, triggers and transaction guards as indicated.
+status: Logical target schema; not executable DDL or a migration. Entries do not
+  mandate separate physical tables or classes. Document the physical mapping and
+  preserve all IDs, ownership, uniqueness, immutability and transaction guards.
+implementation_guidelines: ../../docs/IMPLEMENTATION_GUIDELINES.md
 conventions:
 - UUID PKs and UTC timestamps; indexes on every FK plus status/created_at for queues
 - All user-owned links checked for same owner using composite FKs or transactional

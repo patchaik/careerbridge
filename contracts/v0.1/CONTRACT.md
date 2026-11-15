@@ -450,3 +450,14 @@ for a published version may be registered and reviewed only if they preserve its
 frozen rubric, coverage and grader build; their immutable set IDs are bound at
 attempt creation. P1 wellbeing chat and advanced reviewer UI are outside this P0 API surface;
 preferences exist so opt-in never defaults to true.
+
+## 11. Minimal MVP implementation
+
+Follow [implementation guidelines](../../docs/IMPLEMENTATION_GUIDELINES.md).
+This contract specifies observable behavior and data invariants, not a service,
+class or physical table per logical concept. Reuse one API, one database-backed
+worker and the existing database package. Document any logical-to-physical mapping
+in the affected migration PR and preserve IDs, ownership, frozen versions,
+uniqueness and transaction guarantees. A shared provider transport, small
+conformance script and file-based template authoring are sufficient. Existing
+endpoint shapes, lease/recovery rules and release gates remain unchanged.

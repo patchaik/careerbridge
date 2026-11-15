@@ -23,7 +23,8 @@
         "Clean install and migration from reviewed main both pass on an isolated database; no destructive implicit reset.",
         "Alias normalization is unique and consistent; cached snapshots keep original retrieval times and excerpts.",
         "Cross-user references cannot be inserted/read; confirmed snapshots are immutable.",
-        "Legacy model-reviewed evidence remains nonconforming rather than silently becoming verified v0.1 evidence."
+        "Legacy model-reviewed evidence remains nonconforming rather than silently becoming verified v0.1 evidence.",
+        "Implementation follows docs/IMPLEMENTATION_GUIDELINES.md; module placement is clear, prompts are task-specific where applicable, and added dependencies or abstractions are justified."
       ],
       "check_ids": [
         "DB-01",
@@ -34,7 +35,10 @@
       "priority": "P0",
       "number": 4,
       "url": "https://github.com/Shrezz/careerbridge/issues/4",
-      "blocked_by": []
+      "blocked_by": [],
+      "implementation_constraints": [
+        "Extend the existing database package with versioned migrations. Include a logical-to-physical mapping; do not create a table or repository class per logical entity by default."
+      ]
     },
     {
       "code": "DB-02",
@@ -51,7 +55,8 @@
         "Self-review, mismatched content hashes, incomplete checks and missing diagnostic/final sets block publication.",
         "Published content and registered test bundles cannot be edited in place; alternate sets require independent review.",
         "Path and attempt bindings cannot cross template/rubric versions.",
-        "Learner and model-gateway roles cannot read private expected answers."
+        "Learner and model-gateway roles cannot read private expected answers.",
+        "Implementation follows docs/IMPLEMENTATION_GUIDELINES.md; module placement is clear, prompts are task-specific where applicable, and added dependencies or abstractions are justified."
       ],
       "check_ids": [
         "TPL-01",
@@ -64,6 +69,9 @@
       "url": "https://github.com/Shrezz/careerbridge/issues/5",
       "blocked_by": [
         4
+      ],
+      "implementation_constraints": [
+        "Store validated versioned template documents simply; preserve separate private test access and frozen references. A visual content-management system is out of scope."
       ]
     },
     {
@@ -82,7 +90,8 @@
         "Identical repeated writes return the same result; changed request under the same key returns 409.",
         "Concurrent workers and crash recovery produce one domain effect and increment failed-attempt count once.",
         "Only final passed attempts with matching owner/skill/rubric/artifacts can atomically create verified evidence.",
-        "Diagnostic, failed and needs_review outcomes cannot create mastery; retry limits persist across restarts."
+        "Diagnostic, failed and needs_review outcomes cannot create mastery; retry limits persist across restarts.",
+        "Implementation follows docs/IMPLEMENTATION_GUIDELINES.md; module placement is clear, prompts are task-specific where applicable, and added dependencies or abstractions are justified."
       ],
       "check_ids": [
         "API-02",
@@ -96,12 +105,15 @@
       "blocked_by": [
         4,
         5
+      ],
+      "implementation_constraints": [
+        "Use the existing PostgreSQL workflow table and one worker for claims, leases and recovery. Keep atomic result/evidence writes in explicit transactions; no external queue or orchestration platform is required."
       ]
     },
     {
       "code": "DB-04",
       "stream": "DB",
-      "title": "[P0][DB] Version r\u00e9sum\u00e9 approvals, private exports and account deletion",
+      "title": "[P0][DB] Version résumé approvals, private exports and account deletion",
       "depends_on": [
         "DB-01",
         "DB-03"
@@ -114,7 +126,8 @@
         "An edit atomically clears approval and increments revision; stale approval/export requests fail.",
         "PDF and DOCX can coexist for the same approved revision; duplicate export returns the same artifact.",
         "Storage/DB failures clean orphan bytes without losing committed artifacts.",
-        "Deletion removes owned rows/files and retains only the documented minimal status tombstone; signed links expire."
+        "Deletion removes owned rows/files and retains only the documented minimal status tombstone; signed links expire.",
+        "Implementation follows docs/IMPLEMENTATION_GUIDELINES.md; module placement is clear, prompts are task-specific where applicable, and added dependencies or abstractions are justified."
       ],
       "check_ids": [
         "CV-01",
@@ -128,6 +141,9 @@
       "blocked_by": [
         4,
         6
+      ],
+      "implementation_constraints": [
+        "Use a small staging/reconciliation flow for private exports and cleanup. Do not introduce a standalone outbox service; retain exact approval guards and crash recovery."
       ]
     },
     {
@@ -146,7 +162,8 @@
         "JWT issuer/audience/signature/expiry are checked; X-User-Id is not accepted as identity.",
         "Cross-user IDs return 404; reviewer-only routes verify server-side role.",
         "Slow operations consistently return 202; queued/running/completed/failed states follow the contract.",
-        "Backend response examples validate against OpenAPI; no conflicting schema initialization remains."
+        "Backend response examples validate against OpenAPI; no conflicting schema initialization remains.",
+        "Implementation follows docs/IMPLEMENTATION_GUIDELINES.md; module placement is clear, prompts are task-specific where applicable, and added dependencies or abstractions are justified."
       ],
       "check_ids": [
         "API-01",
@@ -159,6 +176,9 @@
       "url": "https://github.com/Shrezz/careerbridge/issues/8",
       "blocked_by": [
         4
+      ],
+      "implementation_constraints": [
+        "Keep routes thin and reuse the existing worker with explicit domain-function dispatch. Move persistence to database/; do not introduce a generic agent runtime."
       ]
     },
     {
@@ -176,7 +196,8 @@
         "Missing/expired/mismatched capability reports block routes; malformed/refused/truncated outputs never mutate domain state.",
         "Changing active profile affects new workflows only; invocation records identify actual provider/model.",
         "Fallback-off makes no requests to the other provider; enabled fallback stays within explicit allowed profiles.",
-        "Neither provider can publish templates, modify grading keys, award mastery or approve exports."
+        "Neither provider can publish templates, modify grading keys, award mastery or approve exports.",
+        "Implementation follows docs/IMPLEMENTATION_GUIDELINES.md; module placement is clear, prompts are task-specific where applicable, and added dependencies or abstractions are justified."
       ],
       "check_ids": [
         "AI-01",
@@ -187,7 +208,10 @@
       "priority": "P0",
       "number": 9,
       "url": "https://github.com/Shrezz/careerbridge/issues/9",
-      "blocked_by": []
+      "blocked_by": [],
+      "implementation_constraints": [
+        "Implement one small model gateway and shared compatible transport, with provider differences isolated there. Use configuration for routing and a deployment script for capability checks; no provider plugin framework or admin service."
+      ]
     },
     {
       "code": "AF-03",
@@ -208,7 +232,8 @@
         "Search cannot bypass profile confirmation/consent; all result records belong to the journey.",
         "Real success, zero results, partial descriptions, outage/rate-limit and stale cache have explicit labeled outcomes.",
         "Every ranked gap cites matching requirements in the selected snapshots; required/preferred and unknown evidence remain distinct.",
-        "Equivalent skill profiles with different irrelevant personal details receive equivalent rankings."
+        "Equivalent skill profiles with different irrelevant personal details receive equivalent rankings.",
+        "Implementation follows docs/IMPLEMENTATION_GUIDELINES.md; module placement is clear, prompts are task-specific where applicable, and added dependencies or abstractions are justified."
       ],
       "check_ids": [
         "MKT-01",
@@ -223,6 +248,9 @@
         8,
         9,
         4
+      ],
+      "implementation_constraints": [
+        "Reuse analyst/search modules with one clear versioned prompt per bounded task. Keep retrieval, source checks and ranking rules explicit; avoid autonomous planning loops."
       ]
     },
     {
@@ -245,7 +273,8 @@
         "Two distinct competencies, at least one non-RAG, use common workflow logic; unsupported gaps never substitute RAG.",
         "Concept graph/references, registered handlers, grading coverage and practice/final separation are validated.",
         "Resources expose access labels and verification time; at most five free/five paid and no padded recommendations.",
-        "Learner path approval is distinct from template publication and pins the exact reviewed rubric."
+        "Learner path approval is distinct from template publication and pins the exact reviewed rubric.",
+        "Implementation follows docs/IMPLEMENTATION_GUIDELINES.md; module placement is clear, prompts are task-specific where applicable, and added dependencies or abstractions are justified."
       ],
       "check_ids": [
         "TPL-01",
@@ -261,6 +290,9 @@
         9,
         5,
         10
+      ],
+      "implementation_constraints": [
+        "Resolve reviewed templates through ordinary functions and a small fixed activity registry. File-based authoring and an authenticated review/publish script suffice; no visual builder is required."
       ]
     },
     {
@@ -283,7 +315,8 @@
         "Known passing/failing/ungradable cases produce expected outcomes; any failed critical criterion blocks passing.",
         "Final tasks differ from practice and prior disclosed attempts; keys remain private; hints are blocked during final attempts.",
         "One atomic final-pass transaction creates evidence; retries cannot duplicate results or exceed the configured cap.",
-        "No arbitrary code/network execution; activity resource/time limits are enforced."
+        "No arbitrary code/network execution; activity resource/time limits are enforced.",
+        "Implementation follows docs/IMPLEMENTATION_GUIDELINES.md; module placement is clear, prompts are task-specific where applicable, and added dependencies or abstractions are justified."
       ],
       "check_ids": [
         "ASM-01",
@@ -300,12 +333,15 @@
         9,
         11,
         6
+      ],
+      "implementation_constraints": [
+        "Keep tutoring prompts separate from deterministic grading functions. Use a small fixed dispatcher for supported activity types; do not build a general sandbox or ask a model to determine mastery."
       ]
     },
     {
       "code": "AF-06",
       "stream": "Agent",
-      "title": "[P0][Agent] Generate supported r\u00e9sum\u00e9 diffs and approved PDF/DOCX exports",
+      "title": "[P0][Agent] Generate supported résumé diffs and approved PDF/DOCX exports",
       "depends_on": [
         "AF-01",
         "AF-02",
@@ -320,7 +356,8 @@
         "Every new achievement traces to allowed evidence; invented employer/credential/years/production claims are rejected.",
         "Manual wording edits are revalidated; an edit clears approval; stale hashes cannot export.",
         "Readable PDF and DOCX artifacts contain exactly approved content; retries reuse existing exports.",
-        "Renewing a signed URL never changes document bytes; unauthorized download is rejected."
+        "Renewing a signed URL never changes document bytes; unauthorized download is rejected.",
+        "Implementation follows docs/IMPLEMENTATION_GUIDELINES.md; module placement is clear, prompts are task-specific where applicable, and added dependencies or abstractions are justified."
       ],
       "check_ids": [
         "CV-01",
@@ -336,6 +373,9 @@
         9,
         12,
         7
+      ],
+      "implementation_constraints": [
+        "Use a focused resume/export module, one evidence-constrained drafting prompt and existing artifact storage. Keep approval checks in code; do not add a document workflow engine."
       ]
     },
     {
@@ -354,7 +394,8 @@
         "Frontend runs with mocks disabled against canonical API; queued/completed replace incompatible status names.",
         "Polling survives transient errors and refresh without enqueuing duplicate work.",
         "Errors and expired sessions offer useful recovery; local caches are user-scoped and cleared on logout.",
-        "No provider keys/settings or client-owned grading decisions appear in public requests."
+        "No provider keys/settings or client-owned grading decisions appear in public requests.",
+        "Implementation follows docs/IMPLEMENTATION_GUIDELINES.md; module placement is clear, prompts are task-specific where applicable, and added dependencies or abstractions are justified."
       ],
       "check_ids": [
         "API-01",
@@ -367,6 +408,9 @@
       "url": "https://github.com/Shrezz/careerbridge/issues/14",
       "blocked_by": [
         8
+      ],
+      "implementation_constraints": [
+        "Reuse the current React/Vite client, hooks and routing. Keep one typed HTTP client and server-authoritative workflow state; do not introduce a second state framework."
       ]
     },
     {
@@ -385,7 +429,8 @@
         "Both upload and manual flows work end to end; invalid upload preserves editable manual fields.",
         "Every recommendation exposes source excerpt/link/retrieval time and required/preferred status.",
         "Missing evidence is never presented as lack of competence; credential barriers and unsupported templates are clear.",
-        "Keyboard-only completion works with loading, error, empty and fallback states."
+        "Keyboard-only completion works with loading, error, empty and fallback states.",
+        "Implementation follows docs/IMPLEMENTATION_GUIDELINES.md; module placement is clear, prompts are task-specific where applicable, and added dependencies or abstractions are justified."
       ],
       "check_ids": [
         "MKT-01",
@@ -399,6 +444,9 @@
       "blocked_by": [
         14,
         10
+      ],
+      "implementation_constraints": [
+        "Compose existing pages/components and feature hooks. Keep source interpretation and gap rules on the server; avoid unrelated redesign."
       ]
     },
     {
@@ -417,7 +465,8 @@
         "Two distinct template definitions render through common UI logic; no RAG fallback.",
         "Unsupported/unreviewed prerequisites cannot be bypassed to start a verified pathway.",
         "Resource free/paid/mixed/unknown labels, verification times and ranking reasons are visible.",
-        "Approval submits displayed path revision and rubric hash; stale state prompts refresh/review."
+        "Approval submits displayed path revision and rubric hash; stale state prompts refresh/review.",
+        "Implementation follows docs/IMPLEMENTATION_GUIDELINES.md; module placement is clear, prompts are task-specific where applicable, and added dependencies or abstractions are justified."
       ],
       "check_ids": [
         "TPL-02",
@@ -431,6 +480,9 @@
       "blocked_by": [
         14,
         11
+      ],
+      "implementation_constraints": [
+        "Use fixed renderers for the reviewed activity types and simple explicit approval controls. Do not build a generic screen/form generator or template editor."
       ]
     },
     {
@@ -450,7 +502,8 @@
         "Learner can skip diagnostic; practice/hints never display as mastery.",
         "Final assessment omits hints and answer keys, submits work only, and displays server outcomes.",
         "Refresh resumes the correct attempt without duplicate submission; retry exhaustion has a clear next action.",
-        "Keyboard interaction and error recovery work for both initial activity families."
+        "Keyboard interaction and error recovery work for both initial activity families.",
+        "Implementation follows docs/IMPLEMENTATION_GUIDELINES.md; module placement is clear, prompts are task-specific where applicable, and added dependencies or abstractions are justified."
       ],
       "check_ids": [
         "ASM-02",
@@ -464,25 +517,29 @@
         14,
         16,
         12
+      ],
+      "implementation_constraints": [
+        "Reuse activity controls for diagnostics/practice/final attempts with explicit mode restrictions. Render server results; never duplicate scoring logic in the UI."
       ]
     },
     {
       "code": "UI-05",
       "stream": "UI",
-      "title": "[P0][UI] Build evidence-linked progress and r\u00e9sum\u00e9 review/download",
+      "title": "[P0][UI] Build evidence-linked progress and résumé review/download",
       "depends_on": [
         "UI-01",
         "AF-06"
       ],
       "scope": [
-        "Show persisted competency evidence and scope; render before/after r\u00e9sum\u00e9 changes and support references.",
+        "Show persisted competency evidence and scope; render before/after résumé changes and support references.",
         "Implement edit/approve/reject controls, version conflicts and PDF/DOCX download flow."
       ],
       "acceptance": [
         "Self-reported, confirmed and demonstrated statuses remain distinct.",
         "User can inspect supporting evidence and edit/reject; approval names the exact displayed revision.",
         "Any edit invalidates approval; stale exports are blocked; both formats download correctly.",
-        "Expired links renew through authenticated API without regenerating content; keyboard flow succeeds."
+        "Expired links renew through authenticated API without regenerating content; keyboard flow succeeds.",
+        "Implementation follows docs/IMPLEMENTATION_GUIDELINES.md; module placement is clear, prompts are task-specific where applicable, and added dependencies or abstractions are justified."
       ],
       "check_ids": [
         "CV-01",
@@ -495,6 +552,9 @@
       "blocked_by": [
         14,
         13
+      ],
+      "implementation_constraints": [
+        "Use focused progress/diff/approval/download components and existing API hooks. Do not add a rich document editor for the MVP."
       ]
     },
     {
@@ -526,7 +586,8 @@
         "All P0 acceptance.csv checks have recorded test evidence and no unresolved release blockers.",
         "Both configured OpenAI/Nebius routes pass capability/task checks; deterministic grading stays unchanged.",
         "Demonstrate live jobs plus outage, missing evidence, unsafe content, cross-user denial and deletion cases.",
-        "Complete both competencies through approved PDF/DOCX export with mocks disabled; archive a repeatable runbook."
+        "Complete both competencies through approved PDF/DOCX export with mocks disabled; archive a repeatable runbook.",
+        "Implementation follows docs/IMPLEMENTATION_GUIDELINES.md; module placement is clear, prompts are task-specific where applicable, and added dependencies or abstractions are justified."
       ],
       "check_ids": [
         "API-01",
@@ -559,6 +620,9 @@
         16,
         17,
         18
+      ],
+      "implementation_constraints": [
+        "Reuse a small shared fixture set and focused end-to-end flows. Verify module boundaries, task-specific prompts and justified dependencies alongside the existing runtime release gates; avoid a new testing platform."
       ]
     },
     {
@@ -570,12 +634,13 @@
       ],
       "scope": [
         "Implement minimal nonclinical check-ins, encouragement and optional pacing/pause requests.",
-        "Keep wellbeing data isolated from matching, grading and r\u00e9sum\u00e9 evidence."
+        "Keep wellbeing data isolated from matching, grading and résumé evidence."
       ],
       "acceptance": [
         "Default is off; enabling/disabling is explicit and persisted.",
         "A shorter plan/pause applies only after user confirmation.",
-        "Matching/assessment/export results are unchanged for identical inputs with different wellbeing preferences."
+        "Matching/assessment/export results are unchanged for identical inputs with different wellbeing preferences.",
+        "Implementation follows docs/IMPLEMENTATION_GUIDELINES.md; module placement is clear, prompts are task-specific where applicable, and added dependencies or abstractions are justified."
       ],
       "check_ids": [
         "P1-01"
@@ -586,7 +651,11 @@
       "url": "https://github.com/Shrezz/careerbridge/issues/20",
       "blocked_by": [
         19
+      ],
+      "implementation_constraints": [
+        "Keep this deferred until P0 acceptance. When implemented, use the existing settings/pathway modules and a bounded consent flow; no separate wellbeing engine."
       ]
     }
-  ]
+  ],
+  "implementation_guidelines": "docs/IMPLEMENTATION_GUIDELINES.md"
 }

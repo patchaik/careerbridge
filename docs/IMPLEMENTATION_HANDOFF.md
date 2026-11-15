@@ -6,6 +6,10 @@ Implement [MVP_REQUIREMENTS.md](MVP_REQUIREMENTS.md) against [contracts/v0.1](..
 
 General target roles and sourced gaps are supported. Only published reviewed templates offer verified learning/assessment. RAG is optional. OpenAI and Nebius are server-selectable providers; deterministic mastery remains independent of them.
 
+## Minimal implementation baseline
+
+Follow [IMPLEMENTATION_GUIDELINES.md](IMPLEMENTATION_GUIDELINES.md) in every workstream. Reuse React/Vite, FastAPI, one PostgreSQL-backed worker and the existing `database/` package. Use a small shared provider adapter, domain functions and versioned task-specific prompts. Logical entities are not a mandate for one table or class each; document the physical mapping and retain all invariants. Review/publish and provider conformance can use small scripts. No new orchestration platform, visual template builder or general-purpose agent framework is required.
+
 ## Parallel work rules
 
 1. Review/adopt this contract PR before merging implementations that depend on it. During review, branch from the PR head or copy the exact contract revision into isolated implementation branches.

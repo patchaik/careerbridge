@@ -62,6 +62,10 @@ The exact wire/schema definitions are in [the contract package](../contracts/v0.
 
 The initial cache-age, retention, timeout and retry limits in the normative contract are implementation defaults, not claims about the original product document. Model IDs, reviewer identities and production template content are deployment/content inputs; examples do not supply fake approvals.
 
+## Implementation quality
+
+The MVP must stay small, clearly organized and easy to change. Follow [implementation guidelines](IMPLEMENTATION_GUIDELINES.md): reuse the existing stack, keep domain logic, prompts and persistence in their modules, use concise task-specific prompts, and justify each new dependency or abstraction. Logical records do not mandate separate physical tables or services. Each implementation PR must demonstrate its acceptance criteria with the smallest clear change.
+
 ## MVP release gates
 
 1. Complete the browser journey with mocks disabled for two reviewed distinct competencies, including a non-RAG template, using common workflow logic.

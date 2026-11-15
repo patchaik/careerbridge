@@ -2,6 +2,7 @@
 
 Implementation baseline proposed by this PR. This package defines interfaces; it does not implement the backend or apply migrations.
 
+- [Minimal MVP implementation guidelines](../../docs/IMPLEMENTATION_GUIDELINES.md)
 - [MVP requirements](../../docs/MVP_REQUIREMENTS.md)
 - [Implementation handoff and dependency map](../../docs/IMPLEMENTATION_HANDOFF.md)
 - [Normative contract](CONTRACT.md)
