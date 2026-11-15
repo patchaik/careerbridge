@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
+import { BridgeJourneyAnimation } from "../components/landing/BridgeJourneyAnimation";
 import { JourneyStepper } from "../components/features/landing/JourneyStepper";
 import { LandingFooter } from "../components/features/landing/LandingFooter";
-import { SkillBridgePreview } from "../components/features/landing/SkillBridgePreview";
 import { ValueProps } from "../components/features/landing/ValueProps";
 import { useAuth } from "../context/AuthContext";
 import { MAIN_PATH, useJourney } from "../context/JourneyContext";
@@ -45,7 +45,7 @@ export function LandingPage() {
           </div>
 
           <div className="mx-auto w-full max-w-md lg:mx-0">
-            <SkillBridgePreview />
+            <BridgeJourneyAnimation />
           </div>
         </div>
       </section>

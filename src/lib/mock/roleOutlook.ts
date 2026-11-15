@@ -1,9 +1,8 @@
 // Mock-only "AI outlook" for /target and role suggestions for
 // /recommendations — no contract endpoint exists yet (see
 // docs/API_PROPOSALS.md's POST /roles/outlook, POST /roles/recommend).
-// Everything here is a deterministic, clearly-labeled demo signal, never a
-// prediction or a verified assessment — see isDemoData/the "Demo data"
-// badge rendered alongside it.
+// Everything here is a deterministic signal, never a prediction or a
+// verified assessment.
 
 import type {
   AutomationExposure,

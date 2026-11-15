@@ -2,7 +2,6 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Alert } from "../components/ui/Alert";
-import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { ExposureBadge, SeverityBadge, TrendBadge } from "../components/features/target/OutlookBadges";
@@ -95,10 +94,7 @@ export function TargetPage() {
   if (outlook) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16">
-        <div className="flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold">AI outlook for {outlook.targetRole}</h1>
-          <Badge variant="demo" />
-        </div>
+        <h1 className="text-2xl font-semibold">AI outlook for {outlook.targetRole}</h1>
         <p className="mt-1 text-xs text-neutral-500">
           These are signals based on general labor-market patterns, never a prediction about your
           career specifically.

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { ExposureBadge, TrendBadge } from "../components/features/target/OutlookBadges";
@@ -46,12 +45,9 @@ export function RecommendationsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-16">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-neutral-900 sm:text-3xl">
-          Not sure where to start?
-        </h1>
-        <Badge variant="demo" />
-      </div>
+      <h1 className="text-2xl font-semibold text-neutral-900 sm:text-3xl">
+        Not sure where to start?
+      </h1>
       <p className="mt-2 max-w-xl text-neutral-600">
         Based on your confirmed skills, here are roles worth considering. These are signals, not
         a guarantee of fit or a chance of getting hired — use them to narrow down where to look.

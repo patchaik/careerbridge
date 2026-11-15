@@ -76,10 +76,7 @@ export function SkillsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-16">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">Your skill comparison</h1>
-        {allSynthetic && <Badge variant="demo" />}
-      </div>
+      <h1 className="text-2xl font-semibold">Your skill comparison</h1>
       <p className="mt-2 text-neutral-600">
         Based on the retrieved postings and your confirmed profile. A gap means
         missing profile evidence, not demonstrated inability.
@@ -263,7 +260,6 @@ export function SkillsPage() {
                     >
                       {job.title}
                     </a>
-                    {job.source === "synthetic" && <Badge variant="demo" />}
                   </div>
                   <p className="text-sm">{job.company}</p>
                   <p className="text-xs text-neutral-500">
