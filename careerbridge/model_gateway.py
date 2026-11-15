@@ -13,6 +13,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import httpx
+import yaml
 from jsonschema import Draft202012Validator, FormatChecker, ValidationError
 
 CONTRACT = Path(__file__).resolve().parents[1] / "contracts/v0.1/schemas"
@@ -82,6 +83,14 @@ def pin_routing(config, env=None):
             raise ModelError("unsupported_route")
         profile["model"] = env.get(profile["model_env"], "").strip()
     return {"revision": digest(pinned), "config": pinned}
+
+
+def load_routing(path):
+    """Load server configuration before pinning it to a workflow."""
+    try:
+        return pin_routing(yaml.safe_load(Path(path).read_text()))
+    except (OSError, ValueError, TypeError, yaml.YAMLError, ValidationError) as exc:
+        raise ModelError("provider_not_configured") from exc
 
 
 @dataclass(frozen=True)

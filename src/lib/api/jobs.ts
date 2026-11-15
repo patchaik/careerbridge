@@ -1,17 +1,35 @@
 import { isReal } from "./endpoints";
-import { mockSearchJobs } from "../mock/handlers";
-import { apiRequest } from "./client";
-import { registerCompletedWorkflow } from "./realWorkflowCache";
+import { apiRequest, ApiError } from "./client";
 
-// NOTE: the contract's POST /api/jobs/search requires `goal_id` and answers
-// synchronously (200, not a real async job in mock mode) — this function
-// predates that and takes no goal id. No page calls it yet (Phase 4+); see
-// docs/INTEGRATION_NOTES.md.
-export async function searchJobs(goalId?: string): Promise<{ workflowId: string }> {
-  if (!isReal("searchJobs") || !goalId) return { workflowId: mockSearchJobs() };
-  const result = await apiRequest<{ jobs: unknown[]; fallback_used: boolean }>("/api/jobs/search", {
+export interface JobPosting {
+  id: string;
+  title: string;
+  company: string | null;
+  url: string;
+  source: string;
+  retrieved_at: string;
+  completeness: "full" | "partial";
+  requirements: {
+    skill: string;
+    importance: "required" | "preferred";
+    excerpt: string;
+  }[];
+}
+
+export async function searchJobs(goalId: string) {
+  if (!isReal("searchJobs"))
+    throw new ApiError(503, "Live job search requires the connected backend.");
+  return apiRequest<{
+    workflow_id: string;
+    jobs: JobPosting[];
+    source: string;
+    fallback_used: boolean;
+  }>("/api/jobs/search", {
     method: "POST",
-    body: { goal_id: goalId },
+    body: { goal_id: goalId, limit: 5 },
   });
-  return { workflowId: registerCompletedWorkflow({ postings: result.jobs }) };
+}
+
+export function getJob(id: string) {
+  return apiRequest<JobPosting>(`/api/jobs/${encodeURIComponent(id)}`);
 }

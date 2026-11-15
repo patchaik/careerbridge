@@ -1,7 +1,7 @@
 """Discover job requirements and learning resources using Keenable."""
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Literal, TypedDict
 from urllib.parse import urlparse
 
@@ -9,9 +9,12 @@ import httpx
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from careerbridge.prompts.search_agent import JOBS, RESOURCES
+from careerbridge.prompts.search_agent import RESOURCES, job_suite, job_source_supported
+from careerbridge.model_gateway import ModelGateway, ExecutionContext, ModelError, utcnow
+from database import users
+from database.client import DBError
 
 
 def search(query: str, limit: int = 10) -> list[dict]:
@@ -53,20 +56,23 @@ def fetch_pages(results: list[dict], limit: int = 10) -> list[dict]:
 
 
 class Requirement(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     skill: str = Field(min_length=1, max_length=120)
     importance: Literal["required", "preferred", "unspecified"]
     excerpt: str = Field(min_length=1, max_length=800)
 
 
 class Job(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     page_index: int
     title: str
     employer: str | None
-    requirements: list[Requirement]
+    requirements: list[Requirement] = Field(max_length=10)
 
 
 class JobExtraction(BaseModel):
-    jobs: list[Job]
+    model_config = ConfigDict(extra="forbid")
+    jobs: list[Job] = Field(max_length=5)
 
 
 class Resource(BaseModel):
@@ -104,29 +110,66 @@ class JobState(TypedDict, total=False):
     role: str
     location: str
     seniority: str
-    skills: list[dict]
+    workflow_id: str
+    user_id: str
+    model_routing: dict
     pages: list[dict]
     result: dict
 
 
 def find_jobs(state: JobState):
     if os.getenv("CAREERBRIDGE_SEARCH_MODE", "live") == "mock":
-        return {"pages": [{"url": "https://example.com/synthetic-job", "title": "Synthetic AI developer job",
-                           "content": "Synthetic AI developer. Required: Python and retrieval augmented generation. Preferred: Docker.", "published_at": None}]}
+        return {"pages": [{"url": "https://example.com/synthetic-job", "title": f"Synthetic {state['role']} job",
+                           "content": f"Synthetic {state['role']}. Required: Python and SQL. Preferred: Docker.", "published_at": None}]}
     query = f"{state['role']} {state['seniority']} {state['location']} job opening responsibilities qualifications"
-    return {"pages": fetch_pages(search(query, 20), 10)}
+    results = search(query, 10)
+    pages = fetch_pages(results[:8], 5)
+    if results and not pages:
+        raise ModelError("source_fetch_failed")
+    # Bound model input while retaining only quotes within the supplied excerpt.
+    return {"pages": [{**page, "content": page["content"][:4500]} for page in pages]}
+
+
+def extract_jobs(state: JobState):
+    if not state["pages"]:
+        return JobExtraction(jobs=[])
+    suite = job_suite()
+    task = suite["tasks"]["job_extract"]
+    routing = state["model_routing"]
+    context = ExecutionContext(
+        state["workflow_id"], state["user_id"], routing["revision"],
+        task["prompt_version"], task["output_schema_version"],
+        utcnow() + timedelta(seconds=routing["config"]["timeout_seconds"]),
+    )
+
+    def record(event):
+        try:
+            saved = users.log_event(state["user_id"], "model_invocation", "workflow", state["workflow_id"], event)
+        except DBError as exc:
+            raise ModelError("invocation_not_recorded") from exc
+        if not saved:
+            raise ModelError("invocation_not_recorded")
+
+    gateway = ModelGateway(routing, suite, record)
+    try:
+        result = gateway.generate_json("job_extract", "job_requirements", {
+            "role": state["role"], "location": state["location"], "seniority": state["seniority"],
+            "pages": [{"content": p["content"]} for p in state["pages"]],
+        }, context, validate_business=job_source_supported)
+        return JobExtraction.model_validate(result["validated_data"])
+    finally:
+        gateway.close()
 
 
 def analyze_jobs(state: JobState):
     pages = state["pages"]
     mock = os.getenv("CAREERBRIDGE_SEARCH_MODE", "live") == "mock"
-    extracted = JobExtraction(jobs=[Job(page_index=0, title="Synthetic AI developer", employer="Example",
-        requirements=[Requirement(skill="Python", importance="required", excerpt="Required: Python and retrieval augmented generation."),
-                      Requirement(skill="Beginner RAG", importance="required", excerpt="Required: Python and retrieval augmented generation."),
-                      Requirement(skill="Docker", importance="preferred", excerpt="Preferred: Docker.")])]) if mock else extract(JobExtraction, JOBS, state["role"], pages)
+    extracted = JobExtraction(jobs=[Job(page_index=0, title=f"Synthetic {state['role']}", employer="Example",
+        requirements=[Requirement(skill="Python", importance="required", excerpt="Required: Python and SQL."),
+                      Requirement(skill="SQL", importance="required", excerpt="Required: Python and SQL."),
+                      Requirement(skill="Docker", importance="preferred", excerpt="Preferred: Docker.")])]) if mock else extract_jobs(state)
     now = datetime.now(timezone.utc).isoformat()
-    jobs, grouped = [], {}
-    confirmed = {normalize(skill["name"]) for skill in state["skills"]}
+    jobs = []
     used = set()
     for job in extracted.jobs:
         if not 0 <= job.page_index < len(pages) or job.page_index in used:
@@ -147,14 +190,7 @@ def analyze_jobs(state: JobState):
         jobs.append({"title": job.title, "employer": job.employer if job.employer and contains(page["content"], job.employer) else None, "url": page["url"],
                      "retrieved_at": now, "published_at": page["published_at"], "requirements": requirements,
                      "availability": "not_verified"})
-        for req in requirements:
-            key = normalize(req["skill"])
-            if key not in grouped:
-                grouped[key] = {"skill": req["skill"], "status": "confirmed" if key in confirmed else "not_evidenced", "sources": []}
-            grouped[key]["sources"].append({"url": page["url"], "importance": req["importance"], "excerpt": req["excerpt"]})
-    gaps = [g for g in grouped.values() if g["status"] == "not_evidenced"]
-    gaps.sort(key=lambda g: (sum(s["importance"] == "required" for s in g["sources"]), len(g["sources"])), reverse=True)
-    return {"result": {"jobs": jobs, "gaps": gaps[:10], "retrieved_at": now,
+    return {"result": {"jobs": jobs, "retrieved_at": now,
                        "source": "synthetic" if mock else "keenable", "availability_note": "Synthetic fixture; not a real job." if mock else "Search results may be stale; check each listing."}}
 
 

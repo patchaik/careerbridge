@@ -230,7 +230,7 @@ def confirm_profile(profile_id: str, body: ConfirmProfileBody,
 # ---------------------------------------------------------------------------
 
 class GoalInput(BaseModel):
-    target_role: str
+    target_role: str = Field(min_length=1, max_length=120)
     location: Optional[str] = None
     seniority: Optional[str] = None
     learning_goal: Optional[str] = None
@@ -282,8 +282,8 @@ def analyze_skills(body: SkillsAnalyzeBody, user_id: str = Depends(current_user_
 
 
 @app.get("/api/gap-analyses/{analysis_id}")
-def get_gap_analysis(analysis_id: str):
-    return store.get_gap_analysis_flow(analysis_id)
+def get_gap_analysis(analysis_id: str, user_id: str = Depends(current_user_id)):
+    return store.get_gap_analysis_flow(analysis_id, user_id)
 
 
 # ---------------------------------------------------------------------------

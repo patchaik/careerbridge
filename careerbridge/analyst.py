@@ -4,15 +4,12 @@ import io
 import os
 import re
 from datetime import timedelta
-from pathlib import Path
 from typing import TypedDict
 from zipfile import ZipFile
 
 from docx import Document
 from langgraph.graph import END, START, StateGraph
 from pypdf import PdfReader
-import yaml
-from jsonschema import ValidationError
 
 from database import users
 from database.client import DBError
@@ -22,7 +19,7 @@ from careerbridge.model_gateway import (
     ExecutionContext,
     ModelError,
     ModelGateway,
-    pin_routing,
+    load_routing,
     utcnow,
 )
 from careerbridge.prompts.career_analyst import resume_suite, source_supported
@@ -42,11 +39,9 @@ class AnalystState(TypedDict, total=False):
 
 
 def resume_routing():
-    path = Path(os.getenv("MODEL_ROUTING_PATH", "deployment/model-routing.yaml"))
-    try:
-        return pin_routing(yaml.safe_load(path.read_text()))
-    except (OSError, ValueError, TypeError, yaml.YAMLError, ValidationError) as exc:
-        raise ModelError("provider_not_configured") from exc
+    return load_routing(
+        os.getenv("MODEL_ROUTING_PATH", "deployment/model-routing.yaml")
+    )
 
 
 def parse_resume(state: AnalystState):

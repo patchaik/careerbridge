@@ -9,8 +9,8 @@ info:
     **Conventions**
     - Base path `/api`. JSON in and out, except résumé upload (multipart).
     - IDs are UUID strings. Timestamps are ISO 8601 UTC.
-    - MVP auth: send the signed-in user's ID in the `X-User-Id` header.
-      This will later be replaced by a Supabase Auth bearer token, with no change to request bodies.
+    - Auth: send a Supabase Auth access token as `Authorization: Bearer <token>`.
+      The backend validates the token and resolves the app user; request bodies are unchanged.
     - Errors always use the `Error` shape (see components).
     - `Idempotency-Key` header (any unique string, e.g. a UUID made by the UI) is required on
       profile confirmation, assessment submission and résumé export. Repeating a request with the
@@ -26,7 +26,7 @@ servers:
   - url: http://localhost:8000
     description: Local FastAPI
 security:
-  - userId: []
+  - bearerAuth: []
 tags:
   - name: Users
   - name: Onboarding
@@ -375,6 +375,7 @@ paths:
       tags: [Market evidence]
       summary: Get a saved gap analysis
       operationId: getGapAnalysis
+      security: [{ bearerAuth: [] }]
       x-db-functions: [jobs.gap_report]
       parameters:
         - name: analysis_id
@@ -911,11 +912,11 @@ paths:
 
 components:
   securitySchemes:
-    userId:
-      type: apiKey
-      in: header
-      name: X-User-Id
-      description: MVP only. The signed-in user's UUID. To be replaced by a bearer token.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase Auth access token, validated by the backend.
 
   parameters:
     UserId:
@@ -1104,6 +1105,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         provider: { $ref: "#/components/schemas/Provider" }
+        source: { type: string, description: Retrieval source; Keenable snapshots use the legacy cached DB provider }
         title: { type: string }
         company: { type: string }
         location: { type: string }
@@ -1116,13 +1118,14 @@ components:
 
     JobSearchResult:
       type: object
-      required: [jobs, fallback_used]
+      required: [jobs, fallback_used, source]
       properties:
         workflow_id: { type: string, format: uuid }
         jobs:
           type: array
           maxItems: 5
           items: { $ref: "#/components/schemas/JobPosting" }
+        source: { type: string }
         fallback_used:
           type: boolean
           description: True when the live provider failed and labeled cached postings were used
@@ -1155,12 +1158,15 @@ components:
 
     GapAnalysis:
       type: object
-      required: [id, goal_id, profile_id, existing_skills, market_skills, gaps]
+      required: [id, goal_id, profile_id, job_ids, existing_skills, market_skills, gaps]
       properties:
         id: { type: string, format: uuid }
         workflow_id: { type: string, format: uuid }
         goal_id: { type: string, format: uuid }
         profile_id: { type: string, format: uuid }
+        job_ids:
+          type: array
+          items: { type: string, format: uuid }
         existing_skills:
           type: array
           maxItems: 10
