@@ -62,6 +62,14 @@ The exact wire/schema definitions are in [the contract package](../contracts/v0.
 
 The initial cache-age, retention, timeout and retry limits in the normative contract are implementation defaults, not claims about the original product document. Model IDs, reviewer identities and production template content are deployment/content inputs; examples do not supply fake approvals.
 
+## Learning material after acceptance
+
+Accepted plans support original teaching for each milestone using its chosen mode
+and saved resource descriptions. Text provides explanations, an example and self-checks;
+hands-on adds setup, practice steps and a deliverable. Save material and restore it
+without another model call. No reviewed template, full-course scraping or independent
+assessment is required. See [material acceptance criteria](LEARNING_MATERIAL.md).
+
 ## Implementation quality
 
 The MVP must stay small, clearly organized and easy to change. Follow [implementation guidelines](IMPLEMENTATION_GUIDELINES.md): reuse the existing stack, keep domain logic, prompts and persistence in their modules, use concise task-specific prompts, and justify each new dependency or abstraction. Logical records do not mandate separate physical tables or services. Each implementation PR must demonstrate its acceptance criteria with the smallest clear change.

@@ -209,3 +209,13 @@ def get_path_workflow(user_id: str, path_id: str) -> Optional[dict]:
     return first(run(table("workflow_runs").select("*").eq("user_id", user_id)
         .contains("state_json", {"kind": "generate_path", "status": "complete", "result": {"id": path_id}})
         .limit(1), "Find learning plan snapshot"))
+
+
+def list_lesson_workflows(user_id: str, path_id: str, milestone_id: Optional[str] = None) -> list[dict]:
+    """Read completed material snapshots; a GET never invokes a model."""
+    match = {"kind": "generate_lesson", "status": "complete", "path_id": path_id}
+    if milestone_id is not None:
+        match["milestone_id"] = milestone_id
+    query = (table("workflow_runs").select("*").eq("user_id", user_id)
+             .contains("state_json", match).order("created_at", desc=True))
+    return run(query.limit(1 if milestone_id is not None else 50), "Read milestone material")

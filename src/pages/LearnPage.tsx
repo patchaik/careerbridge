@@ -4,23 +4,27 @@ import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { approvePath, getPath, type LearningPlan } from "../lib/api/paths";
+import { MilestoneMaterial } from "../components/features/learning/MilestoneMaterial";
+import { getMaterials, type MilestoneMaterial as Material } from "../lib/api/materials";
 import { priceLabels } from "../lib/api/resources";
 
 export function LearnPage() {
   const [params] = useSearchParams();
   const id = params.get("path");
   const [plan, setPlan] = useState<LearningPlan | null>(null);
+  const [materials, setMaterials] = useState<Material[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
     async function load() {
       setPlan(null);
+      setMaterials([]);
       setError("");
       if (!id) return;
       try {
-        const saved = await getPath(id);
-        if (active) setPlan(saved);
+        const [saved, lessons] = await Promise.all([getPath(id), getMaterials(id)]);
+        if (active) { setPlan(saved); setMaterials(lessons.materials); }
       } catch (cause) {
         if (active)
           setError(
@@ -120,6 +124,10 @@ export function LearnPage() {
                       ) : null;
                     })}
                   </ul>
+                  {plan.status !== "proposed" && <MilestoneMaterial
+                    key={`${plan.id}:${m.id}`} pathId={plan.id} milestoneId={m.id}
+                    saved={materials.find(item => item.milestone_id === m.id)}
+                  />}
                 </Card>
               </li>
             ))}
@@ -135,8 +143,8 @@ export function LearnPage() {
             </Button>
           ) : (
             <Alert variant="success">
-              Plan accepted and saved. You can return to this page to follow
-              your milestones.
+              Plan accepted and saved. Generate learning material for any milestone above,
+              then return here to continue learning.
             </Alert>
           )}
           <Link

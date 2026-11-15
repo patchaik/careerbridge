@@ -1,0 +1,28 @@
+schema_version: '1.0'
+active_profile: openai
+profiles:
+  openai:
+    provider: openai
+    base_url: https://api.openai.com/v1
+    api_key_env: OPENAI_API_KEY
+    model_env: OPENAI_MODEL
+    transport: chat_completions
+    structured_mode: json_schema
+    capability_report_path: deployment/lesson-openai-capabilities.json
+    adapter_version: chat-compat-v1
+  nebius:
+    provider: nebius
+    base_url: https://api.tokenfactory.nebius.com/v1/
+    api_key_env: NEBIUS_API_KEY
+    model_env: NEBIUS_MODEL
+    transport: chat_completions
+    structured_mode: json_schema
+    capability_report_path: deployment/lesson-nebius-capabilities.json
+    adapter_version: chat-compat-v1
+task_overrides: {}
+cross_provider_fallback:
+  enabled: false
+  allowed_profiles: []
+timeout_seconds: 60
+max_transport_attempts: 3
+max_schema_repairs: 1

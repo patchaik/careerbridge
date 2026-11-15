@@ -5,7 +5,9 @@
 Learning no longer depends on reviewed templates, publication, activity handlers or
 grading bundles. Follow [LEARNING_PLANS.md](LEARNING_PLANS.md) and the deployed
 [API contract](../api/openapi.yaml): saved resource search → skill-specific goal +
-selected resource IDs + modality → learning outcome/milestones → learner acceptance.
+selected resource IDs + modality → learning outcome/milestones → learner acceptance
+→ saved milestone material. Follow [LEARNING_MATERIAL.md](LEARNING_MATERIAL.md)
+for generation, persistence, provider setup and acceptance checks.
 Earlier template dependencies below now apply only to independent assessments.
 Keep rubric publication and competency evidence separate from this learning slice.
 

@@ -27,3 +27,10 @@ The validator checks schema structure, references, examples and negative/semanti
 The two non-RAG examples are draft format fixtures. Neither is approved for mastery. The miniature private grading example is synthetic and safe to inspect; real final answer keys and held-out assets belong in private storage, never this public repository or a frontend bundle.
 
 Set model IDs and keys through server environment variables. Provider routes require real capability reports before deployment. No credentials or reports claiming live success are included.
+
+## Deployed milestone material extension
+
+[Milestone material schema](schemas/milestone-material.schema.json) defines the
+current saved lesson response. [Deployed `/api` routes](../../api/openapi.yaml)
+and [handoff](../../docs/LEARNING_MATERIAL.md) govern this slice; it does not require
+templates or implement the broader `/api/v1` lesson/assessment infrastructure.

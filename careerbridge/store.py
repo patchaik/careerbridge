@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 from time import perf_counter
+from threading import Lock
 from pathlib import Path
 from typing import Optional
 
@@ -24,7 +25,7 @@ from database import jobs, learning, mastery, profiles, users
 from database.client import DBError
 
 from careerbridge.analyst import analyst, resume_routing
-from careerbridge.model_gateway import ModelError, load_routing
+from careerbridge.model_gateway import ModelError, load_routing, utcnow
 from careerbridge.timings import measure
 from careerbridge.tracing import trace, trace_id
 from careerbridge.prompts.career_analyst import resume_suite
@@ -34,6 +35,8 @@ from careerbridge.prompts.learning_plan import plan_suite
 from careerbridge.assessor import assessor, prepare_assessment
 from careerbridge.errors import ApiError, db_error_to_api_error
 from careerbridge.learning_coach import answer_question, propose_path, remediation
+from careerbridge.learning_material import generate_material
+from careerbridge.prompts.lesson import lesson_suite
 from careerbridge.mock_skills import MOCK_SKILLS
 from careerbridge.search_agent import job_search_agent, resource_search_agent
 
@@ -553,6 +556,76 @@ def approve_path_flow(path_id: str, user_id: str) -> dict:
     if path["status"] == "proposed":
         call(learning.update_path_status, path_id, "approved")
     return get_path_flow(path_id, user_id)
+
+
+
+_material_lock = Lock()
+_material_in_flight = set()
+
+
+def get_materials_flow(path_id: str, user_id: str) -> dict:
+    plan = get_path_flow(path_id, user_id)
+    valid_ids = {m["id"] for m in plan["milestones"]}
+    materials = {}
+    for wf in call(users.list_lesson_workflows, user_id, path_id):
+        result = wf["state_json"]["result"]
+        if result["milestone_id"] in valid_ids:
+            materials.setdefault(result["milestone_id"], result)
+    return {"materials": [materials[m["id"]] for m in plan["milestones"] if m["id"] in materials]}
+
+
+def generate_material_flow(path_id: str, milestone_id: str, user_id: str) -> dict:
+    require_learning_consent(user_id)
+    plan = get_path_flow(path_id, user_id)
+    if plan["status"] == "proposed" or "resource_search_id" not in plan:
+        raise ApiError(409, "rule_violation", "Accept a resource-based learning plan before generating material")
+    milestone = next((m for m in plan["milestones"] if m["id"] == milestone_id), None)
+    if not milestone:
+        raise ApiError(404, "not_found", "Milestone not found on this plan")
+    key = (user_id, path_id, milestone_id)
+    # Prevent duplicate clicks in the single-process MVP, without retaining completed locks.
+    with _material_lock:
+        if key in _material_in_flight:
+            raise ApiError(409, "rule_violation", "Material is already being generated. Wait, then reload this plan.")
+        _material_in_flight.add(key)
+    wf = None
+    state = {"kind": "generate_lesson", "status": "running", "stage": "generating",
+             "path_id": path_id, "milestone_id": milestone_id}
+    try:
+        saved = call(users.list_lesson_workflows, user_id, path_id, milestone_id)
+        if saved:
+            return saved[0]["state_json"]["result"]
+        resources = [r for r in plan["resources"] if r["id"] in milestone["resource_ids"]]
+        if not resources or {r["id"] for r in resources} != set(milestone["resource_ids"]):
+            raise ApiError(409, "rule_violation", "This milestone has no complete saved resource references")
+        data = {"skill": plan["skill"], "learning_goal": plan["objective"],
+                "learning_outcome": plan["learning_outcome"],
+                "milestone": {k: v for k, v in milestone.items() if k != "id"},
+                "resources": [{k: r[k] for k in ("id", "title", "price_type", "learning_evidence", "format")}
+                              for r in resources]}
+        wf = call(users.create_workflow, user_id, plan["goal_id"])
+        routing = load_routing(os.getenv("LESSON_MODEL_ROUTING_PATH", "deployment/lesson-model-routing.yaml"))
+        task = lesson_suite()["tasks"]["lesson"]
+        state.update(model_routing=routing, prompt_version=task["prompt_version"],
+                     output_schema_version=task["output_schema_version"])
+        call(users.save_workflow_state, wf["id"], "LEARNING", state)
+        content = generate_material({"user_id": user_id, "workflow_id": wf["id"], "model_routing": routing}, data)
+        result = {"path_id": path_id, "milestone_id": milestone_id, "workflow_id": wf["id"],
+                  "generated_at": utcnow().isoformat(), "content": content,
+                  "resources": [r for r in resources if r["id"] in content["resource_ids"]]}
+        state.update(status="complete", stage="complete", result=result)
+        call(users.save_workflow_state, wf["id"], "LEARNING", state)
+        return result
+    except Exception as exc:
+        if wf:
+            state.update(status="failed", stage="failed", error=exc.code if isinstance(exc, ModelError) else "lesson_failed")
+            call(users.save_workflow_state, wf["id"], "LEARNING", state)
+        if isinstance(exc, ApiError):
+            raise
+        raise ApiError(503, "provider_unavailable", "Couldn't generate this milestone's material. Your plan and resources are saved; please retry.") from exc
+    finally:
+        with _material_lock:
+            _material_in_flight.discard(key)
 
 
 def set_path_status_flow(path_id: str, status: str, user_id: str) -> dict:
