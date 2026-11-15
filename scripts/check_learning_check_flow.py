@@ -194,7 +194,7 @@ def main():
                 )
                 assert checked(c.post(route)) == ready
                 assert (
-                    "correct_option" not in c.get("/api/workflows/" + ready["id"]).text
+                    "correct_option" not in json.dumps(checked(c.get("/api/workflows/" + ready["id"])))
                 )
                 assert (
                     c.get(

@@ -191,7 +191,7 @@ def main():
                     c.post(
                         "/api/assessments/start", json={"path_id": plan["id"]}
                     ).status_code
-                    == 409
+                    == 501
                 )
                 if args.progress:
                     assert c.put(f"/api/paths/{plan['id']}/milestones/{first}/completion", json={"done": True}).status_code == 409

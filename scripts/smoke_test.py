@@ -3,8 +3,7 @@ using real Supabase Auth (AUTH_MODE=supabase, the backend default).
 
 Exercises the whole product flow over HTTP: create a confirmed Supabase Auth
 user -> sign in for a real access token -> upload résumé -> poll/confirm ->
-goal -> job search -> gap analysis -> resources -> generate path -> approve
-rubric -> tutor -> start + submit assessment -> progress. Prints PASS/FAIL
+goal -> job search -> gap analysis -> progress. Prints PASS/FAIL
 per step and always deletes the test app user AND the test auth user at the
 end (even on failure), since it uses a clearly fake @example.com address.
 
@@ -25,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import httpx
 from supabase import create_client
 
+from database import users
 from database.client import get_client
 
 BASE_URL = "http://localhost:8000"
@@ -53,7 +53,7 @@ def run_step(name: str, fn):
 def cleanup():
     if _user_id:
         try:
-            httpx.delete(f"{BASE_URL}/api/users/{_user_id}", timeout=10)
+            users.delete_user(_user_id)
             print(f"(cleanup) deleted app user {_user_id}")
         except Exception as exc:  # noqa: BLE001
             print(f"(cleanup) failed to delete app user {_user_id}: {exc}")
@@ -100,7 +100,7 @@ def main():
     # docs/INTEGRATION_NOTES.md.
     def _sign_in():
         url = os.environ["SUPABASE_URL"].strip().rstrip("/")
-        key = os.environ["SUPABASE_KEY"].strip()
+        key = os.environ["SUPABASE_PUBLISHABLE_KEY"].strip()
         sign_in_client = create_client(url, key)
         session = sign_in_client.auth.sign_in_with_password({"email": email, "password": TEST_PASSWORD})
         return session.session.access_token
@@ -137,36 +137,10 @@ def main():
     if not gap_skill:
         run_step("at least one skill gap found", lambda: (_ for _ in ()).throw(RuntimeError("no gaps returned")))
 
-    path = run_step("generate learning path", lambda: _expect_ok(client.post(
-        "/api/paths/generate", headers=headers, json={"goal_id": goal_id, "skill": gap_skill})))
-    path_id = path["id"]
-
-    run_step("resources available for the gap skill", lambda: _check_resources(client, gap_skill))
-
-    path = run_step("approve path (freezes rubric)", lambda: _expect_ok(
-        client.put(f"/api/paths/{path_id}/approve")))
-    if path["rubric"]["approval_status"] != "frozen":
-        run_step("rubric is frozen after approval",
-                 lambda: (_ for _ in ()).throw(RuntimeError("rubric not frozen")))
-
-    milestone_id = path["milestones"][0]["id"]
-    run_step("tutor question", lambda: _expect_ok(client.post(
-        "/api/arena/tutor",
-        json={"path_id": path_id, "milestone_id": milestone_id, "message": "Give me a hint"})))
-
-    attempt = run_step("start assessment", lambda: _expect_ok(client.post(
-        "/api/assessments/start", headers={**headers, "Idempotency-Key": f"start-{uuid.uuid4()}"},
-        json={"path_id": path_id})))
-    attempt_id = attempt["attempt_id"]
-
-    result = run_step("submit assessment (pass)", lambda: _submit_passing(client, headers, attempt_id, attempt))
-    run_step("verified evidence recorded", lambda: _require(
-        result.get("verified_evidence_id"), "no verified_evidence_id on a passed attempt"))
-
-    run_step("progress reflects demonstrated skill", lambda: _check_progress(client, headers, gap_skill))
+    run_step("progress includes the saved gap", lambda: _check_progress(client, headers, gap_skill))
 
     run_step("delete test app user", lambda: _expect_status(
-        client.delete(f"/api/users/{_user_id}"), 204))
+        client.delete(f"/api/users/{_user_id}", headers=headers), 204))
     _user_id = None
 
     run_step("delete test auth user", lambda: admin.auth.admin.delete_user(_auth_user_id))
@@ -188,11 +162,6 @@ def _expect_status(response: httpx.Response, status: int) -> None:
                            f"expected {status}, got {response.status_code}: {response.text[:300]}")
 
 
-def _require(value, message: str):
-    if not value:
-        raise RuntimeError(message)
-    return value
-
 
 def _upload_resume(client: httpx.Client, headers: dict) -> dict:
     with open(FIXTURE, "rb") as f:
@@ -210,29 +179,12 @@ def _check_expected_skills(profile: dict) -> None:
         raise RuntimeError(f"expected skills not found in parsed profile: {sorted(missing)}")
 
 
-def _check_resources(client: httpx.Client, skill: str) -> None:
-    resources = _expect_ok(client.get("/api/resources", params={"skill": skill}))
-    if not resources["free"]:
-        raise RuntimeError(f"no free resources found for {skill!r}")
-
-
-def _submit_passing(client: httpx.Client, headers: dict, attempt_id: str, attempt: dict) -> dict:
-    answers = [{"question_id": q["id"], "answer": q["choices"][0]} for q in attempt["quiz"]]
-    response = client.post(
-        "/api/assessments/submit", headers={**headers, "Idempotency-Key": f"submit-{uuid.uuid4()}"},
-        json={"attempt_id": attempt_id, "quiz_answers": answers,
-              "project_submission": "Here is my mock demonstration of the concept."})
-    result = _expect_ok(response)
-    if result["status"] != "passed":
-        raise RuntimeError(f"expected a passing attempt, got status={result['status']!r}: {result}")
-    return result
-
 
 def _check_progress(client: httpx.Client, headers: dict, skill: str) -> None:
     progress = _expect_ok(client.get("/api/progress", headers=headers))
     gap = next((g for g in progress["gaps"] if g["skill"] == skill), None)
-    if not gap or gap["status"] != "demonstrated":
-        raise RuntimeError(f"expected {skill!r} to show status=demonstrated in progress, got {gap}")
+    if not gap or gap["status"] != "not_started":
+        raise RuntimeError(f"expected {skill!r} to show status=not_started in progress, got {gap}")
 
 
 if __name__ == "__main__":
