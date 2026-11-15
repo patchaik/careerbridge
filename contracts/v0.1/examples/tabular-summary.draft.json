@@ -1,0 +1,89 @@
+{
+  "schema_version": "1.0",
+  "template_key": "tabular-summary",
+  "version": 1,
+  "title": "Summarize a small table",
+  "competency": {
+    "skill_id": "00000000-0000-4000-8000-000000000010",
+    "level": "beginner",
+    "objective": "Group fictional records and calculate totals using approved table operations.",
+    "evidence_scope": "A controlled platform exercise; not employment or certification."
+  },
+  "prerequisite_skill_ids": [],
+  "modalities": [
+    "text",
+    "hands_on"
+  ],
+  "concepts": [
+    {
+      "id": "basics",
+      "title": "Interpret the task and inputs",
+      "prerequisite_concept_ids": []
+    },
+    {
+      "id": "apply",
+      "title": "Apply and verify the result",
+      "prerequisite_concept_ids": [
+        "basics"
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "m1",
+      "title": "Understand and practice",
+      "objective": "Group fictional records and calculate totals using approved table operations.",
+      "concept_ids": [
+        "basics",
+        "apply"
+      ],
+      "activity_ids": [
+        "practice1"
+      ]
+    }
+  ],
+  "activities": [
+    {
+      "id": "practice1",
+      "kind": "table_transform_v1",
+      "title": "Guided exercise",
+      "instructions": "Use the provided fictional dataset and approved controls; inspect the output before submitting.",
+      "public_asset_ids": [
+        "00000000-0000-4000-8000-000000000110"
+      ]
+    }
+  ],
+  "criteria": [
+    {
+      "id": "concept",
+      "description": "Select the correct explanation for the operation.",
+      "component": "knowledge",
+      "critical": false,
+      "evidence_description": "Correct response scored with a reviewed answer key."
+    },
+    {
+      "id": "applied",
+      "description": "Produce the expected result from new input.",
+      "component": "project",
+      "critical": true,
+      "evidence_description": "Server-executed result compared with the reviewed expectation."
+    }
+  ],
+  "thresholds": {
+    "knowledge_min_fraction": 1,
+    "project_min_fraction": 1,
+    "all_critical_required": true
+  },
+  "diagnostic_policy": "instruction_placement_only",
+  "remediation_limit": 3,
+  "resource_ids": [],
+  "claim_policy": {
+    "allowed_scope": "platform_practical_training",
+    "prohibited_claims": [
+      "employment",
+      "certification",
+      "years_experience",
+      "production_ownership"
+    ]
+  }
+}

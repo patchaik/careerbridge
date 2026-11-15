@@ -1,0 +1,39 @@
+{
+  "warning": "Format-validation fixtures only; not reviewed instructional content. Never serve the private grading bundle to learners.",
+  "assets": [
+    {
+      "id": "00000000-0000-4000-8000-000000000110",
+      "rows": [
+        {
+          "region": "East",
+          "amount": 4
+        },
+        {
+          "region": "West",
+          "amount": 2
+        },
+        {
+          "region": "East",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000211",
+      "rows": [
+        {
+          "region": "North",
+          "amount": 10
+        },
+        {
+          "region": "South",
+          "amount": 5
+        },
+        {
+          "region": "North",
+          "amount": 20
+        }
+      ]
+    }
+  ]
+}
