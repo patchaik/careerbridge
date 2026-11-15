@@ -3,6 +3,7 @@ import { BridgeJourneyAnimation } from "../components/landing/BridgeJourneyAnima
 import { JourneyStepper } from "../components/features/landing/JourneyStepper";
 import { LandingFooter } from "../components/features/landing/LandingFooter";
 import { ValueProps } from "../components/features/landing/ValueProps";
+import { LandingIconsBackground } from "../components/ui/techTheme";
 import { useAuth } from "../context/AuthContext";
 import { MAIN_PATH, useJourney } from "../context/JourneyContext";
 
@@ -17,6 +18,7 @@ export function LandingPage() {
 
   return (
     <>
+      <LandingIconsBackground />
       <section className="mx-auto max-w-5xl px-4 py-16 sm:py-24">
         <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
           <div>

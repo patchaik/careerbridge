@@ -44,7 +44,7 @@ export function TagInput({
       role="group"
       aria-label={ariaLabel}
       className={cn(
-        "flex flex-wrap items-center gap-2 rounded-lg border border-neutral-300 bg-white p-2 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-600",
+        "flex flex-wrap items-center gap-2 rounded-lg border border-neutral-300 bg-white p-2 transition-shadow focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-600 focus-within:shadow-[0_0_14px_-3px_rgba(20,184,166,0.5)]",
         className,
       )}
     >

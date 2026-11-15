@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
+import { CARD_ACCENT, GRADIENT_HEADING, JobIconsBackground } from "../components/ui/techTheme";
 import { ExposureBadge, TrendBadge } from "../components/features/target/OutlookBadges";
 import { useJourney } from "../context/JourneyContext";
 import { mockDelay } from "../lib/config";
@@ -44,8 +45,9 @@ export function RecommendationsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-16">
-      <h1 className="text-2xl font-semibold text-neutral-900 sm:text-3xl">
+    <div className="relative mx-auto max-w-3xl px-4 py-16">
+      <JobIconsBackground />
+      <h1 className={`text-2xl font-semibold sm:text-3xl ${GRADIENT_HEADING}`}>
         Not sure where to start?
       </h1>
       <p className="mt-2 max-w-xl text-neutral-600">
@@ -69,7 +71,7 @@ export function RecommendationsPage() {
       {recommendations && recommendations.length > 0 && (
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           {recommendations.map((rec) => (
-            <Card key={rec.role}>
+            <Card key={rec.role} className={CARD_ACCENT}>
               <p className="text-base font-semibold text-neutral-900">{rec.role}</p>
               <p className="mt-1 text-xs text-neutral-500">
                 {rec.skillOverlap.matched} of {rec.skillOverlap.total} skills transfer
