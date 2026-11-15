@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 from contextlib import asynccontextmanager
 from typing import Literal, Optional
+from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, Request
 from fastapi.exceptions import RequestValidationError
@@ -285,9 +286,21 @@ def search_jobs(body: JobSearchBody, user_id: str = Depends(current_user_id)):
     return store.search_jobs_flow(user_id, goal, body.limit)
 
 
+@app.get("/api/jobs/search", include_in_schema=False)
+def job_search_requires_post():
+    return JSONResponse(
+        status_code=405,
+        headers={"Allow": "POST"},
+        content={"error": {
+            "code": "method_not_allowed",
+            "message": "Job search requires POST with a goal_id. Use the search form in the app.",
+        }},
+    )
+
+
 @app.get("/api/jobs/{job_id}")
-def get_job(job_id: str):
-    return store.get_job_flow(job_id)
+def get_job(job_id: UUID):
+    return store.get_job_flow(str(job_id))
 
 
 class SkillsAnalyzeBody(BaseModel):

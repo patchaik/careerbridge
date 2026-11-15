@@ -345,6 +345,13 @@ def search_jobs_flow(user_id: str, goal: dict, limit: int) -> dict:
         call(users.save_workflow_state, wf["id"], "JOB_SEARCH", state)
         if isinstance(exc, ApiError):
             raise
+        if isinstance(exc, ModelError):
+            setup_messages = {
+                "provider_not_configured": "Live job search is not configured. The server needs a job model routing file and credentials for the selected model.",
+                "capability_unavailable": "Live job search is not ready. The server needs a current, passing job model capability report. Run scripts.check_job_model after configuring model connectivity.",
+            }
+            if exc.code in setup_messages:
+                raise ApiError(503, "provider_unavailable", setup_messages[exc.code]) from exc
         raise ApiError(503, "provider_unavailable", "Job search is unavailable. Please retry; no mock results were substituted.") from exc
 
 
