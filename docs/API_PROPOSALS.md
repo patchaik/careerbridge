@@ -11,6 +11,8 @@ file is the database/backend team's contract to change.
 
 ## Contract change: bearer token replaces X-User-Id
 
+The bearer security scheme is now reflected in `api/openapi.yaml` by the live-job-search integration. The notes below describe the implementation and migration from the older header.
+
 `openapi.yaml`'s `securitySchemes.userId` already says the `X-User-Id` header
 "will later be replaced by a Supabase Auth bearer token, with no change to
 request bodies" — that's now done on the implementation side. For whoever
