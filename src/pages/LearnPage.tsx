@@ -140,10 +140,12 @@ export function LearnPage() {
                 value={plan.progress.completed} max={plan.progress.total} />
               {plan.progress.next_milestone_id ? <a className="mt-2 inline-block text-primary-700 underline"
                 href={`#milestone-${plan.progress.next_milestone_id}`}>Continue with your next milestone</a>
-                : <p className="mt-2 text-success-700">Learning plan complete. You can revisit any material below.</p>}
+                : <>
+                    <p className="mt-2 text-success-700">Learning plan complete. You can revisit any material below.</p>
+                    <a href="#learning-check" className="mt-2 inline-block text-primary-700 underline">Go to learning check</a>
+                  </>}
             </div>}
           </Card>
-          {plan.status !== "proposed" && <LearningCheck key={plan.id} pathId={plan.id} completed={plan.status === "completed"} />}
           <ol className="space-y-4">
             {plan.milestones.map((m, index) => (
               <li key={m.id} id={`milestone-${m.id}`} className="scroll-mt-20">
@@ -194,6 +196,7 @@ export function LearnPage() {
               </li>
             ))}
           </ol>
+          {plan.status !== "proposed" && <LearningCheck key={plan.id} pathId={plan.id} completed={plan.status === "completed"} />}
           <p className="text-sm text-neutral-600">
             This is an AI-generated learning plan. Progress checks are for your
             own practice, not certification or independent skill assessment.
