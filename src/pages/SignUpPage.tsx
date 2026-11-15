@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthLayout } from "../components/features/auth/AuthLayout";
 import { CaptchaModal } from "../components/features/auth/CaptchaModal";
+import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { Checkbox } from "../components/ui/Checkbox";
 import { TextField } from "../components/ui/TextField";
@@ -30,6 +31,7 @@ export function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [consent, setConsent] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [authError, setAuthError] = useState<string | null>(null);
   const [captchaOpen, setCaptchaOpen] = useState(false);
 
   function validate(): boolean {
@@ -52,17 +54,27 @@ export function SignUpPage() {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    setAuthError(null);
     if (validate()) setCaptchaOpen(true);
   }
 
   async function handleVerified() {
     setCaptchaOpen(false);
-    const user = await signUp({ fullName, username, email, password });
-    if (user) navigate("/start");
+    try {
+      await signUp({ fullName, username, email, password });
+      navigate("/start");
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : "Sign up failed. Please try again.");
+    }
   }
 
   return (
     <AuthLayout title="Create account" subtitle="Join CareerBridge to start building your future">
+      {authError && (
+        <Alert variant="danger" className="mb-4" title="Couldn't create your account">
+          {authError}
+        </Alert>
+      )}
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <TextField
           id="signup-name"

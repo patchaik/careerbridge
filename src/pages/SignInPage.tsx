@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthLayout } from "../components/features/auth/AuthLayout";
 import { CaptchaModal } from "../components/features/auth/CaptchaModal";
+import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { TextField } from "../components/ui/TextField";
 import { useAuth } from "../context/AuthContext";
@@ -16,13 +17,14 @@ interface FormErrors {
 
 export function SignInPage() {
   const navigate = useNavigate();
-  const { signIn, isSigningIn } = useAuth();
+  const { signIn, isSigningIn, authNotice, clearAuthNotice } = useAuth();
   const { furthestStepIndex } = useJourney();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [authError, setAuthError] = useState<string | null>(null);
   const [captchaOpen, setCaptchaOpen] = useState(false);
 
   function validate(): boolean {
@@ -36,19 +38,33 @@ export function SignInPage() {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    setAuthError(null);
     if (validate()) setCaptchaOpen(true);
   }
 
   async function handleVerified() {
     setCaptchaOpen(false);
-    const user = await signIn(email, password);
-    if (user) {
+    try {
+      await signIn(email, password);
+      clearAuthNotice();
       navigate(furthestStepIndex === 0 ? "/start" : MAIN_PATH[furthestStepIndex]);
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : "Sign in failed. Please try again.");
     }
   }
 
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to continue to CareerBridge">
+      {authNotice && (
+        <Alert variant="warning" className="mb-4">
+          {authNotice}
+        </Alert>
+      )}
+      {authError && (
+        <Alert variant="danger" className="mb-4" title="Couldn't sign in">
+          {authError}
+        </Alert>
+      )}
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <TextField
           id="signin-email"
