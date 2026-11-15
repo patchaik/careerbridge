@@ -10,6 +10,8 @@ import { InterestsPage } from "./pages/InterestsPage";
 import { LandingPage } from "./pages/LandingPage";
 import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
+import { TargetPage } from "./pages/TargetPage";
+import { SkillsPage } from "./pages/SkillsPage";
 import { StartPage } from "./pages/StartPage";
 
 function AppLayout() {
@@ -42,7 +44,7 @@ function App() {
               {/* Direction + Skills */}
               <Route
                 path="/target"
-                element={<Protected index={4}><ComingSoonPage phase="Phase 4 (Direction + Skills)" /></Protected>}
+                element={<Protected index={4}><TargetPage /></Protected>}
               />
               <Route
                 path="/recommendations"
@@ -50,7 +52,7 @@ function App() {
               />
               <Route
                 path="/skills"
-                element={<Protected index={5}><ComingSoonPage phase="Phase 4 (Direction + Skills)" /></Protected>}
+                element={<Protected index={5}><SkillsPage /></Protected>}
               />
 
               {/* Learn */}

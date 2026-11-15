@@ -39,5 +39,6 @@ __pycache__/
 .pytest_cache/
 deployment/*-capabilities.json
 deployment/model-routing.yaml
+deployment/job-model-routing.yaml
 deployment/invocations.jsonl
 .ruff_cache/

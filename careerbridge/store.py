@@ -14,6 +14,7 @@ GET /api/workflows/{id} has something real to return and survives a restart.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from pathlib import Path
 from typing import Optional
@@ -22,8 +23,9 @@ from database import jobs, learning, mastery, profiles, users
 from database.client import DBError
 
 from careerbridge.analyst import analyst, resume_routing
-from careerbridge.model_gateway import ModelError
+from careerbridge.model_gateway import ModelError, load_routing
 from careerbridge.prompts.career_analyst import resume_suite
+from careerbridge.prompts.search_agent import job_suite
 from careerbridge.assessor import assessor, prepare_assessment
 from careerbridge.errors import ApiError, db_error_to_api_error
 from careerbridge.learning_coach import answer_question, coach, remediation
@@ -245,6 +247,7 @@ def _map_job_posting(posting: dict) -> dict:
     return {
         "id": posting["id"],
         "provider": posting["provider"],
+        "source": "keenable" if posting["provider_job_id"].startswith("keenable:") else posting["provider"],
         "title": posting["title"],
         "company": posting.get("company"),
         "location": posting.get("location"),
@@ -264,48 +267,58 @@ def _map_job_posting(posting: dict) -> dict:
 
 
 def search_jobs_flow(user_id: str, goal: dict, limit: int) -> dict:
+    if goal["user_id"] != user_id:
+        raise ApiError(404, "not_found", "Goal not found")
     profile = call(profiles.get_latest_profile, user_id)
-    if not profile:
+    if not profile or not profile.get("confirmed_at"):
         raise ApiError(409, "rule_violation", "Confirm a profile before searching for jobs")
-    evidence = call(profiles.list_skill_evidence, profile["id"])
-    skills_for_agent = [{"name": (e.get("skills") or {}).get("canonical_name")} for e in evidence]
-
+    wf = call(users.create_workflow, user_id, goal["id"])
+    state = {"kind": "search_jobs", "status": "running", "stage": "searching"}
     try:
+        mode = os.getenv("CAREERBRIDGE_SEARCH_MODE", "live")
+        if mode not in ("live", "mock"):
+            raise ModelError("invalid_search_mode")
+        live = mode == "live"
+        routing = load_routing(os.getenv("JOB_MODEL_ROUTING_PATH", "deployment/job-model-routing.yaml")) if live else None
+        if routing:
+            task = job_suite()["tasks"]["job_extract"]
+            state.update(model_routing=routing, prompt_version=task["prompt_version"],
+                         output_schema_version=task["output_schema_version"])
+        call(users.save_workflow_state, wf["id"], "JOB_SEARCH", state)
         agent_out = job_search_agent.invoke({
             "role": goal["target_role"], "location": goal.get("location") or "",
-            "seniority": goal.get("seniority") or "", "skills": skills_for_agent,
+            "seniority": goal.get("seniority") or "",
+            "user_id": user_id, "workflow_id": wf["id"], "model_routing": routing,
         })["result"]
-    except Exception as exc:
-        record_workflow(user_id, goal["id"], "search_jobs", "failed", error=str(type(exc).__name__))
-        raise ApiError(503, "provider_unavailable",
-                       "The job search provider is temporarily unavailable.") from exc
-
-    is_mock = agent_out.get("source") == "synthetic"
-    # Agents label live results "keenable", which isn't in the DB's job_postings
-    # provider enum (adzuna/greenhouse/cached/synthetic) -- see docs/INTEGRATION_NOTES.md.
-    provider = "synthetic" if is_mock else "cached"
-
-    posting_ids = []
-    for job in agent_out["jobs"][:limit]:
-        posting = call(jobs.upsert_job_posting, {
-            "provider": provider, "provider_job_id": _provider_job_id(job["url"]),
-            "title": job["title"], "url": job["url"], "company": job.get("employer"),
-            "completeness": "full", "retrieved_at": job["retrieved_at"],
-        })
-        reqs = [{"skill": r["skill"],
-                 "importance": r["importance"] if r["importance"] in ("required", "preferred") else "preferred",
-                 "excerpt": r["excerpt"]} for r in job["requirements"]]
-        if reqs:
+        provider = "synthetic" if agent_out["source"] == "synthetic" else "cached"
+        posting_ids = []
+        for job in agent_out["jobs"][:limit]:
+            # The existing relational schema accepts only explicit importance.
+            # Omit unknowns rather than falsely claiming they are preferred.
+            reqs = [r for r in job["requirements"] if r["importance"] in ("required", "preferred")]
+            if not reqs:
+                continue
+            # Each retrieval is an immutable reference snapshot, so later searches
+            # cannot rewrite the evidence cited by an earlier gap analysis.
+            snapshot_id = _provider_job_id(json.dumps(job, sort_keys=True))
+            posting = call(jobs.upsert_job_posting, {
+                "provider": provider, "provider_job_id": agent_out["source"] + ":" + snapshot_id,
+                "title": job["title"], "url": job["url"], "company": job.get("employer"),
+                "completeness": "partial", "retrieved_at": job["retrieved_at"],
+            })
             call(jobs.add_job_requirements, posting["id"], reqs)
-        posting_ids.append(posting["id"])
-
-    workflow_id = record_workflow(user_id, goal["id"], "search_jobs", "complete",
-                                  result={"job_ids": posting_ids})
-    return {
-        "workflow_id": workflow_id,
-        "jobs": [_map_job_posting(call(jobs.get_job, jid)) for jid in posting_ids],
-        "fallback_used": False,
-    }
+            posting_ids.append(posting["id"])
+        result = {"job_ids": posting_ids, "source": agent_out["source"], "profile_id": profile["id"]}
+        state.update(status="complete", stage="complete", result=result)
+        call(users.save_workflow_state, wf["id"], "JOB_SEARCH", state)
+        return {"workflow_id": wf["id"], "jobs": [get_job_flow(jid) for jid in posting_ids],
+                "fallback_used": False, "source": agent_out["source"]}
+    except Exception as exc:
+        state.update(status="failed", stage="failed", error=exc.code if isinstance(exc, ModelError) else "search_failed")
+        call(users.save_workflow_state, wf["id"], "JOB_SEARCH", state)
+        if isinstance(exc, ApiError):
+            raise
+        raise ApiError(503, "provider_unavailable", "Job search is unavailable. Please retry; no mock results were substituted.") from exc
 
 
 def get_job_flow(job_id: str) -> dict:
@@ -320,6 +333,7 @@ def _map_gap_analysis(report: dict) -> dict:
         "id": report["id"],
         "goal_id": report["goal_id"],
         "profile_id": report["profile_id"],
+        "job_ids": report["job_ids_json"],
         "existing_skills": report["existing_skills_json"],
         "market_skills": report["market_skills_json"],
         "gaps": [
@@ -353,6 +367,13 @@ def analyze_skills_flow(user_id: str, goal_id: str, profile_id: str, job_ids: li
     agent used to do inline, now reusable from stored data for this separate
     contract endpoint. See docs/INTEGRATION_NOTES.md for why this is split
     out from /jobs/search."""
+    goal = call(users.get_goal, goal_id)
+    profile = call(profiles.get_profile, profile_id)
+    if not goal or goal["user_id"] != user_id or not profile or profile["user_id"] != user_id:
+        raise ApiError(404, "not_found", "Goal or profile not found")
+    if not profile.get("confirmed_at"):
+        raise ApiError(409, "rule_violation", "Confirm your profile before gap analysis")
+    job_ids = list(dict.fromkeys(job_ids))
     evidence = call(profiles.list_skill_evidence, profile_id)
     confirmed = {(e.get("skills") or {}).get("canonical_name", "").lower()
                  for e in evidence if e["status"] in ("present", "user_confirmed", "self_reported", "demonstrated")}
@@ -376,7 +397,8 @@ def analyze_skills_flow(user_id: str, goal_id: str, profile_id: str, job_ids: li
     gaps = sorted((g for k, g in grouped.items() if k not in confirmed),
                  key=lambda g: (g["importance"] == "required", g["frequency"]), reverse=True)[:10]
     ranked_gaps = [{"skill": g["skill"], "job_ids": list(dict.fromkeys(g["job_ids"]))[:5],
-                   "importance": g["importance"], "frequency": g["frequency"]} for g in gaps]
+                   "importance": g["importance"], "frequency": g["frequency"],
+                   "reason": "Not evidenced in your confirmed profile; this does not establish inability."} for g in gaps]
 
     analysis = call(jobs.create_gap_analysis, goal_id, profile_id, job_ids,
                     existing, sorted(market_names)[:10], ranked_gaps)
@@ -384,7 +406,11 @@ def analyze_skills_flow(user_id: str, goal_id: str, profile_id: str, job_ids: li
     return _map_gap_analysis(call(jobs.gap_report, analysis["id"]))
 
 
-def get_gap_analysis_flow(analysis_id: str) -> dict:
+def get_gap_analysis_flow(analysis_id: str, user_id: str) -> dict:
+    analysis = call(jobs.get_gap_analysis, analysis_id)
+    goal = call(users.get_goal, analysis["goal_id"]) if analysis else None
+    if not goal or goal["user_id"] != user_id:
+        raise ApiError(404, "not_found", "Gap analysis not found")
     try:
         return _map_gap_analysis(call(jobs.gap_report, analysis_id))
     except ApiError:

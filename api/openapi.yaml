@@ -1104,6 +1104,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         provider: { $ref: "#/components/schemas/Provider" }
+        source: { type: string, description: Retrieval source; Keenable snapshots use the legacy cached DB provider }
         title: { type: string }
         company: { type: string }
         location: { type: string }
@@ -1116,13 +1117,14 @@ components:
 
     JobSearchResult:
       type: object
-      required: [jobs, fallback_used]
+      required: [jobs, fallback_used, source]
       properties:
         workflow_id: { type: string, format: uuid }
         jobs:
           type: array
           maxItems: 5
           items: { $ref: "#/components/schemas/JobPosting" }
+        source: { type: string }
         fallback_used:
           type: boolean
           description: True when the live provider failed and labeled cached postings were used
@@ -1155,12 +1157,15 @@ components:
 
     GapAnalysis:
       type: object
-      required: [id, goal_id, profile_id, existing_skills, market_skills, gaps]
+      required: [id, goal_id, profile_id, job_ids, existing_skills, market_skills, gaps]
       properties:
         id: { type: string, format: uuid }
         workflow_id: { type: string, format: uuid }
         goal_id: { type: string, format: uuid }
         profile_id: { type: string, format: uuid }
+        job_ids:
+          type: array
+          items: { type: string, format: uuid }
         existing_skills:
           type: array
           maxItems: 10
