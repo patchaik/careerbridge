@@ -144,3 +144,10 @@ milestone counts, saved scores and suggested next actions; refresh/reload should
 show the same saved data. Follow a revisit link to the referenced milestone, or an
 unaddressed gap to resource discovery. Reading progress makes no model calls.
 See [Progress acceptance and limitations](PROGRESS_OVERVIEW.md).
+
+### Account access checks
+
+Run `python -m scripts.check_account_access --base-url http://127.0.0.1:8000 --output account-access-check.json` with the development `.env` loaded. The check
+creates and cleans up two disposable accounts. It verifies signed-out and non-owner
+denials, owner reads and deletion, and that legacy tutor and independent assessment
+routes are disabled. Completed plans still use formative learning checks.
