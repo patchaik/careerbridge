@@ -14,13 +14,16 @@ GET /api/workflows/{id} has something real to return and survives a restart.
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 from typing import Optional
 
 from database import jobs, learning, mastery, profiles, users
 from database.client import DBError
 
-from careerbridge.analyst import analyst
+from careerbridge.analyst import analyst, resume_routing
+from careerbridge.model_gateway import ModelError
+from careerbridge.prompts.career_analyst import resume_suite
 from careerbridge.assessor import assessor, prepare_assessment
 from careerbridge.errors import ApiError, db_error_to_api_error
 from careerbridge.learning_coach import answer_question, coach, remediation
@@ -125,30 +128,50 @@ def profile_response(profile_id: str) -> dict:
 
 
 def parse_resume_flow(user_id: str, file_bytes: bytes, file_name: str) -> dict:
-    """Parse an uploaded résumé (mock or live, per CAREERBRIDGE_ANALYST_MODE),
-    store the file + profile + extracted skills, then drop the bytes."""
+    """Extract through the gateway, then keep the existing profile/storage mapping."""
+    user = call(users.get_user, user_id)
+    if not user or not user.get("consent_at"):
+        raise ApiError(403, "forbidden", "Sign in and consent to résumé processing first.")
     ext = Path(file_name or "resume.pdf").suffix.lower()
+    if ext not in {".pdf", ".docx"}:
+        raise ApiError(422, "validation_error", "Upload a PDF or DOCX résumé.")
+    wf = call(users.create_workflow, user_id)
+    state = {"kind": "parse_resume", "status": "running", "stage": "extracting"}
     try:
-        extraction = analyst.invoke({"file_type": ext, "file_data": file_bytes})
+        routing = resume_routing() if os.getenv("CAREERBRIDGE_ANALYST_MODE", "llm") == "llm" else None
+        if routing:
+            task = resume_suite()["tasks"]["profile_extract"]
+            state.update(model_routing=routing, prompt_version=task["prompt_version"],
+                         output_schema_version=task["output_schema_version"])
+        call(users.save_workflow_state, wf["id"], "ONBOARDING", state)
+        extraction = analyst.invoke({"file_type": ext, "file_data": file_bytes,
+                                     "user_id": user_id, "workflow_id": wf["id"],
+                                     "model_routing": routing})
+        profile = call(profiles.create_profile, user_id, source="resume",
+                       parsed_text=extraction["text"], file_bytes=file_bytes, file_name=file_name)
+        for skill in extraction["skills"]:
+            call(profiles.get_or_create_skill, skill["name"], db_category(skill["category"]))
+        items = [{"skill": skill["name"], "evidence_type": "resume",
+                  "excerpt": skill["evidence"], "status": "present"}
+                 for skill in extraction["skills"]]
+        if items:
+            call(profiles.add_skill_evidence_bulk, profile["id"], items)
+        state.update(status="complete", stage="complete",
+                     invocation_id=extraction.get("invocation_id"),
+                     result={"profile_id": profile["id"], "skills_found": len(items)})
+        call(users.save_workflow_state, wf["id"], "ONBOARDING", state)
+        return profile_response(profile["id"])
     except Exception as exc:
-        record_workflow(user_id, None, "parse_resume", "failed", error=str(type(exc).__name__))
-        raise ApiError(422, "validation_error",
-                       "We couldn't read that résumé. Try a different PDF or DOCX file.") from exc
-
-    profile = call(profiles.create_profile, user_id, source="resume",
-                   parsed_text=extraction["text"], file_bytes=file_bytes, file_name=file_name)
-    file_bytes = None  # noqa: F841 - drop the only other reference to the uploaded bytes
-
-    for skill in extraction["skills"]:
-        call(profiles.get_or_create_skill, skill["name"], db_category(skill["category"]))
-    items = [{"skill": s["name"], "evidence_type": "resume", "excerpt": s["evidence"], "status": "present"}
-             for s in extraction["skills"]]
-    if items:
-        call(profiles.add_skill_evidence_bulk, profile["id"], items)
-
-    record_workflow(user_id, None, "parse_resume", "complete",
-                    result={"profile_id": profile["id"], "skills_found": len(items)})
-    return profile_response(profile["id"])
+        code = exc.code if isinstance(exc, (ModelError, ApiError)) else "resume_processing_failed"
+        state.update(status="failed", stage="failed", error=code)
+        call(users.save_workflow_state, wf["id"], "ONBOARDING", state)
+        if isinstance(exc, ApiError):
+            raise
+        if isinstance(exc, ModelError):
+            if exc.code == "input_too_large":
+                raise ApiError(413, "file_too_large", "Résumé text exceeds the model input limit. Try a shorter résumé.") from exc
+            raise ApiError(503, "model_unavailable", "AI résumé extraction is unavailable. Please try again; no mock result was substituted.") from exc
+        raise ApiError(422, "validation_error", "We couldn't process that résumé. Try a different PDF or DOCX file.") from exc
 
 
 def parse_manual_skills_flow(user_id: str, skill_names: list[str],
@@ -172,13 +195,33 @@ def confirm_profile_flow(profile_id: str, skills_payload: list[dict],
         profile = call(profiles.get_profile, profile_id)
         if not profile:
             raise ApiError(404, "not_found", "Profile not found")
-        for skill_id in remove_skill_ids or []:
-            call(profiles.delete_skill_evidence, skill_id)
+        existing = call(profiles.list_skill_evidence, profile_id)
+        by_skill = {row["skill_id"]: row for row in existing}
+        removals = set(remove_skill_ids or [])
+        if not removals <= {row["id"] for row in existing}:
+            raise ApiError(404, "not_found", "Skill evidence not found for this profile")
+        updates = []
         for item in skills_payload:
             status = item["status"]
             evidence_type = "resume" if status in ("present", "user_confirmed") else "self_reported"
-            call(profiles.add_skill_evidence, profile_id, item["skill"], evidence_type,
-                 excerpt=item.get("excerpt"), status=status)
+            excerpt = item.get("excerpt")
+            if evidence_type == "resume":
+                skill = call(profiles.find_skill, item["skill"])
+                previous = by_skill.get(skill["id"] if skill else item["skill"])
+                if (not previous or previous["id"] in removals
+                        or previous["evidence_type"] != "resume" or not previous.get("excerpt")):
+                    raise ApiError(422, "validation_error", "This skill has no saved résumé evidence. Add it as self-reported.")
+                if excerpt is not None and excerpt != previous["excerpt"]:
+                    raise ApiError(422, "validation_error", "Confirmation cannot replace the original résumé excerpt.")
+                # The UI confirms names/statuses, not evidence. Preserve the
+                # server-owned excerpt even when the request omits it.
+                excerpt = previous["excerpt"]
+            updates.append((item["skill"], evidence_type, excerpt, status))
+        for evidence_id in removals:
+            call(profiles.delete_skill_evidence, evidence_id)
+        for skill, evidence_type, excerpt, status in updates:
+            call(profiles.add_skill_evidence, profile_id, skill, evidence_type,
+                 excerpt=excerpt, status=status)
         call(profiles.confirm_profile, profile_id)
         if clear_resume_text:
             call(profiles.clear_parsed_text, profile_id)

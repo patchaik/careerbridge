@@ -1,0 +1,7077 @@
+openapi: 3.1.0
+info:
+  title: CareerBridge Shared MVP Contract
+  version: 0.1.0
+  description: Proposed implementation baseline, 2026-11-14. Scope and normative invariants
+    in CONTRACT.md. Strict snake_case; UTC timestamps; UUID IDs. Any role; only published
+    competency templates can award evidence. No real provider calls or migrations
+    have been executed.
+servers:
+- url: http://localhost:8000
+security:
+- bearerAuth: []
+paths:
+  /api/v1/health:
+    get:
+      operationId: health
+      summary: health
+      description: health
+      parameters: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security: []
+  /api/v1/me:
+    get:
+      operationId: getCurrentUser
+      summary: getCurrentUser
+      description: getCurrentUser
+      parameters: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: deleteCurrentUser
+      summary: deleteCurrentUser
+      description: deleteCurrentUser
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '202':
+          description: Accepted; poll the workflow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Polling interval in seconds; default 1.
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-workflow-kind: delete_account
+      x-result-type: deletion
+  /api/v1/me/consents:
+    post:
+      operationId: recordConsent
+      summary: recordConsent
+      description: recordConsent
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsentRequest'
+  /api/v1/me/export:
+    post:
+      operationId: requestDataExport
+      summary: requestDataExport
+      description: requestDataExport
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '202':
+          description: Accepted; poll the workflow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Polling interval in seconds; default 1.
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-workflow-kind: export_data
+      x-result-type: data_export
+  /api/v1/data-exports/{export_id}:
+    get:
+      operationId: getDataExport
+      summary: getDataExport
+      description: getDataExport
+      parameters:
+      - name: export_id
+        in: path
+        required: true
+        schema: &id001
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataExport'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/deletions/{deletion_id}:
+    get:
+      operationId: getDeletion
+      summary: getDeletion
+      description: Owner token remains valid solely for deletion status until completion;
+        purge content first, then revoke identity. Do not expose deleted content.
+      parameters:
+      - name: deletion_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Deletion'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/goals:
+    post:
+      operationId: createGoal
+      summary: createGoal
+      description: createGoal
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoalCreate'
+    get:
+      operationId: listGoals
+      summary: listGoals
+      description: listGoals
+      parameters:
+      - &id002
+        name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - &id003
+        name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 500
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalList'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/goals/{goal_id}:
+    get:
+      operationId: getGoal
+      summary: getGoal
+      description: getGoal
+      parameters:
+      - name: goal_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/profiles:
+    post:
+      operationId: createManualProfile
+      summary: createManualProfile
+      description: createManualProfile
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualProfileCreate'
+  /api/v1/profiles/resume:
+    post:
+      operationId: parseResume
+      summary: parseResume
+      description: PDF/DOCX only, <=5 MiB, <=50 PDF pages / 20 MiB expanded DOCX;
+        consent required. Unreadable text yields failed workflow and manual-entry
+        option.
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '202':
+          description: Accepted; poll the workflow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Polling interval in seconds; default 1.
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-workflow-kind: parse_profile
+      x-result-type: profile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+              - file
+  /api/v1/profiles/{profile_id}:
+    get:
+      operationId: getProfile
+      summary: getProfile
+      description: getProfile
+      parameters:
+      - name: profile_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/profiles/{profile_id}/confirm:
+    put:
+      operationId: confirmProfile
+      summary: confirmProfile
+      description: confirmProfile
+      parameters:
+      - name: profile_id
+        in: path
+        required: true
+        schema: *id001
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileConfirm'
+  /api/v1/journeys:
+    post:
+      operationId: createJourney
+      summary: createJourney
+      description: createJourney
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Journey'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JourneyCreate'
+    get:
+      operationId: listJourneys
+      summary: listJourneys
+      description: listJourneys
+      parameters:
+      - *id002
+      - *id003
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JourneyList'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/journeys/{journey_id}:
+    get:
+      operationId: getJourney
+      summary: getJourney
+      description: getJourney
+      parameters:
+      - name: journey_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Journey'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/workflows/{workflow_id}:
+    get:
+      operationId: getWorkflow
+      summary: getWorkflow
+      description: getWorkflow
+      parameters:
+      - name: workflow_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workflow'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/jobs/search:
+    post:
+      operationId: searchJobs
+      summary: searchJobs
+      description: searchJobs
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '202':
+          description: Accepted; poll the workflow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Polling interval in seconds; default 1.
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobSearchRequest'
+      x-workflow-kind: search_jobs
+      x-result-type: job_search
+  /api/v1/job-searches/{search_id}:
+    get:
+      operationId: getJobSearch
+      summary: getJobSearch
+      description: getJobSearch
+      parameters:
+      - name: search_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobSearch'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/skills/analyze:
+    post:
+      operationId: analyzeGaps
+      summary: analyzeGaps
+      description: analyzeGaps
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '202':
+          description: Accepted; poll the workflow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Polling interval in seconds; default 1.
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+      x-workflow-kind: analyze_gaps
+      x-result-type: gap_analysis
+  /api/v1/gap-analyses/{analysis_id}:
+    get:
+      operationId: getGapAnalysis
+      summary: getGapAnalysis
+      description: getGapAnalysis
+      parameters:
+      - name: analysis_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GapAnalysis'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/templates:
+    get:
+      operationId: listPublishedTemplates
+      summary: listPublishedTemplates
+      description: listPublishedTemplates
+      parameters:
+      - *id002
+      - *id003
+      - name: skill_id
+        in: query
+        required: false
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateVersionList'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/templates/{template_version_id}:
+    get:
+      operationId: getPublishedTemplate
+      summary: getPublishedTemplate
+      description: getPublishedTemplate
+      parameters:
+      - name: template_version_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateVersion'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/admin/templates:
+    post:
+      operationId: createDraftTemplate
+      summary: createDraftTemplate
+      description: createDraftTemplate
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateVersion'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateAuthorRequest'
+      x-required-role: template_reviewer
+  /api/v1/admin/templates/{template_version_id}/reviews:
+    post:
+      operationId: reviewTemplate
+      summary: reviewTemplate
+      description: reviewTemplate
+      parameters:
+      - name: template_version_id
+        in: path
+        required: true
+        schema: *id001
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateReview'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateReviewRequest'
+      x-required-role: template_reviewer
+  /api/v1/admin/templates/{template_version_id}/publish:
+    post:
+      operationId: publishTemplate
+      summary: publishTemplate
+      description: publishTemplate
+      parameters:
+      - name: template_version_id
+        in: path
+        required: true
+        schema: *id001
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateVersion'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplatePublishRequest'
+      x-required-role: template_reviewer
+  /api/v1/admin/templates/{template_version_id}:
+    get:
+      operationId: getDraftTemplate
+      summary: getDraftTemplate
+      description: getDraftTemplate
+      parameters:
+      - name: template_version_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateVersion'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-required-role: template_reviewer
+  /api/v1/admin/templates/{template_version_id}/test-sets:
+    get:
+      operationId: listTestSets
+      summary: listTestSets
+      description: listTestSets
+      parameters:
+      - name: template_version_id
+        in: path
+        required: true
+        schema: *id001
+      - *id002
+      - *id003
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestSetMetadataList'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-required-role: template_reviewer
+    post:
+      operationId: registerTestSet
+      summary: registerTestSet
+      description: registerTestSet
+      parameters:
+      - name: template_version_id
+        in: path
+        required: true
+        schema: *id001
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestSetMetadata'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestSetRegistration'
+      x-required-role: template_reviewer
+  /api/v1/admin/test-sets/{test_set_id}:
+    get:
+      operationId: getPrivateTestSet
+      summary: getPrivateTestSet
+      description: getPrivateTestSet
+      parameters:
+      - name: test_set_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivateTestSet'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-required-role: template_reviewer
+  /api/v1/admin/test-sets/{test_set_id}/review:
+    post:
+      operationId: reviewTestSet
+      summary: reviewTestSet
+      description: reviewTestSet
+      parameters:
+      - name: test_set_id
+        in: path
+        required: true
+        schema: *id001
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestSetMetadata'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestSetReview'
+      x-required-role: template_reviewer
+  /api/v1/paths:
+    post:
+      operationId: generatePath
+      summary: generatePath
+      description: generatePath
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '202':
+          description: Accepted; poll the workflow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Polling interval in seconds; default 1.
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PathGenerate'
+      x-workflow-kind: generate_path
+      x-result-type: learning_path
+  /api/v1/paths/{path_id}:
+    get:
+      operationId: getPath
+      summary: getPath
+      description: getPath
+      parameters:
+      - name: path_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningPath'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/paths/{path_id}/approve:
+    put:
+      operationId: approvePath
+      summary: approvePath
+      description: approvePath
+      parameters:
+      - name: path_id
+        in: path
+        required: true
+        schema: *id001
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningPath'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PathApprove'
+  /api/v1/paths/{path_id}/status:
+    put:
+      operationId: setPathStatus
+      summary: setPathStatus
+      description: setPathStatus
+      parameters:
+      - name: path_id
+        in: path
+        required: true
+        schema: *id001
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningPath'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PathStatus'
+  /api/v1/resources:
+    get:
+      operationId: listResources
+      summary: listResources
+      description: Path-scoped ranking; maximum 5 free and 5 paid overall, mixed/unknown
+        separately labeled; reviewed catalog first. No quota padding. Pagination never
+        bypasses category caps.
+      parameters:
+      - *id002
+      - *id003
+      - name: path_id
+        in: query
+        required: true
+        schema: *id001
+      - name: price_type
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - free
+          - paid
+          - mixed
+          - unknown
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningResourceList'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/lessons:
+    post:
+      operationId: generateLesson
+      summary: generateLesson
+      description: generateLesson
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '202':
+          description: Accepted; poll the workflow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Polling interval in seconds; default 1.
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LessonRequest'
+      x-workflow-kind: generate_lesson
+      x-result-type: lesson
+  /api/v1/lessons/{lesson_id}:
+    get:
+      operationId: getLesson
+      summary: getLesson
+      description: getLesson
+      parameters:
+      - name: lesson_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lesson'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/tutor/messages:
+    post:
+      operationId: askTutor
+      summary: askTutor
+      description: askTutor
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '202':
+          description: Accepted; poll the workflow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Polling interval in seconds; default 1.
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TutorRequest'
+      x-workflow-kind: tutor
+      x-result-type: tutor_message
+  /api/v1/tutor/messages/{message_id}:
+    get:
+      operationId: getTutorMessage
+      summary: getTutorMessage
+      description: getTutorMessage
+      parameters:
+      - name: message_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TutorMessage'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/practice-runs:
+    post:
+      operationId: runPractice
+      summary: runPractice
+      description: runPractice
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '202':
+          description: Accepted; poll the workflow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Polling interval in seconds; default 1.
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PracticeRequest'
+      x-workflow-kind: practice
+      x-result-type: practice_run
+  /api/v1/practice-runs/{run_id}:
+    get:
+      operationId: getPracticeRun
+      summary: getPracticeRun
+      description: getPracticeRun
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PracticeRun'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/assessment-attempts:
+    post:
+      operationId: startAssessment
+      summary: startAssessment
+      description: startAssessment
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentAttempt'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentStart'
+  /api/v1/assessment-attempts/{attempt_id}:
+    get:
+      operationId: getAssessment
+      summary: getAssessment
+      description: getAssessment
+      parameters:
+      - name: attempt_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentAttempt'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/assessment-attempts/{attempt_id}/submit:
+    post:
+      operationId: submitAssessment
+      summary: submitAssessment
+      description: submitAssessment
+      parameters:
+      - name: attempt_id
+        in: path
+        required: true
+        schema: *id001
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '202':
+          description: Accepted; poll the workflow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Polling interval in seconds; default 1.
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentSubmit'
+      x-workflow-kind: grade_assessment
+      x-result-type: assessment_attempt
+  /api/v1/journeys/{journey_id}/progress:
+    get:
+      operationId: getProgress
+      summary: getProgress
+      description: getProgress
+      parameters:
+      - name: journey_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Progress'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/evidence/{evidence_id}:
+    get:
+      operationId: getEvidence
+      summary: getEvidence
+      description: getEvidence
+      parameters:
+      - name: evidence_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifiedEvidence'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/assets/{asset_id}:
+    get:
+      operationId: getOwnedAsset
+      summary: getOwnedAsset
+      description: Returns an expiring link only for assets authorized to this user/path/attempt.
+        Private grader assets and answer keys are never returned.
+      parameters:
+      - name: asset_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/resumes:
+    post:
+      operationId: draftResume
+      summary: draftResume
+      description: draftResume
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '202':
+          description: Accepted; poll the workflow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Polling interval in seconds; default 1.
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResumeDraftRequest'
+      x-workflow-kind: draft_resume
+      x-result-type: resume
+  /api/v1/resumes/{resume_id}:
+    get:
+      operationId: getResume
+      summary: getResume
+      description: getResume
+      parameters:
+      - name: resume_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumeVersion'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      operationId: editResume
+      summary: editResume
+      description: editResume
+      parameters:
+      - name: resume_id
+        in: path
+        required: true
+        schema: *id001
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumeVersion'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResumeEdit'
+  /api/v1/resumes/{resume_id}/approve:
+    put:
+      operationId: approveResume
+      summary: approveResume
+      description: approveResume
+      parameters:
+      - name: resume_id
+        in: path
+        required: true
+        schema: *id001
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumeVersion'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResumeApprove'
+  /api/v1/resumes/{resume_id}/reject:
+    put:
+      operationId: rejectResume
+      summary: rejectResume
+      description: rejectResume
+      parameters:
+      - name: resume_id
+        in: path
+        required: true
+        schema: *id001
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumeVersion'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/resume-exports:
+    post:
+      operationId: exportResume
+      summary: exportResume
+      description: exportResume
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '202':
+          description: Accepted; poll the workflow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Polling interval in seconds; default 1.
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+      x-workflow-kind: export_resume
+      x-result-type: resume_export
+  /api/v1/resume-exports/{export_id}:
+    get:
+      operationId: getResumeExport
+      summary: getResumeExport
+      description: getResumeExport
+      parameters:
+      - name: export_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumeExport'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/wellbeing/preferences:
+    get:
+      operationId: getWellbeingPreferences
+      summary: getWellbeingPreferences
+      description: getWellbeingPreferences
+      parameters: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WellbeingPreferences'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      operationId: setWellbeingPreferences
+      summary: setWellbeingPreferences
+      description: setWellbeingPreferences
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Scoped to authenticated user, HTTP method and route; hash mismatch
+          returns 409.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WellbeingPreferences'
+        '400':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WellbeingPreferences'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Validate Supabase Auth issuer, audience, signature and expiry.
+        Derive user_id from sub; never accept X-User-Id.
+  schemas:
+    ErrorDetail:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum:
+          - validation_error
+          - unauthenticated
+          - forbidden
+          - not_found
+          - state_conflict
+          - revision_conflict
+          - idempotency_conflict
+          - template_unavailable
+          - provider_unavailable
+          - capability_unavailable
+          - rate_limited
+          - invalid_model_output
+          - model_refused
+          - assessment_ungradable
+          - internal_error
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        field:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 2000
+          - type: 'null'
+        retryable: &id010
+          type: boolean
+      required:
+      - code
+      - message
+      - field
+      - retryable
+    Error:
+      type: object
+      additionalProperties: false
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+        request_id: *id001
+      required:
+      - error
+      - request_id
+    User:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: &id004
+          type: string
+          format: date-time
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        consent_version:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 80
+          - type: 'null'
+        consent_at:
+          anyOf:
+          - *id004
+          - type: 'null'
+      required:
+      - id
+      - created_at
+      - display_name
+      - consent_version
+      - consent_at
+    ConsentRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        consent_version:
+          const: 2026-11-v1
+        allow_model_processing:
+          const: true
+      required:
+      - consent_version
+      - allow_model_processing
+    Goal:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        target_role: &id005
+          type: string
+          minLength: 1
+          maxLength: 200
+        location: &id006
+          type: string
+          minLength: 1
+          maxLength: 200
+        seniority: &id007
+          type: string
+          minLength: 1
+          maxLength: 100
+        learning_objective: &id008
+          type: string
+          minLength: 1
+          maxLength: 2000
+        modality: &id009
+          type: string
+          enum:
+          - text
+          - hands_on
+          - both
+        status:
+          type: string
+          enum:
+          - active
+          - archived
+      required:
+      - id
+      - created_at
+      - target_role
+      - location
+      - seniority
+      - learning_objective
+      - modality
+      - status
+    GoalCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        target_role: *id005
+        location: *id006
+        seniority: *id007
+        learning_objective: *id008
+        modality: *id009
+      required:
+      - target_role
+      - location
+      - seniority
+      - learning_objective
+      - modality
+    Skill:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        canonical_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        category:
+          type: string
+          enum:
+          - technical
+          - interpersonal
+          - domain
+      required:
+      - id
+      - canonical_name
+      - category
+    SourceEvidence:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+          - resume
+          - self_reported
+          - assessment
+        excerpt:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 1000
+          - type: 'null'
+        source_record_id:
+          anyOf:
+          - *id001
+          - type: 'null'
+      required:
+      - kind
+      - excerpt
+      - source_record_id
+    ProfileSkill:
+      type: object
+      additionalProperties: false
+      properties:
+        skill:
+          $ref: '#/components/schemas/Skill'
+        status:
+          type: string
+          enum:
+          - present
+          - user_confirmed
+          - self_reported
+          - not_established
+          - demonstrated
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceEvidence'
+          minItems: 1
+          maxItems: 20
+      required:
+      - skill
+      - status
+      - evidence
+    ExperienceEntry:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        employer:
+          type: string
+          minLength: 1
+          maxLength: 200
+        role:
+          type: string
+          minLength: 1
+          maxLength: 200
+        start_month:
+          type: string
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+        end_month:
+          anyOf:
+          - type: string
+            pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+          - type: 'null'
+        description:
+          type: string
+          minLength: 1
+          maxLength: 6000
+        source_excerpt:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 6000
+          - type: 'null'
+      required:
+      - id
+      - employer
+      - role
+      - start_month
+      - end_month
+      - description
+      - source_excerpt
+    Profile:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        revision: &id011
+          type: integer
+          minimum: 1
+        source:
+          type: string
+          enum:
+          - resume
+          - manual
+        status:
+          type: string
+          enum:
+          - draft
+          - confirmed
+          - superseded
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileSkill'
+          minItems: 0
+          maxItems: 200
+        experience:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperienceEntry'
+          minItems: 0
+          maxItems: 30
+        confirmed_at:
+          anyOf:
+          - *id004
+          - type: 'null'
+        resume_file_available: *id010
+      required:
+      - id
+      - created_at
+      - revision
+      - source
+      - status
+      - skills
+      - experience
+      - confirmed_at
+      - resume_file_available
+    ManualProfileCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        skills:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              name:
+                type: string
+                minLength: 1
+                maxLength: 120
+              category:
+                type: string
+                enum:
+                - technical
+                - interpersonal
+                - domain
+            required:
+            - name
+            - category
+          minItems: 1
+          maxItems: 200
+        experience:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperienceEntry'
+          minItems: 0
+          maxItems: 30
+      required:
+      - skills
+    ProfileConfirm:
+      type: object
+      additionalProperties: false
+      properties:
+        expected_revision: *id011
+        skills:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              skill_id: *id001
+              action:
+                type: string
+                enum:
+                - keep
+                - remove
+            required:
+            - skill_id
+            - action
+          minItems: 0
+          maxItems: 200
+        added_skills:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              name:
+                type: string
+                minLength: 1
+                maxLength: 120
+              category:
+                type: string
+                enum:
+                - technical
+                - interpersonal
+                - domain
+            required:
+            - name
+            - category
+          minItems: 0
+          maxItems: 200
+        experience:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperienceEntry'
+          minItems: 0
+          maxItems: 30
+      required:
+      - expected_revision
+      - skills
+      - added_skills
+      - experience
+    Journey:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        goal_id: *id001
+        profile_id: *id001
+        state:
+          type: string
+          enum:
+          - PROFILE_REVIEW
+          - JOB_SEARCH
+          - GAP_ANALYSIS
+          - PATH_APPROVAL
+          - LEARNING
+          - ASSESSING
+          - REMEDIATION
+          - EVIDENCE_VERIFIED
+          - RESUME_REVIEW
+          - EXPORT_READY
+          - NEEDS_REVIEW
+        revision: *id011
+        gap_analysis_id:
+          anyOf:
+          - *id001
+          - type: 'null'
+        path_id:
+          anyOf:
+          - *id001
+          - type: 'null'
+        attempt_id:
+          anyOf:
+          - *id001
+          - type: 'null'
+        resume_id:
+          anyOf:
+          - *id001
+          - type: 'null'
+        next_action:
+          type: string
+          minLength: 1
+          maxLength: 100
+        remediation_count: &id012
+          type: integer
+          minimum: 0
+      required:
+      - id
+      - created_at
+      - goal_id
+      - profile_id
+      - state
+      - revision
+      - gap_analysis_id
+      - path_id
+      - attempt_id
+      - resume_id
+      - next_action
+      - remediation_count
+    JourneyCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        goal_id: *id001
+        profile_id: *id001
+      required:
+      - goal_id
+      - profile_id
+    ResourceRef:
+      type: object
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          enum:
+          - profile
+          - job_search
+          - gap_analysis
+          - learning_path
+          - lesson
+          - tutor_message
+          - practice_run
+          - assessment_attempt
+          - resume
+          - resume_export
+          - data_export
+          - deletion
+        id: *id001
+      required:
+      - type
+      - id
+    Workflow:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        kind:
+          type: string
+          enum:
+          - parse_profile
+          - search_jobs
+          - analyze_gaps
+          - generate_path
+          - generate_lesson
+          - tutor
+          - practice
+          - grade_assessment
+          - draft_resume
+          - export_resume
+          - export_data
+          - delete_account
+        status:
+          type: string
+          enum:
+          - queued
+          - running
+          - completed
+          - failed
+        stage:
+          type: string
+          minLength: 1
+          maxLength: 100
+        progress:
+          anyOf:
+          - &id014
+            type: number
+            minimum: 0
+            maximum: 1
+          - type: 'null'
+        result:
+          anyOf:
+          - $ref: '#/components/schemas/ResourceRef'
+          - type: 'null'
+        error:
+          anyOf:
+          - $ref: '#/components/schemas/ErrorDetail'
+          - type: 'null'
+        updated_at: *id004
+      required:
+      - id
+      - created_at
+      - kind
+      - status
+      - stage
+      - progress
+      - result
+      - error
+      - updated_at
+    Accepted:
+      type: object
+      additionalProperties: false
+      properties:
+        workflow_id: *id001
+        status:
+          type: string
+          enum:
+          - queued
+        poll_url:
+          type: string
+          pattern: ^/api/v1/workflows/[0-9a-f-]+$
+      required:
+      - workflow_id
+      - status
+      - poll_url
+    JobRequirement:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        skill:
+          $ref: '#/components/schemas/Skill'
+        importance:
+          type: string
+          enum:
+          - required
+          - preferred
+          - unspecified
+        excerpt:
+          type: string
+          minLength: 1
+          maxLength: 1000
+      required:
+      - id
+      - skill
+      - importance
+      - excerpt
+    JobSnapshot:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        provider:
+          type: string
+          minLength: 1
+          maxLength: 100
+        provider_job_id:
+          type: string
+          minLength: 1
+          maxLength: 300
+        data_origin:
+          type: string
+          enum:
+          - live
+          - cached
+          - synthetic
+        url: &id013
+          type: string
+          format: uri
+          pattern: ^https://
+        retrieved_at: *id004
+        title:
+          type: string
+          minLength: 1
+          maxLength: 300
+        company:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 200
+          - type: 'null'
+        location:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 200
+          - type: 'null'
+        completeness:
+          type: string
+          enum:
+          - full
+          - partial
+        requirements:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobRequirement'
+          minItems: 0
+          maxItems: 100
+      required:
+      - id
+      - created_at
+      - provider
+      - provider_job_id
+      - data_origin
+      - url
+      - retrieved_at
+      - title
+      - company
+      - location
+      - completeness
+      - requirements
+    JobSearch:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        journey_id: *id001
+        status:
+          type: string
+          enum:
+          - available
+          - empty
+          - unavailable
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobSnapshot'
+          minItems: 0
+          maxItems: 20
+        warnings:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 2000
+          minItems: 0
+          maxItems: 20
+        fallback_used: *id010
+      required:
+      - id
+      - created_at
+      - journey_id
+      - status
+      - jobs
+      - warnings
+      - fallback_used
+    JobSearchRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        journey_id: *id001
+        max_results:
+          type: integer
+          minimum: 1
+          maximum: 20
+          default: 10
+      required:
+      - journey_id
+      - max_results
+    GapSource:
+      type: object
+      additionalProperties: false
+      properties:
+        job_snapshot_id: *id001
+        requirement_id: *id001
+        excerpt:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        importance:
+          type: string
+          enum:
+          - required
+          - preferred
+          - unspecified
+      required:
+      - job_snapshot_id
+      - requirement_id
+      - excerpt
+      - importance
+    Gap:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        skill:
+          $ref: '#/components/schemas/Skill'
+        evidence_status:
+          type: string
+          enum:
+          - not_established
+          - self_reported
+          - user_confirmed
+          - demonstrated
+        rank: *id011
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        barrier_type:
+          type: string
+          enum:
+          - learnable
+          - credential
+          - experience
+          - unknown
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/GapSource'
+          minItems: 1
+          maxItems: 20
+        learning_availability:
+          type: string
+          enum:
+          - supported
+          - no_published_template
+          - prerequisites_unmet
+          - not_short_course_addressable
+        eligible_template_version_ids:
+          type: array
+          items: *id001
+          minItems: 0
+          maxItems: 20
+      required:
+      - id
+      - skill
+      - evidence_status
+      - rank
+      - reason
+      - barrier_type
+      - sources
+      - learning_availability
+      - eligible_template_version_ids
+    GapAnalysis:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        journey_id: *id001
+        profile_id: *id001
+        profile_revision: *id011
+        job_search_id: *id001
+        existing_skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileSkill'
+          minItems: 0
+          maxItems: 10
+        market_skills:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              skill:
+                $ref: '#/components/schemas/Skill'
+              sources:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GapSource'
+                minItems: 1
+                maxItems: 20
+            required:
+            - skill
+            - sources
+          minItems: 0
+          maxItems: 10
+        ranked_gaps:
+          type: array
+          items:
+            $ref: '#/components/schemas/Gap'
+          minItems: 0
+          maxItems: 10
+        eligible_job_count: *id012
+        warnings:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 2000
+          minItems: 0
+          maxItems: 20
+      required:
+      - id
+      - created_at
+      - journey_id
+      - profile_id
+      - profile_revision
+      - job_search_id
+      - existing_skills
+      - market_skills
+      - ranked_gaps
+      - eligible_job_count
+      - warnings
+    AnalyzeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        journey_id: *id001
+        job_search_id: *id001
+      required:
+      - journey_id
+      - job_search_id
+    LearningResource:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        skill_id: *id001
+        title:
+          type: string
+          minLength: 1
+          maxLength: 300
+        url: *id013
+        provider:
+          type: string
+          minLength: 1
+          maxLength: 100
+        price_type:
+          type: string
+          enum:
+          - free
+          - paid
+          - mixed
+          - unknown
+        modality: *id009
+        level:
+          type: string
+          enum:
+          - beginner
+          - intermediate
+          - advanced
+        concept_ids:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 80
+          minItems: 1
+          maxItems: 30
+        verified_at:
+          anyOf:
+          - *id004
+          - type: 'null'
+        source_type:
+          type: string
+          enum:
+          - reviewed_catalog
+          - live_supplement
+        access_note:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        rank_reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+      required:
+      - id
+      - created_at
+      - skill_id
+      - title
+      - url
+      - provider
+      - price_type
+      - modality
+      - level
+      - concept_ids
+      - verified_at
+      - source_type
+      - access_note
+      - rank_reason
+    Concept:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 80
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        prerequisite_concept_ids:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 80
+          minItems: 0
+          maxItems: 20
+      required:
+      - id
+      - title
+      - prerequisite_concept_ids
+    Criterion:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 80
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        component:
+          type: string
+          enum:
+          - knowledge
+          - project
+        critical: *id010
+        evidence_description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+      required:
+      - id
+      - description
+      - component
+      - critical
+      - evidence_description
+    Thresholds:
+      type: object
+      additionalProperties: false
+      properties:
+        knowledge_min_fraction: *id014
+        project_min_fraction: *id014
+        all_critical_required:
+          const: true
+      required:
+      - knowledge_min_fraction
+      - project_min_fraction
+      - all_critical_required
+    Activity:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 80
+        kind:
+          type: string
+          enum:
+          - table_transform_v1
+          - evidence_selection_v1
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        instructions:
+          type: string
+          minLength: 1
+          maxLength: 6000
+        public_asset_ids:
+          type: array
+          items: *id001
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+      required:
+      - id
+      - kind
+      - title
+      - instructions
+      - public_asset_ids
+    Milestone:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 80
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        objective:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        concept_ids:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 80
+          minItems: 1
+          maxItems: 20
+        activity_ids:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 80
+          minItems: 1
+          maxItems: 20
+      required:
+      - id
+      - title
+      - objective
+      - concept_ids
+      - activity_ids
+    TemplateDefinition:
+      type: object
+      additionalProperties: false
+      properties:
+        schema_version:
+          const: '1.0'
+        template_key:
+          type: string
+          pattern: ^[a-z][a-z0-9_-]{2,79}$
+        version: *id011
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        competency:
+          type: object
+          additionalProperties: false
+          properties:
+            skill_id: *id001
+            level:
+              type: string
+              enum:
+              - beginner
+              - intermediate
+              - advanced
+            objective:
+              type: string
+              minLength: 1
+              maxLength: 2000
+            evidence_scope:
+              type: string
+              minLength: 1
+              maxLength: 2000
+          required:
+          - skill_id
+          - level
+          - objective
+          - evidence_scope
+        prerequisite_skill_ids:
+          type: array
+          items: *id001
+          minItems: 0
+          maxItems: 30
+          uniqueItems: true
+        modalities:
+          type: array
+          items:
+            type: string
+            enum:
+            - text
+            - hands_on
+          minItems: 2
+          maxItems: 2
+          uniqueItems: true
+        concepts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Concept'
+          minItems: 1
+          maxItems: 30
+        milestones:
+          type: array
+          items:
+            $ref: '#/components/schemas/Milestone'
+          minItems: 1
+          maxItems: 20
+        activities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Activity'
+          minItems: 1
+          maxItems: 20
+        criteria:
+          type: array
+          items:
+            $ref: '#/components/schemas/Criterion'
+          minItems: 2
+          maxItems: 30
+        thresholds:
+          $ref: '#/components/schemas/Thresholds'
+        diagnostic_policy:
+          const: instruction_placement_only
+        remediation_limit:
+          type: integer
+          minimum: 1
+          maximum: 3
+        resource_ids:
+          type: array
+          items: *id001
+          minItems: 0
+          maxItems: 30
+          uniqueItems: true
+        claim_policy:
+          type: object
+          additionalProperties: false
+          properties:
+            allowed_scope:
+              const: platform_practical_training
+            prohibited_claims:
+              type: array
+              items:
+                type: string
+                enum:
+                - employment
+                - certification
+                - years_experience
+                - production_ownership
+              minItems: 4
+              maxItems: 4
+          required:
+          - allowed_scope
+          - prohibited_claims
+      required:
+      - schema_version
+      - template_key
+      - version
+      - title
+      - competency
+      - prerequisite_skill_ids
+      - modalities
+      - concepts
+      - milestones
+      - activities
+      - criteria
+      - thresholds
+      - diagnostic_policy
+      - remediation_limit
+      - resource_ids
+      - claim_policy
+    TemplateVersion:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        definition:
+          $ref: '#/components/schemas/TemplateDefinition'
+        content_sha256: &id015
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        lifecycle:
+          type: string
+          enum:
+          - draft
+          - in_review
+          - published
+          - retired
+        reviewed_at:
+          anyOf:
+          - *id004
+          - type: 'null'
+        published_at:
+          anyOf:
+          - *id004
+          - type: 'null'
+      required:
+      - id
+      - created_at
+      - definition
+      - content_sha256
+      - lifecycle
+      - reviewed_at
+      - published_at
+    TemplateReviewRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expected_content_sha256: *id015
+        private_bundle_sha256: *id015
+        decision:
+          type: string
+          enum:
+          - approve
+          - reject
+        review_notes:
+          type: string
+          minLength: 1
+          maxLength: 6000
+        checks:
+          type: object
+          additionalProperties: false
+          properties:
+            objective_alignment: *id010
+            practice_test_separation: *id010
+            grading_fixtures_pass: *id010
+            resource_review: *id010
+            claim_scope_review: *id010
+          required:
+          - objective_alignment
+          - practice_test_separation
+          - grading_fixtures_pass
+          - resource_review
+          - claim_scope_review
+      required:
+      - expected_content_sha256
+      - private_bundle_sha256
+      - decision
+      - review_notes
+      - checks
+    TemplatePublishRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expected_content_sha256: *id015
+        review_id: *id001
+      required:
+      - expected_content_sha256
+      - review_id
+    TemplateReview:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        template_version_id: *id001
+        reviewer_user_id: *id001
+        content_sha256: *id015
+        private_bundle_sha256: *id015
+        decision:
+          type: string
+          enum:
+          - approve
+          - reject
+        review_notes:
+          type: string
+          minLength: 1
+          maxLength: 6000
+      required:
+      - id
+      - created_at
+      - template_version_id
+      - reviewer_user_id
+      - content_sha256
+      - private_bundle_sha256
+      - decision
+      - review_notes
+    TemplateAuthorRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        definition:
+          $ref: '#/components/schemas/TemplateDefinition'
+        private_bundle:
+          $ref: '#/components/schemas/GradingBundle'
+      required:
+      - definition
+      - private_bundle
+    Rubric:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        template_version_id: *id001
+        version: *id011
+        content_sha256: *id015
+        criteria:
+          type: array
+          items:
+            $ref: '#/components/schemas/Criterion'
+          minItems: 2
+          maxItems: 30
+        thresholds:
+          $ref: '#/components/schemas/Thresholds'
+        frozen_at: *id004
+      required:
+      - id
+      - template_version_id
+      - version
+      - content_sha256
+      - criteria
+      - thresholds
+      - frozen_at
+    LearningPath:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        journey_id: *id001
+        gap_id: *id001
+        template_version_id: *id001
+        rubric:
+          $ref: '#/components/schemas/Rubric'
+        revision: *id011
+        status:
+          type: string
+          enum:
+          - proposed
+          - approved
+          - in_progress
+          - paused
+          - completed
+        objective:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        modality: *id009
+        milestones:
+          type: array
+          items:
+            $ref: '#/components/schemas/Milestone'
+          minItems: 1
+          maxItems: 20
+        approved_at:
+          anyOf:
+          - *id004
+          - type: 'null'
+      required:
+      - id
+      - created_at
+      - journey_id
+      - gap_id
+      - template_version_id
+      - rubric
+      - revision
+      - status
+      - objective
+      - modality
+      - milestones
+      - approved_at
+    PathGenerate:
+      type: object
+      additionalProperties: false
+      properties:
+        journey_id: *id001
+        gap_analysis_id: *id001
+        gap_id: *id001
+        template_version_id: *id001
+        modality: *id009
+      required:
+      - journey_id
+      - gap_analysis_id
+      - gap_id
+      - template_version_id
+      - modality
+    PathApprove:
+      type: object
+      additionalProperties: false
+      properties:
+        expected_revision: *id011
+        rubric_id: *id001
+        rubric_content_sha256: *id015
+      required:
+      - expected_revision
+      - rubric_id
+      - rubric_content_sha256
+    PathStatus:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+          - in_progress
+          - paused
+        expected_revision: *id011
+      required:
+      - status
+      - expected_revision
+    Lesson:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        path_id: *id001
+        milestone_id:
+          type: string
+          minLength: 1
+          maxLength: 80
+        content_markdown:
+          type: string
+          minLength: 1
+          maxLength: 18000
+        resource_ids:
+          type: array
+          items: *id001
+          minItems: 0
+          maxItems: 10
+      required:
+      - id
+      - created_at
+      - path_id
+      - milestone_id
+      - content_markdown
+      - resource_ids
+    LessonRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        path_id: *id001
+        milestone_id:
+          type: string
+          minLength: 1
+          maxLength: 80
+      required:
+      - path_id
+      - milestone_id
+    TutorRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        path_id: *id001
+        milestone_id:
+          type: string
+          minLength: 1
+          maxLength: 80
+        question:
+          type: string
+          minLength: 1
+          maxLength: 2000
+      required:
+      - path_id
+      - milestone_id
+      - question
+    TutorMessage:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        path_id: *id001
+        milestone_id:
+          type: string
+          minLength: 1
+          maxLength: 80
+        answer_markdown:
+          type: string
+          minLength: 1
+          maxLength: 12000
+        resource_ids:
+          type: array
+          items: *id001
+          minItems: 0
+          maxItems: 10
+      required:
+      - id
+      - created_at
+      - path_id
+      - milestone_id
+      - answer_markdown
+      - resource_ids
+    TableStep:
+      type: object
+      additionalProperties: false
+      properties:
+        operation:
+          type: string
+          enum:
+          - filter_equals
+          - group_sum
+          - sort_ascending
+        column:
+          type: string
+          minLength: 1
+          maxLength: 80
+        value:
+          anyOf:
+          - type:
+            - string
+            - number
+            - boolean
+          - type: 'null'
+        group_by:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 80
+          - type: 'null'
+      required:
+      - operation
+      - column
+      - value
+      - group_by
+    TableSubmission:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          const: table_transform_v1
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/TableStep'
+          minItems: 1
+          maxItems: 10
+      required:
+      - kind
+      - steps
+    EvidenceSubmission:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          const: evidence_selection_v1
+        answers:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              question_id:
+                type: string
+                minLength: 1
+                maxLength: 80
+              selected_evidence_ids:
+                type: array
+                items:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                minItems: 0
+                maxItems: 10
+              insufficient_evidence: *id010
+            required:
+            - question_id
+            - selected_evidence_ids
+            - insufficient_evidence
+          minItems: 1
+          maxItems: 20
+      required:
+      - kind
+      - answers
+    ActivitySubmission:
+      oneOf:
+      - $ref: '#/components/schemas/TableSubmission'
+      - $ref: '#/components/schemas/EvidenceSubmission'
+    PracticeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        path_id: *id001
+        milestone_id:
+          type: string
+          minLength: 1
+          maxLength: 80
+        activity_id:
+          type: string
+          minLength: 1
+          maxLength: 80
+        submission:
+          $ref: '#/components/schemas/ActivitySubmission'
+      required:
+      - path_id
+      - milestone_id
+      - activity_id
+      - submission
+    PracticeRun:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        path_id: *id001
+        activity_id:
+          type: string
+          minLength: 1
+          maxLength: 80
+        feedback:
+          type: string
+          minLength: 1
+          maxLength: 6000
+        criterion_feedback:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              criterion_id:
+                type: string
+                minLength: 1
+                maxLength: 80
+              feedback:
+                type: string
+                minLength: 1
+                maxLength: 2000
+            required:
+            - criterion_id
+            - feedback
+          minItems: 0
+          maxItems: 30
+        mastery_awarded:
+          const: false
+      required:
+      - id
+      - created_at
+      - path_id
+      - activity_id
+      - feedback
+      - criterion_feedback
+      - mastery_awarded
+    Question:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 80
+        prompt:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        options:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              id:
+                type: string
+                minLength: 1
+                maxLength: 80
+              text:
+                type: string
+                minLength: 1
+                maxLength: 1000
+            required:
+            - id
+            - text
+          minItems: 2
+          maxItems: 6
+      required:
+      - id
+      - prompt
+      - options
+    AssessmentTask:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 80
+        kind:
+          type: string
+          enum:
+          - table_transform_v1
+          - evidence_selection_v1
+        instructions:
+          type: string
+          minLength: 1
+          maxLength: 6000
+        asset_ids:
+          type: array
+          items: *id001
+          minItems: 1
+          maxItems: 20
+      required:
+      - id
+      - kind
+      - instructions
+      - asset_ids
+    CriterionResult:
+      type: object
+      additionalProperties: false
+      properties:
+        criterion_id:
+          type: string
+          minLength: 1
+          maxLength: 80
+        status:
+          type: string
+          enum:
+          - passed
+          - failed
+          - ungradable
+        score_fraction:
+          anyOf:
+          - *id014
+          - type: 'null'
+        feedback:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        artifact_ids:
+          type: array
+          items: *id001
+          minItems: 0
+          maxItems: 20
+      required:
+      - criterion_id
+      - status
+      - score_fraction
+      - feedback
+      - artifact_ids
+    AssessmentResult:
+      type: object
+      additionalProperties: false
+      properties:
+        outcome:
+          type: string
+          enum:
+          - passed
+          - failed
+          - needs_review
+        knowledge_fraction:
+          anyOf:
+          - *id014
+          - type: 'null'
+        project_fraction:
+          anyOf:
+          - *id014
+          - type: 'null'
+        criteria:
+          type: array
+          items:
+            $ref: '#/components/schemas/CriterionResult'
+          minItems: 2
+          maxItems: 30
+        failed_criterion_ids:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 80
+          minItems: 0
+          maxItems: 30
+        evidence_ids:
+          type: array
+          items: *id001
+          minItems: 0
+          maxItems: 10
+        remediation_cycles_remaining: *id012
+      required:
+      - outcome
+      - knowledge_fraction
+      - project_fraction
+      - criteria
+      - failed_criterion_ids
+      - evidence_ids
+      - remediation_cycles_remaining
+    AssessmentAttempt:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        path_id: *id001
+        purpose:
+          type: string
+          enum:
+          - diagnostic
+          - final
+        rubric_id: *id001
+        rubric_content_sha256: *id015
+        status:
+          type: string
+          enum:
+          - in_progress
+          - submitted
+          - passed
+          - failed
+          - needs_review
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Question'
+          minItems: 1
+          maxItems: 30
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssessmentTask'
+          minItems: 1
+          maxItems: 10
+        result:
+          anyOf:
+          - $ref: '#/components/schemas/AssessmentResult'
+          - type: 'null'
+      required:
+      - id
+      - created_at
+      - path_id
+      - purpose
+      - rubric_id
+      - rubric_content_sha256
+      - status
+      - questions
+      - tasks
+      - result
+    AssessmentStart:
+      type: object
+      additionalProperties: false
+      properties:
+        path_id: *id001
+        purpose:
+          type: string
+          enum:
+          - diagnostic
+          - final
+      required:
+      - path_id
+      - purpose
+    AssessmentSubmit:
+      type: object
+      additionalProperties: false
+      properties:
+        rubric_id: *id001
+        rubric_content_sha256: *id015
+        knowledge_answers:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              question_id:
+                type: string
+                minLength: 1
+                maxLength: 80
+              option_id:
+                type: string
+                minLength: 1
+                maxLength: 80
+            required:
+            - question_id
+            - option_id
+          minItems: 1
+          maxItems: 30
+        project_submissions:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              task_id:
+                type: string
+                minLength: 1
+                maxLength: 80
+              submission:
+                $ref: '#/components/schemas/ActivitySubmission'
+            required:
+            - task_id
+            - submission
+          minItems: 1
+          maxItems: 10
+      required:
+      - rubric_id
+      - rubric_content_sha256
+      - knowledge_answers
+      - project_submissions
+    VerifiedEvidence:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        skill_id: *id001
+        attempt_id: *id001
+        rubric_id: *id001
+        scope:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        artifact_ids:
+          type: array
+          items: *id001
+          minItems: 1
+          maxItems: 30
+        verified_at: *id004
+      required:
+      - id
+      - created_at
+      - skill_id
+      - attempt_id
+      - rubric_id
+      - scope
+      - summary
+      - artifact_ids
+      - verified_at
+    Progress:
+      type: object
+      additionalProperties: false
+      properties:
+        journey:
+          $ref: '#/components/schemas/Journey'
+        milestones:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              id:
+                type: string
+                minLength: 1
+                maxLength: 80
+              status:
+                type: string
+                enum:
+                - not_started
+                - in_progress
+                - completed
+            required:
+            - id
+            - status
+          minItems: 0
+          maxItems: 30
+        verified_evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/VerifiedEvidence'
+          minItems: 0
+          maxItems: 30
+        next_action:
+          type: string
+          minLength: 1
+          maxLength: 100
+      required:
+      - journey
+      - milestones
+      - verified_evidence
+      - next_action
+    ClaimSupport:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+          - confirmed_profile
+          - verified_evidence
+        record_id: *id001
+      required:
+      - kind
+      - record_id
+    ResumeChange:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        section:
+          type: string
+          minLength: 1
+          maxLength: 100
+        before:
+          type: string
+          maxLength: 4000
+        after:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        supports:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClaimSupport'
+          minItems: 1
+          maxItems: 20
+      required:
+      - id
+      - section
+      - before
+      - after
+      - supports
+    ResumeVersion:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        journey_id: *id001
+        profile_id: *id001
+        profile_revision: *id011
+        revision: *id011
+        status:
+          type: string
+          enum:
+          - draft
+          - approved
+          - rejected
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResumeChange'
+          minItems: 1
+          maxItems: 50
+        content_sha256: *id015
+        approved_at:
+          anyOf:
+          - *id004
+          - type: 'null'
+      required:
+      - id
+      - created_at
+      - journey_id
+      - profile_id
+      - profile_revision
+      - revision
+      - status
+      - changes
+      - content_sha256
+      - approved_at
+    ResumeDraftRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        journey_id: *id001
+        evidence_ids:
+          type: array
+          items: *id001
+          minItems: 1
+          maxItems: 20
+      required:
+      - journey_id
+      - evidence_ids
+    ResumeEdit:
+      type: object
+      additionalProperties: false
+      properties:
+        expected_revision: *id011
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResumeChange'
+          minItems: 1
+          maxItems: 50
+      required:
+      - expected_revision
+      - changes
+    ResumeApprove:
+      type: object
+      additionalProperties: false
+      properties:
+        expected_revision: *id011
+        content_sha256: *id015
+        reviewed:
+          const: true
+      required:
+      - expected_revision
+      - content_sha256
+      - reviewed
+    ExportRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        resume_id: *id001
+        approved_revision: *id011
+        content_sha256: *id015
+        format:
+          type: string
+          enum:
+          - pdf
+          - docx
+      required:
+      - resume_id
+      - approved_revision
+      - content_sha256
+      - format
+    ResumeExport:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        resume_id: *id001
+        approved_revision: *id011
+        format:
+          type: string
+          enum:
+          - pdf
+          - docx
+        content_sha256: *id015
+        download_url: *id013
+        expires_at: *id004
+      required:
+      - id
+      - created_at
+      - resume_id
+      - approved_revision
+      - format
+      - content_sha256
+      - download_url
+      - expires_at
+    DataExport:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        download_url: *id013
+        expires_at: *id004
+      required:
+      - id
+      - created_at
+      - download_url
+      - expires_at
+    Deletion:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        status:
+          type: string
+          enum:
+          - pending
+          - completed
+        completed_at:
+          anyOf:
+          - *id004
+          - type: 'null'
+      required:
+      - id
+      - created_at
+      - status
+      - completed_at
+    Asset:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        media_type:
+          type: string
+          enum:
+          - application/json
+          - text/csv
+          - text/plain
+        download_url: *id013
+        expires_at: *id004
+      required:
+      - id
+      - media_type
+      - download_url
+      - expires_at
+    WellbeingPreferences:
+      type: object
+      additionalProperties: false
+      properties:
+        opted_in: *id010
+        support_style:
+          anyOf:
+          - type: string
+            enum:
+            - encouragement
+            - shorter_sessions
+          - type: 'null'
+      required:
+      - opted_in
+      - support_style
+    PrivateTest:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 80
+        component:
+          type: string
+          enum:
+          - knowledge
+          - project
+        criterion_ids:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 80
+          minItems: 1
+          maxItems: 30
+        grader:
+          type: string
+          enum:
+          - answer_key_v1
+          - table_result_v1
+          - evidence_match_v1
+        input_asset_ids:
+          type: array
+          items: *id001
+          minItems: 0
+          maxItems: 20
+        expected:
+          type: object
+          minProperties: 1
+        weight:
+          type: number
+          exclusiveMinimum: 0
+      required:
+      - id
+      - component
+      - criterion_ids
+      - grader
+      - input_asset_ids
+      - expected
+      - weight
+      allOf:
+      - if:
+          properties:
+            grader:
+              const: answer_key_v1
+        then:
+          properties:
+            expected:
+              type: object
+              additionalProperties: false
+              properties:
+                option_id:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+              required:
+              - option_id
+      - if:
+          properties:
+            grader:
+              const: table_result_v1
+        then:
+          properties:
+            expected:
+              type: object
+              additionalProperties: false
+              properties:
+                rows:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties:
+                      type:
+                      - string
+                      - number
+                      - boolean
+                      - 'null'
+                  minItems: 0
+                  maxItems: 1000
+                sort_by:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 80
+                  minItems: 0
+                  maxItems: 10
+                numeric_tolerance:
+                  type: number
+                  minimum: 0
+              required:
+              - rows
+              - sort_by
+              - numeric_tolerance
+      - if:
+          properties:
+            grader:
+              const: evidence_match_v1
+        then:
+          properties:
+            expected:
+              type: object
+              additionalProperties: false
+              properties:
+                answers:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      question_id:
+                        type: string
+                        minLength: 1
+                        maxLength: 80
+                      selected_evidence_ids:
+                        type: array
+                        items:
+                          type: string
+                          minLength: 1
+                          maxLength: 80
+                        minItems: 0
+                        maxItems: 10
+                      insufficient_evidence: *id010
+                    required:
+                    - question_id
+                    - selected_evidence_ids
+                    - insufficient_evidence
+                  minItems: 1
+                  maxItems: 20
+              required:
+              - answers
+    GradingBundle:
+      type: object
+      additionalProperties: false
+      properties:
+        schema_version:
+          const: '1.0'
+        template_key:
+          type: string
+          minLength: 1
+          maxLength: 80
+        template_version: *id011
+        test_set_version: *id011
+        knowledge_questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Question'
+          minItems: 1
+          maxItems: 30
+        project_tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssessmentTask'
+          minItems: 1
+          maxItems: 10
+        tests:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrivateTest'
+          minItems: 2
+          maxItems: 60
+        practice_asset_ids:
+          type: array
+          items: *id001
+          minItems: 1
+          maxItems: 30
+        assessment_asset_ids:
+          type: array
+          items: *id001
+          minItems: 1
+          maxItems: 30
+        grader_build_id:
+          type: string
+          minLength: 1
+          maxLength: 100
+      required:
+      - schema_version
+      - template_key
+      - template_version
+      - test_set_version
+      - knowledge_questions
+      - project_tasks
+      - tests
+      - practice_asset_ids
+      - assessment_asset_ids
+      - grader_build_id
+    TestSetRegistration:
+      type: object
+      additionalProperties: false
+      properties:
+        purpose:
+          type: string
+          enum:
+          - diagnostic
+          - final
+        bundle:
+          $ref: '#/components/schemas/GradingBundle'
+      required:
+      - purpose
+      - bundle
+    TestSetMetadata:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        created_at: *id004
+        template_version_id: *id001
+        purpose:
+          type: string
+          enum:
+          - diagnostic
+          - final
+        version: *id011
+        bundle_sha256: *id015
+        review_status:
+          type: string
+          enum:
+          - draft
+          - approved
+          - rejected
+      required:
+      - id
+      - created_at
+      - template_version_id
+      - purpose
+      - version
+      - bundle_sha256
+      - review_status
+    TestSetReview:
+      type: object
+      additionalProperties: false
+      properties:
+        expected_bundle_sha256: *id015
+        decision:
+          type: string
+          enum:
+          - approve
+          - reject
+        notes:
+          type: string
+          minLength: 1
+          maxLength: 6000
+        fixtures_passed: *id010
+        separation_verified: *id010
+      required:
+      - expected_bundle_sha256
+      - decision
+      - notes
+      - fixtures_passed
+      - separation_verified
+    PrivateTestSet:
+      type: object
+      additionalProperties: false
+      properties:
+        metadata:
+          $ref: '#/components/schemas/TestSetMetadata'
+        bundle:
+          $ref: '#/components/schemas/GradingBundle'
+      required:
+      - metadata
+      - bundle
+    Health:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+          - ok
+          - degraded
+      required:
+      - status
+    GoalList:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Goal'
+          minItems: 0
+          maxItems: 100
+        next_cursor:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 500
+          - type: 'null'
+      required:
+      - items
+      - next_cursor
+    JourneyList:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Journey'
+          minItems: 0
+          maxItems: 100
+        next_cursor:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 500
+          - type: 'null'
+      required:
+      - items
+      - next_cursor
+    TemplateVersionList:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateVersion'
+          minItems: 0
+          maxItems: 100
+        next_cursor:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 500
+          - type: 'null'
+      required:
+      - items
+      - next_cursor
+    TestSetMetadataList:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestSetMetadata'
+          minItems: 0
+          maxItems: 100
+        next_cursor:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 500
+          - type: 'null'
+      required:
+      - items
+      - next_cursor
+    LearningResourceList:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LearningResource'
+          minItems: 0
+          maxItems: 100
+        next_cursor:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 500
+          - type: 'null'
+      required:
+      - items
+      - next_cursor

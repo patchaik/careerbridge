@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0",
+  "template_key": "tabular-summary",
+  "template_version": 1,
+  "test_set_version": 1,
+  "knowledge_questions": [
+    {
+      "id": "q1",
+      "prompt": "Which operation calculates a total for each category?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Group and sum"
+        },
+        {
+          "id": "b",
+          "text": "Sort labels only"
+        }
+      ]
+    }
+  ],
+  "project_tasks": [
+    {
+      "id": "p1",
+      "kind": "table_transform_v1",
+      "instructions": "Compute total amount per region on the assigned fictional records.",
+      "asset_ids": [
+        "00000000-0000-4000-8000-000000000211"
+      ]
+    }
+  ],
+  "tests": [
+    {
+      "id": "q1",
+      "component": "knowledge",
+      "criterion_ids": [
+        "concept"
+      ],
+      "grader": "answer_key_v1",
+      "input_asset_ids": [],
+      "expected": {
+        "option_id": "a"
+      },
+      "weight": 1
+    },
+    {
+      "id": "p1",
+      "component": "project",
+      "criterion_ids": [
+        "applied"
+      ],
+      "grader": "table_result_v1",
+      "input_asset_ids": [
+        "00000000-0000-4000-8000-000000000211"
+      ],
+      "expected": {
+        "rows": [
+          {
+            "region": "North",
+            "amount": 30
+          },
+          {
+            "region": "South",
+            "amount": 5
+          }
+        ],
+        "sort_by": [
+          "region"
+        ],
+        "numeric_tolerance": 0
+      },
+      "weight": 1
+    }
+  ],
+  "practice_asset_ids": [
+    "00000000-0000-4000-8000-000000000110"
+  ],
+  "assessment_asset_ids": [
+    "00000000-0000-4000-8000-000000000211"
+  ],
+  "grader_build_id": "table-grader-v1-example"
+}

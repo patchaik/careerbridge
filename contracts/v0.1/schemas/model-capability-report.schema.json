@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "provider": {
+      "type": "string",
+      "enum": [
+        "openai",
+        "nebius"
+      ]
+    },
+    "base_url": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://"
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "adapter_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "structured_mode": {
+      "type": "string",
+      "enum": [
+        "json_schema",
+        "json_object_validated"
+      ]
+    },
+    "tested_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "fixture_suite_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "max_input_tokens": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "max_output_tokens": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "type": "boolean"
+        },
+        "structured_output": {
+          "type": "boolean"
+        },
+        "refusal_handling": {
+          "type": "boolean"
+        },
+        "truncation_handling": {
+          "type": "boolean"
+        },
+        "timeout_handling": {
+          "type": "boolean"
+        },
+        "source_validation": {
+          "type": "boolean"
+        },
+        "task_quality": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "text",
+        "structured_output",
+        "refusal_handling",
+        "truncation_handling",
+        "timeout_handling",
+        "source_validation",
+        "task_quality"
+      ]
+    },
+    "passed": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema_version",
+    "provider",
+    "base_url",
+    "model",
+    "adapter_version",
+    "structured_mode",
+    "tested_at",
+    "expires_at",
+    "fixture_suite_sha256",
+    "max_input_tokens",
+    "max_output_tokens",
+    "checks",
+    "passed"
+  ]
+}

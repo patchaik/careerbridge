@@ -54,11 +54,11 @@ def check_env():
     print("\n1. Settings")
     load_dotenv()
     url = os.getenv("SUPABASE_URL", "").strip()
-    key = os.getenv("SUPABASE_KEY", "").strip()
+    key = (os.getenv("SUPABASE_SECRET_KEY") or os.getenv("SUPABASE_KEY", "")).strip()
     bucket = os.getenv("STORAGE_BUCKET", "careerbridge-private").strip()
 
     record("SUPABASE_URL set", bool(url), url if url else "missing in .env")
-    record("SUPABASE_KEY set", bool(key), "hidden" if key else "missing in .env")
+    record("Backend secret key set", bool(key), "hidden" if key else "missing in .env")
     if key and (key.startswith("sb_publishable_") or '"role":"anon"' in key):
         record("Key type", False, "looks like the public/anon key; use the secret key")
     return url, key, bucket
