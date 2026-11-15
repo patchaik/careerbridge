@@ -21,7 +21,9 @@
         "lesson",
         "tutor",
         "resume_draft",
-        "resource_extract"
+        "resource_extract",
+        "check_prepare",
+        "check_feedback"
       ]
     },
     "provider": {

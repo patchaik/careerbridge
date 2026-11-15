@@ -96,3 +96,10 @@ See [acceptance.csv](../contracts/v0.1/acceptance.csv) for check IDs and the [im
 ## Source and precedence
 
 Based on the user-supplied `CareerBridge_MVP_Technical_Design.pdf`, clarified product scope, and repository review. The private source PDF is not copied into this public repository. Its RAG examples are demonstration content only. The earlier branch-specific API and DB documents remain historical references; v0.1 is the proposed target contract, not a statement that the current code already implements it.
+
+## Formative learning check
+
+After a completed plan, offer five scored quiz questions and a written practice task,
+with AI feedback and durable saved results. This learning check needs no reviewed
+template and never writes verified mastery. Independent assessment criteria remain
+a separate boundary. See [learning-check acceptance criteria](LEARNING_CHECKS.md).

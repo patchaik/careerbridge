@@ -19,6 +19,8 @@ from database import admin, users
 from database.client import DBError
 
 from careerbridge import store
+from careerbridge import check_flows
+from careerbridge.learning_check import CheckSubmission
 from careerbridge.errors import ApiError, db_error_to_api_error
 from careerbridge.tracing import flush
 
@@ -335,6 +337,21 @@ def generate_path(body: GeneratePathBody, user_id: str = Depends(current_user_id
 @app.get("/api/paths")
 def list_paths(user_id: str = Depends(current_user_id)):
     return store.list_paths_flow(user_id)
+
+
+@app.get("/api/paths/{path_id}/learning-check")
+def get_learning_check(path_id: str, user_id: str = Depends(current_user_id)):
+    return check_flows.get_check(path_id, user_id)
+
+
+@app.post("/api/paths/{path_id}/learning-check", status_code=201)
+def start_learning_check(path_id: str, user_id: str = Depends(current_user_id)):
+    return check_flows.start_check(path_id, user_id)
+
+
+@app.post("/api/learning-checks/{check_id}/submit")
+def submit_learning_check(check_id: str, body: CheckSubmission, user_id: str = Depends(current_user_id)):
+    return check_flows.submit_check(check_id, user_id, body.model_dump())
 
 
 class MilestoneCompletionBody(BaseModel):

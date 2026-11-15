@@ -13,6 +13,7 @@ Start with **[Fresh-checkout setup and end-to-end testing](docs/LOCAL_E2E.md)**.
 A checkout needs your development Supabase configuration, model credentials and
 local capability reports before live flows work. No credentials are committed.
 
+- [Formative learning checks and saved feedback](docs/LEARNING_CHECKS.md)
 - [Saved learning progress and acceptance criteria](docs/LEARNING_PROGRESS.md)
 - [Milestone learning material](docs/LEARNING_MATERIAL.md)
 - [Learning goals, resources and plans](docs/LEARNING_PLANS.md)

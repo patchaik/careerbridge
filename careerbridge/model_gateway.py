@@ -26,6 +26,8 @@ TASKS = {
     "gap_explain",
     "path_plan",
     "lesson",
+    "check_prepare",
+    "check_feedback",
     "tutor",
     "resume_draft",
 }

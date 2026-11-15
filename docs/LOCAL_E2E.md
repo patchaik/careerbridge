@@ -54,7 +54,7 @@ project. The browser only uses Supabase for authentication; data goes through th
 
 ```sh
 cp deployment/resume-model-routing.example.yaml deployment/model-routing.yaml
-for task in job resource plan lesson; do
+for task in job resource plan lesson check; do
   cp "deployment/$task-model-routing.example.yaml" "deployment/$task-model-routing.yaml"
 done
 ```
@@ -70,6 +70,7 @@ python -c 'from dotenv import load_dotenv; load_dotenv(".env"); import runpy; ru
 python -c 'from dotenv import load_dotenv; load_dotenv(".env"); import runpy; runpy.run_module("scripts.check_resource_model", run_name="__main__")' --profile openai
 python -c 'from dotenv import load_dotenv; load_dotenv(".env"); import runpy; runpy.run_module("scripts.check_plan_model", run_name="__main__")' --profile openai
 python -c 'from dotenv import load_dotenv; load_dotenv(".env"); import runpy; runpy.run_module("scripts.check_lesson_model", run_name="__main__")' --profile openai
+python -c 'from dotenv import load_dotenv; load_dotenv(".env"); import runpy; runpy.run_module("scripts.check_learning_check_model", run_name="__main__")' --profile openai
 ```
 
 The same dotenv/runpy wrapper works for `database.migrate` and the live check scripts
@@ -126,3 +127,11 @@ GitHub merge gate. Isolated SQL tests additionally need `TEST_DATABASE_URL`.
 
 This is a development MVP. Independent mastery assessment and the broader canonical
 `/api/v1` workflow are still incomplete; self-reported completion is not mastery.
+
+## Learning-check feature
+
+The branch containing [LEARNING_CHECKS.md](LEARNING_CHECKS.md) adds a formative quiz
+and saved written feedback after all milestones are complete. Before its PR is merged,
+use that feature branch. Configure the additional check route/capability report above,
+then choose **Start learning check** on the completed plan. This is separate from
+independent mastery assessment; results never promote profile skills.

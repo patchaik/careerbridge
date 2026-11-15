@@ -499,6 +499,70 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/SavedResourceSearch" }
 
+  /api/paths/{path_id}/learning-check:
+    parameters:
+      - $ref: '#/components/parameters/PathId'
+    get:
+      tags: [Learning]
+      operationId: getLearningCheck
+      summary: Read the owner's saved formative check without invoking a model
+      responses:
+        '200':
+          description: Saved check or null; answer keys are withheld until feedback is saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [check]
+                properties:
+                  check:
+                    anyOf:
+                      - $ref: '#/components/schemas/LearningCheck'
+                      - type: 'null'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Learning]
+      operationId: startLearningCheck
+      summary: Prepare or resume one formative check for a completed plan
+      responses:
+        '201':
+          description: Saved check; repeating start returns the same check
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LearningCheck' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/ProviderUnavailable' }
+
+  /api/learning-checks/{check_id}/submit:
+    parameters:
+      - name: check_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [Learning]
+      operationId: submitLearningCheck
+      summary: Save immutable answers, score the quiz and generate formative feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LearningCheckSubmission' }
+      responses:
+        '200':
+          description: Saved result; identical resubmission returns it without model calls
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LearningCheck' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Invalid' }
+        '503': { $ref: '#/components/responses/ProviderUnavailable' }
+
   /api/paths:
     get:
       tags: [Learning]
@@ -1997,3 +2061,275 @@ components:
         opted_in: { type: boolean }
         support_style: { type: string }
         last_checkin_at: { type: [string, "null"], format: date-time }
+
+    LearningCheck:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - path_id
+      - status
+      - questions
+      - practice_prompt
+      - criteria
+      - submission
+      - result
+      - independently_verified
+      properties:
+        id:
+          type: string
+          format: uuid
+        path_id:
+          type: string
+          format: uuid
+        status:
+          enum:
+          - new
+          - generating
+          - ready
+          - grading
+          - feedback_pending
+          - completed
+        questions:
+          type: array
+          maxItems: 5
+          items:
+            additionalProperties: false
+            properties:
+              milestone_id:
+                title: Milestone Id
+                type: string
+              prompt:
+                maxLength: 1200
+                minLength: 1
+                title: Prompt
+                type: string
+              options:
+                items:
+                  maxLength: 1200
+                  minLength: 1
+                  type: string
+                maxItems: 4
+                minItems: 4
+                title: Options
+                type: array
+              id:
+                type: string
+            required:
+            - milestone_id
+            - prompt
+            - options
+            - id
+            title: CheckQuestion
+            type: object
+        practice_prompt:
+          type:
+          - string
+          - 'null'
+        criteria:
+          type: array
+          maxItems: 3
+          items:
+            additionalProperties: false
+            properties:
+              milestone_id:
+                title: Milestone Id
+                type: string
+              description:
+                maxLength: 1200
+                minLength: 1
+                title: Description
+                type: string
+              id:
+                type: string
+            required:
+            - milestone_id
+            - description
+            - id
+            title: PracticeCriterion
+            type: object
+        submission:
+          anyOf:
+          - additionalProperties: false
+            properties:
+              quiz_answers:
+                additionalProperties:
+                  maximum: 3
+                  minimum: 0
+                  type: integer
+                maxProperties: 5
+                minProperties: 5
+                title: Quiz Answers
+                type: object
+              practice_response:
+                maxLength: 8000
+                minLength: 10
+                title: Practice Response
+                type: string
+            required:
+            - quiz_answers
+            - practice_response
+            title: CheckSubmission
+            type: object
+          - type: 'null'
+        result:
+          anyOf:
+          - type: object
+            additionalProperties: false
+            required:
+            - quiz_score
+            - quiz_total
+            - quiz
+            - feedback
+            - submitted_at
+            properties:
+              quiz_score:
+                type: integer
+                minimum: 0
+                maximum: 5
+              quiz_total:
+                const: 5
+              quiz:
+                type: array
+                minItems: 5
+                maxItems: 5
+                items:
+                  type: object
+                  additionalProperties: false
+                  required:
+                  - question_id
+                  - milestone_id
+                  - selected_option
+                  - correct_option
+                  - correct
+                  - explanation
+                  properties:
+                    question_id:
+                      type: string
+                    milestone_id:
+                      type: string
+                    selected_option:
+                      type: integer
+                      minimum: 0
+                      maximum: 3
+                    correct_option:
+                      type: integer
+                      minimum: 0
+                      maximum: 3
+                    correct:
+                      type: boolean
+                    explanation:
+                      type: string
+              feedback:
+                additionalProperties: false
+                properties:
+                  criteria:
+                    items:
+                      $ref: '#/components/schemas/LearningCheck/$defs/CriterionFeedback'
+                    maxItems: 3
+                    minItems: 3
+                    title: Criteria
+                    type: array
+                  summary:
+                    maxLength: 1200
+                    minLength: 1
+                    title: Summary
+                    type: string
+                required:
+                - criteria
+                - summary
+                title: CheckFeedback
+                type: object
+              submitted_at:
+                type: string
+                format: date-time
+          - type: 'null'
+        independently_verified:
+          const: false
+      $defs:
+        CriterionFeedback:
+          additionalProperties: false
+          properties:
+            criterion_id:
+              title: Criterion Id
+              type: string
+            met:
+              title: Met
+              type: boolean
+            evidence:
+              maxLength: 1000
+              title: Evidence
+              type: string
+            feedback:
+              maxLength: 1200
+              minLength: 1
+              title: Feedback
+              type: string
+            next_step:
+              maxLength: 1200
+              minLength: 1
+              title: Next Step
+              type: string
+          required:
+          - criterion_id
+          - met
+          - evidence
+          - feedback
+          - next_step
+          title: CriterionFeedback
+          type: object
+      title: LearningCheck
+      allOf:
+      - if:
+          properties:
+            status:
+              enum:
+              - ready
+              - grading
+              - feedback_pending
+              - completed
+        then:
+          properties:
+            questions:
+              minItems: 5
+            criteria:
+              minItems: 3
+            practice_prompt:
+              type: string
+              minLength: 1
+      - if:
+          properties:
+            status:
+              const: completed
+        then:
+          properties:
+            result:
+              type: object
+            submission:
+              type: object
+        else:
+          properties:
+            result:
+              type: 'null'
+    LearningCheckSubmission:
+      additionalProperties: false
+      properties:
+        quiz_answers:
+          additionalProperties:
+            maximum: 3
+            minimum: 0
+            type: integer
+          maxProperties: 5
+          minProperties: 5
+          title: Quiz Answers
+          type: object
+        practice_response:
+          maxLength: 8000
+          minLength: 10
+          title: Practice Response
+          type: string
+      required:
+      - quiz_answers
+      - practice_response
+      title: CheckSubmission
+      type: object
