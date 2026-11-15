@@ -517,6 +517,7 @@ def generate_path_flow(user_id: str, resource_search_id: str, learning_goal: str
                   "resource_search_id": resource_search_id, "skill": search["skill"], "objective": learning_goal,
                   "learning_outcome": plan["learning_outcome"], "modality": modality, "status": "proposed",
                   "milestones": milestones, "resources": resources, "rubric": None, "assessment_available": False}
+        result = _plan_progress(result, path)
         state.update(status="complete", stage="complete", result=result)
         call(users.save_workflow_state, wf["id"], "LEARNING", state)
         return result
@@ -542,8 +543,44 @@ def get_path_flow(path_id: str, user_id: str) -> dict:
     path = owned_path(path_id, user_id)
     workflow = call(users.get_path_workflow, user_id, path_id)
     if workflow:
-        return {**workflow["state_json"]["result"], "status": path["status"]}
+        return _plan_progress(workflow["state_json"]["result"], path)
     return _map_learning_path(path, _rubric_for_path(path))
+
+
+def _plan_progress(snapshot: dict, path: dict) -> dict:
+    flags = {m["id"]: m.get("done", False) for m in path["milestones_json"]}
+    milestones = [{**m, "done": flags.get(m["id"], False)} for m in snapshot["milestones"]]
+    completed = sum(m["done"] for m in milestones)
+    return {**snapshot, "status": path["status"], "milestones": milestones,
+            "progress": {"completed": completed, "total": len(milestones),
+                         "next_milestone_id": next((m["id"] for m in milestones if not m["done"]), None)}}
+
+
+def list_paths_flow(user_id: str) -> dict:
+    paths = call(learning.list_owned_paths, user_id)
+    snapshots = {w["state_json"]["result"]["id"]: w["state_json"]["result"]
+                 for w in call(users.list_path_workflows, user_id, [p["id"] for p in paths])}
+    return {"plans": [_plan_progress(snapshots[p["id"]], p) for p in paths if p["id"] in snapshots]}
+
+
+def complete_milestone_flow(path_id: str, milestone_id: str, done: bool, user_id: str) -> dict:
+    plan = get_path_flow(path_id, user_id)
+    if plan["status"] == "proposed" or "resource_search_id" not in plan:
+        raise ApiError(409, "rule_violation", "Accept a resource-based plan before recording progress")
+    if milestone_id not in {m["id"] for m in plan["milestones"]}:
+        raise ApiError(404, "not_found", "Milestone not found on this plan")
+    if done and not call(users.list_lesson_workflows, user_id, path_id, milestone_id):
+        raise ApiError(409, "rule_violation", "Generate and work through the material before marking it complete")
+    for _ in range(5):
+        path = owned_path(path_id, user_id)
+        milestones = [{**m, "done": done if m["id"] == milestone_id else m.get("done", False)}
+                      for m in path["milestones_json"]]
+        if milestone_id not in {m["id"] for m in milestones}:
+            raise ApiError(409, "rule_violation", "This plan has changed. Reload before saving progress")
+        status = "completed" if all(m["done"] for m in milestones) else "in_progress"
+        if call(learning.compare_and_set_progress, path, milestones, status):
+            return get_path_flow(path_id, user_id)
+    raise ApiError(409, "rule_violation", "Progress changed in another session. Reload and retry")
 
 
 def approve_path_flow(path_id: str, user_id: str) -> dict:
@@ -600,7 +637,7 @@ def generate_material_flow(path_id: str, milestone_id: str, user_id: str) -> dic
             raise ApiError(409, "rule_violation", "This milestone has no complete saved resource references")
         data = {"skill": plan["skill"], "learning_goal": plan["objective"],
                 "learning_outcome": plan["learning_outcome"],
-                "milestone": {k: v for k, v in milestone.items() if k != "id"},
+                "milestone": {k: v for k, v in milestone.items() if k not in ("id", "done")},
                 "resources": [{k: r[k] for k in ("id", "title", "price_type", "learning_evidence", "format")}
                               for r in resources]}
         wf = call(users.create_workflow, user_id, plan["goal_id"])
@@ -632,6 +669,8 @@ def set_path_status_flow(path_id: str, status: str, user_id: str) -> dict:
     path = owned_path(path_id, user_id)
     if path["status"] == "proposed":
         raise ApiError(409, "rule_violation", "Accept the plan before recording progress")
+    if call(users.get_path_workflow, user_id, path_id):
+        raise ApiError(409, "rule_violation", "Use milestone completion to update this plan's progress")
     call(learning.update_path_status, path_id, status)
     return get_path_flow(path_id, user_id)
 
@@ -867,47 +906,5 @@ def _map_assessment_result(attempt: dict, graded: Optional[dict], verified: Opti
 # ---------------------------------------------------------------------------
 
 def progress_flow(user_id: str) -> dict:
-    goal = call(users.get_active_goal, user_id)
-    if not goal:
-        raise ApiError(409, "rule_violation", "Create a goal before checking progress")
-    analysis = call(jobs.get_latest_gap_analysis, goal["id"])
-    paths = call(learning.list_paths, goal["id"])
-    verified = call(mastery.list_verified_evidence, user_id)
-    verified_names = {(v.get("skills") or {}).get("canonical_name") for v in verified}
-
-    gaps = []
-    for gap in (analysis or {}).get("ranked_gaps_json", []):
-        skill_name = gap["skill"]
-        path = next((p for p in paths if (p.get("skills") or {}).get("canonical_name") == skill_name), None)
-        if skill_name in verified_names:
-            status = "demonstrated"
-        elif path and path["status"] == "approved":
-            status = "assessing"
-        elif path:
-            status = "learning"
-        else:
-            status = "not_started"
-        gaps.append({"skill": skill_name, "status": status, "path_id": path["id"] if path else None})
-
-    next_action = "Review your skill gap analysis"
-    if gaps:
-        in_progress = next((g for g in gaps if g["status"] in ("learning", "assessing")), None)
-        not_started = next((g for g in gaps if g["status"] == "not_started"), None)
-        if in_progress:
-            next_action = f"Continue working on {in_progress['skill']}"
-        elif not_started:
-            next_action = f"Start a learning path for {not_started['skill']}"
-        else:
-            next_action = "Review your verified skills"
-
-    return {
-        "goal": goal,
-        "gaps": gaps,
-        "verified_evidence": [
-            {"id": v["id"], "skill": (v.get("skills") or {}).get("canonical_name"),
-             "scope": v.get("scope", ""), "summary": v.get("summary"),
-             "attempt_id": v.get("attempt_id"), "verified_at": v["verified_at"]}
-            for v in verified
-        ],
-        "next_action": next_action,
-    }
+    from careerbridge.progress import get_progress
+    return get_progress(user_id)

@@ -1,13 +1,15 @@
+import { SourceLink } from "../search/SourceLink";
 import { useState } from "react";
 import { generateMaterial, type MilestoneMaterial as Material } from "../../../lib/api/materials";
 import { priceLabels } from "../../../lib/api/resources";
 import { Alert } from "../../ui/Alert";
 import { Button } from "../../ui/Button";
 
-export function MilestoneMaterial({ pathId, milestoneId, saved }: {
+export function MilestoneMaterial({ pathId, milestoneId, saved, onSaved }: {
   pathId: string;
   milestoneId: string;
   saved?: Material;
+  onSaved: (material: Material) => void;
 }) {
   const [material, setMaterial] = useState(saved);
   const [busy, setBusy] = useState(false);
@@ -16,7 +18,11 @@ export function MilestoneMaterial({ pathId, milestoneId, saved }: {
     if (busy) return;
     setBusy(true);
     setError("");
-    try { setMaterial(await generateMaterial(pathId, milestoneId)); }
+    try {
+      const result = await generateMaterial(pathId, milestoneId);
+      setMaterial(result);
+      onSaved(result);
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Couldn't generate learning material."); }
     finally { setBusy(false); }
   }
@@ -58,7 +64,7 @@ export function MilestoneMaterial({ pathId, milestoneId, saved }: {
       </section>
       <section><h4 className="font-medium">Continue with these saved resources</h4>
         <ul className="mt-1 space-y-1">{material.resources.map(resource => <li key={resource.id}>
-          <a href={resource.url} target="_blank" rel="noreferrer" className="text-primary-700 underline">{resource.title}</a>
+          <SourceLink url={resource.url}>{resource.title}</SourceLink>
           <span className="ml-2 text-xs text-neutral-600">{priceLabels[resource.price_type]}</span>
         </li>)}</ul>
       </section>

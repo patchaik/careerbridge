@@ -121,12 +121,11 @@ the same real endpoints, with no model calls and no cost.
 `/recommendations` now call real endpoints from the UI** — `goals.ts`,
 `jobs.ts`, and `skills.ts` were rewritten (by the live-job-search work) with
 their own real snake_case request/response shapes, replacing the earlier
-pre-stitch mock types for those three files. `paths.ts`, `resources.ts`,
-`arena.ts`, `assessments.ts`, and `progress.ts` are still wired to the right
-real paths/methods/auth but **still reflect the pre-stitch mock design** in
-`src/lib/types.ts` — each has an inline `NOTE:` comment describing its
-mismatch. Phase 5 (Learn — `/courses`, `/learn`, `/arena`) is where that
-would get resolved; out of scope for now.
+pre-stitch mock types for those three files. Learning plans, resources, material,
+learning checks and progress now have dedicated real API types. The Progress page
+uses saved results and deterministic recommendations; see [progress overview](PROGRESS_OVERVIEW.md).
+`arena.ts` and `assessments.ts` still reflect the earlier mock design and need a
+separate integration pass before those pages are enabled.
 
 `/target`'s AI outlook and `/recommendations` are mock-only (see the table
 above) — no backend call, a small static knowledge base plus skill-overlap
@@ -339,6 +338,5 @@ Followed the contract and adapted the backend in every case (never edited
   postings, real LLM-generated rubrics/questions) will exercise validation
   paths (`JobPostingIn`, `Assessment`'s option-uniqueness checks, etc.) that
   mock mode's fixed outputs never hit.
-- **`src/lib/types.ts` shapes for goals/jobs/skills/paths/resources/arena/
-  assessments/progress** — flagged above; these need a real design pass
+- **Legacy `src/lib/types.ts` shapes for arena/assessments** — flagged above; these need a real design pass
   once their pages (Phase 4+) are actually built, not a guess now.

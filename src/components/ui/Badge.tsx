@@ -1,8 +1,8 @@
-import { Award, Check, CircleDashed, FileQuestion, FlaskConical, TriangleAlert } from "lucide-react";
+import { Award, Check, CircleDashed, FileQuestion, TriangleAlert } from "lucide-react";
 import { cn } from "../../lib/cn";
 import type { EvidenceStatus } from "../../lib/types";
 
-type BadgeVariant = EvidenceStatus | "mandatory_requirement_unmet" | "demo";
+type BadgeVariant = EvidenceStatus | "mandatory_requirement_unmet";
 
 const variantConfig: Record<
   BadgeVariant,
@@ -14,7 +14,6 @@ const variantConfig: Record<
   not_established: { label: "Not established", classes: "bg-neutral-100 text-neutral-700 border-neutral-200", icon: CircleDashed },
   demonstrated: { label: "Demonstrated", classes: "bg-success-100 text-success-800 border-success-200", icon: Award },
   mandatory_requirement_unmet: { label: "Mandatory requirement unmet", classes: "bg-warning-100 text-warning-800 border-warning-200", icon: TriangleAlert },
-  demo: { label: "Demo data", classes: "bg-transparent text-neutral-600 border-neutral-400 border-dashed", icon: FlaskConical },
 };
 
 interface BadgeProps {
@@ -37,8 +36,4 @@ export function Badge({ variant, className }: BadgeProps) {
       {config.label}
     </span>
   );
-}
-
-export function DemoDataBadge({ className }: { className?: string }) {
-  return <Badge variant="demo" className={className} />;
 }

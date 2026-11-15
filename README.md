@@ -1,30 +1,34 @@
 # CareerBridge
 
-Target a role, identify an evidence-backed skill gap, learn and practice, demonstrate a competency, and approve a truthful résumé update.
+Target a role, identify an evidence-backed skill gap, and build a learning plan with
+saved resources, a concrete goal and your preferred modality.
 
-This baseline combines the latest `stitch-1` UI/Supabase/agent integration with PR #3's contracts and PR #22's DB/model gateway. Existing onboarding works against the legacy API; the canonical MVP integration remains in progress.
+The `stitch-1` integration supports Supabase sign-in, résumé upload and confirmation,
+live Keenable job/resource discovery, gap analysis, free/paid resource persistence,
+learning plans and generated milestone material through the shared OpenAI/Nebius
+gateway. Langfuse tracing is optional. Learning completion is self-reported;
+independent competency assessment remains separate and unfinished.
 
-- [Reconciliation, verified behavior and next work](docs/RECONCILIATION.md)
+Start with **[Fresh-checkout setup and end-to-end testing](docs/LOCAL_E2E.md)**.
+A checkout needs your development Supabase configuration, model credentials and
+local capability reports before live flows work. No credentials are committed.
+
+- [Formative learning checks and saved feedback](docs/LEARNING_CHECKS.md)
+- [Saved learning progress and acceptance criteria](docs/LEARNING_PROGRESS.md)
+- [Milestone learning material](docs/LEARNING_MATERIAL.md)
+- [Learning goals, resources and plans](docs/LEARNING_PLANS.md)
+- [Live job search](docs/LIVE_JOB_SEARCH.md)
+- [Tracing and diagnostics](docs/OBSERVABILITY.md)
+- [Deployed API contract](api/openapi.yaml)
 - [Requirements](docs/MVP_REQUIREMENTS.md)
 - [Minimal implementation guidelines](docs/IMPLEMENTATION_GUIDELINES.md)
-- [Implementation handoff and issue dependencies](docs/IMPLEMENTATION_HANDOFF.md)
-- [Canonical API/schema/template contracts](contracts/v0.1/README.md)
-- [Wave-one migrations and model gateway](docs/WAVE1_IMPLEMENTATION.md)
-- [Live résumé extraction setup and checks](docs/RESUME_MODEL.md)
-- [Retained stitch setup and prototype behavior](docs/INTEGRATION_NOTES.md)
+- [Implementation handoff](docs/IMPLEMENTATION_HANDOFF.md)
+- [Canonical future API/schema contracts](contracts/v0.1/README.md)
+- [Reconciliation history](docs/RECONCILIATION.md)
 
-## Local development
+Use the setup guide above for current behavior; older integration notes contain
+historical mock-auth and draft competency-template descriptions. Reviewed templates
+are not required for resource-based learning plans. Broader `/api/v1` workflow and
+independent assessment integration are still future work.
 
-```sh
-python -m venv .venv
-# Activate .venv using the command for your shell.
-python -m pip install -r requirements.txt -r requirements-test.txt
-cp .env.example .env
-npm ci
-```
-
-Keep credentials in `.env`; use `SUPABASE_SECRET_KEY` for the server. Existing `SUPABASE_KEY` secret/service-role configurations remain supported. `DATABASE_URL` is a separate SQL connection for reviewed migrations and transactional repositories.
-
-The retained development API runs with `uvicorn careerbridge.main:app --host 127.0.0.1 --port 8000`; the UI runs with `npm run dev`. Review the integration notes first: sign-in is still mocked, identity uses caller-supplied `X-User-Id`, and some operations remain mock or unavailable. These routes are not authenticated production services. Use `VITE_USE_MOCKS=true` for an offline UI preview.
-
-New work follows `contracts/v0.1`; older API documents are historical. Reviewed competency templates support a general platform with RAG as an optional example. OpenAI/Nebius routing is server-side, and automatic cross-provider fallback stays off. Résumé uploads use the shared gateway in live mode; other agents still need gateway integration.
+See [saved progress and next steps](docs/PROGRESS_OVERVIEW.md) for the progress dashboard and recommendation rules.

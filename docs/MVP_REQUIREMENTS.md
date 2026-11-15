@@ -96,3 +96,17 @@ See [acceptance.csv](../contracts/v0.1/acceptance.csv) for check IDs and the [im
 ## Source and precedence
 
 Based on the user-supplied `CareerBridge_MVP_Technical_Design.pdf`, clarified product scope, and repository review. The private source PDF is not copied into this public repository. Its RAG examples are demonstration content only. The earlier branch-specific API and DB documents remain historical references; v0.1 is the proposed target contract, not a statement that the current code already implements it.
+
+## Formative learning check
+
+After a completed plan, offer five scored quiz questions and a written practice task,
+with AI feedback and durable saved results. This learning check needs no reviewed
+template and never writes verified mastery. Independent assessment criteria remain
+a separate boundary. See [learning-check acceptance criteria](LEARNING_CHECKS.md).
+
+## Saved progress and next steps
+
+Show accepted-plan milestone completion separately from saved formative check results.
+Recommend revisiting flagged milestones, resuming unfinished work/checks, accepting plans,
+and learning unaddressed gaps from the active goal. Use deterministic rules over owned
+saved data, without model calls or mastery promotion. See [contract and acceptance criteria](PROGRESS_OVERVIEW.md).

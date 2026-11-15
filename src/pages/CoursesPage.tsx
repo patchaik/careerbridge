@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { SourceLink } from "../components/features/search/SourceLink";
+import { sourceUrl } from "../lib/sourceUrl";
 import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -8,7 +10,9 @@ import {
   getResourceSearch,
   priceLabels,
   priceTypes,
+  uniqueResources,
   type ResourceSearch,
+  type SavedResource,
 } from "../lib/api/resources";
 import { generatePath, type Modality } from "../lib/api/paths";
 
@@ -24,20 +28,20 @@ export function CoursesPage() {
   const [modality, setModality] = useState<Modality>("both");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(searchId));
   useEffect(() => {
     let active = true;
     async function load() {
       setResult(null);
       setError("");
       setSelected([]);
-      if (!searchId) return;
+      if (!searchId) { setLoading(false); return; }
       setLoading(true);
       try {
-        const saved = await getResourceSearch(searchId);
+        const saved = uniqueResources(await getResourceSearch(searchId));
         if (active) {
           setResult(saved);
-          setSelected(saved.free.map((r) => r.id));
+          setSelected(saved.free.slice(0, 10).map((r) => r.id));
         }
       } catch (cause) {
         if (active)
@@ -54,12 +58,12 @@ export function CoursesPage() {
     };
   }, [searchId]);
   async function discover() {
-    if (!analysis || !skill) return;
+    if (!analysisId || !skillName || busy) return;
     setBusy("Finding and saving learning resources…");
     setError("");
     try {
-      const saved = await discoverResources(analysis, skill);
-      setParams({ analysis, skill, search: saved.workflow_id });
+      const saved = await discoverResources(analysisId, skillName);
+      setParams({ analysis: saved.analysis_id, skill: saved.skill, search: saved.workflow_id });
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Couldn't find resources.",
@@ -89,111 +93,71 @@ export function CoursesPage() {
       setBusy("");
     }
   }
+  const analysisId = result?.analysis_id ?? analysis;
+  const skillName = result?.skill ?? skill;
+  const resourceCount = result ? priceTypes.reduce((count, kind) => count + result[kind].length, 0) : 0;
+  const linkClass = "inline-block text-sm text-primary-700 underline";
+
+  function resourceRow(resource: SavedResource) {
+    const checked = selected.includes(resource.id);
+    const host = sourceUrl(resource.url)?.hostname.replace(/^www\./, "");
+    const evidence = resource.learning_evidence.trim().replace(/\s+/g, " ");
+    const preview = evidence.length > 140 ? evidence.slice(0, 140).replace(/\s+\S*$/, "") + "…" : evidence;
+    return <Card key={resource.id} className="p-3">
+      <label className="flex items-start gap-3 font-medium">
+        <input type="checkbox" className="mt-1" checked={checked} disabled={!!busy || (!checked && selected.length >= 10)}
+          onChange={event => setSelected(items => event.target.checked ? [...items, resource.id] : items.filter(id => id !== resource.id))} />
+        {resource.title}
+      </label>
+      <div className="mt-1 space-y-1 pl-6 text-sm">
+        <p className="text-neutral-600">{[host, resource.format, priceLabels[resource.price_type]].filter(Boolean).join(" · ")}</p>
+        {preview && <p>{preview}</p>}
+        <div className="flex flex-wrap items-start gap-x-4 gap-y-1">
+          <SourceLink url={resource.url} label={`Open ${resource.title}`}>Open resource</SourceLink>
+          <details>
+            <summary className="cursor-pointer text-primary-700">Content and price details</summary>
+            {evidence && <p className="mt-1">{resource.learning_evidence}</p>}
+            <p className="mt-1 text-neutral-600">{resource.price_evidence || "Price could not be confirmed."}</p>
+          </details>
+        </div>
+      </div>
+    </Card>;
+  }
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="text-2xl font-semibold">
-        Learn {result?.skill || skill || "a skill"}
-      </h1>
-      <p className="mt-2 text-neutral-600">
-        Choose resources, set your learning goal, then review a plan.
-      </p>
-      <Link
-        className="mt-3 inline-block text-primary-700 underline"
-        to={
-          analysis || result
-            ? `/skills?analysis=${encodeURIComponent(analysis || result!.analysis_id)}`
-            : "/target"
-        }
-      >
-        Back to skill comparison
-      </Link>
-      {error && (
-        <Alert variant="danger" className="mt-4">
-          {error}
-        </Alert>
-      )}
-      {(busy || loading) && (
-        <p role="status" className="mt-4">
-          {busy || "Loading saved resources…"}
-        </p>
-      )}
-      {!searchId && analysis && skill && (
-        <div className="mt-6">
-          <p className="mb-3">
-            Search for free and paid options. We save the results so you can
-            return to them.
-          </p>
-          <Button onClick={discover} disabled={!!busy}>
-            Find learning resources
-          </Button>
-        </div>
-      )}
-      {!searchId && (!analysis || !skill) && (
-        <p className="mt-6">Select a gap from your skill comparison first.</p>
-      )}
-      {result && (
-        <form onSubmit={generate} className="mt-8 space-y-8">
-          <section>
-            <h2 className="text-lg font-semibold">1. Choose resources</h2>
-            <p className="mt-1 text-sm text-neutral-600">
-              Free resources are selected by default. Paid options are optional;
-              enrollment and payment happen on the provider's site.
-            </p>
-            <p className="mt-1 text-xs text-neutral-500">
-              Via {result.source} · Checked{" "}
-              {new Date(result.retrieved_at).toLocaleString()}. Prices and
-              access may change.
-            </p>
-            {priceTypes.map((kind) => (
-              <section key={kind} className="mt-5">
-                <h3 className="font-semibold">{priceLabels[kind]}</h3>
-                {!result[kind].length && (
-                  <p className="mt-1 text-sm text-neutral-500">
-                    No matching resources found in this group.
-                  </p>
-                )}
-                <div className="mt-2 space-y-3">
-                  {result[kind].map((r) => (
-                    <Card key={r.id}>
-                      <label className="flex items-start gap-3 font-medium">
-                        <input
-                          type="checkbox"
-                          className="mt-1"
-                          checked={selected.includes(r.id)}
-                          disabled={!!busy}
-                          onChange={(e) =>
-                            setSelected((s) =>
-                              e.target.checked
-                                ? [...s, r.id]
-                                : s.filter((id) => id !== r.id),
-                            )
-                          }
-                        />
-                        {r.title}
-                      </label>
-                      <p className="mt-2 text-sm">“{r.learning_evidence}”</p>
-                      <p className="mt-1 text-sm text-neutral-600">
-                        {r.format} ·{" "}
-                        {r.price_evidence ||
-                          "Access price could not be confirmed."}
-                      </p>
-                      <a
-                        href={r.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2 inline-block text-sm text-primary-700 underline"
-                      >
-                        View resource
-                      </a>
-                    </Card>
-                  ))}
-                </div>
-              </section>
-            ))}
-            <p className="mt-3 text-sm">
-              {selected.length} selected (up to 10).
-            </p>
-          </section>
+      <h1 className="text-2xl font-semibold">{skillName ? `Learn ${skillName}` : "Find learning resources"}</h1>
+      <div className="mt-3 flex flex-wrap gap-4">
+        {analysisId && <Link className={linkClass} to={`/skills?analysis=${encodeURIComponent(analysisId)}`}>Back to skill comparison</Link>}
+        <Link className={linkClass} to="/learn">My learning</Link>
+      </div>
+      {error && <Alert variant="danger" className="mt-4">{error}</Alert>}
+      {(busy || loading) && <p role="status" className="mt-4">{busy || "Loading saved resources…"}</p>}
+      {!loading && (!result || !resourceCount) && <div className="mt-6 space-y-3">
+        {result && !resourceCount && <p>No matching resources were found.</p>}
+        {analysisId && skillName ? <>
+          {!searchId && <p>Find free and paid resources for this skill, then build a learning plan.</p>}
+          <Button onClick={discover} disabled={!!busy}>{searchId ? "Search for resources again" : "Find learning resources"}</Button>
+        </> : <>
+          <p>Choose a skill from a job comparison to find relevant resources.</p>
+          <Link className={linkClass} to="/target">Search for a target role</Link>
+        </>}
+        {searchId && !result && <Button variant="ghost" onClick={() => window.location.reload()}>Reload saved results</Button>}
+      </div>}
+      {result && resourceCount > 0 && <form onSubmit={generate} className="mt-6 space-y-6">
+        <section>
+          <h2 className="text-lg font-semibold">1. Choose resources</h2>
+          <p className="mt-1 text-sm text-neutral-600">{resourceCount} found · {selected.length} selected (up to 10). Free resources are selected by default.</p>
+          {result.free.length > 0 && <div className="mt-3 space-y-2">
+            <h3 className="font-medium">Free ({result.free.length})</h3>
+            {result.free.map(resourceRow)}
+          </div>}
+          {priceTypes.filter(kind => kind !== "free" && result[kind].length).map(kind => <details key={kind} open={result.free.length === 0 || undefined} className="mt-3 rounded-lg border border-neutral-200 p-3">
+            <summary className="cursor-pointer font-medium">{priceLabels[kind]} ({result[kind].length})</summary>
+            <div className="mt-2 space-y-2">{result[kind].map(resourceRow)}</div>
+          </details>)}
+          <p className="mt-3 text-xs text-neutral-600">Checked {new Date(result.retrieved_at).toLocaleDateString()}. Prices can change; confirm access on the provider’s site.</p>
+        </section>
           <section>
             <label
               htmlFor="learning-goal"
@@ -258,8 +222,7 @@ export function CoursesPage() {
           >
             Create learning plan
           </Button>
-        </form>
-      )}
+      </form>}
     </div>
   );
 }

@@ -1,9 +1,23 @@
-import { CheckCircle2, LoaderCircle, Lock, Pencil, Sparkles, Upload } from "lucide-react";
+import {
+  CheckCircle2,
+  Compass,
+  FileText,
+  Heart,
+  LoaderCircle,
+  Lock,
+  Pencil,
+  Sparkles,
+  UserRound,
+  Wrench,
+  Upload,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
+import { Card } from "../components/ui/Card";
 import { TagInput } from "../components/ui/TagInput";
+import { CARD_ACCENT, GRADIENT_HEADING, ResumeIconsBackground, SectionHeading } from "../components/ui/techTheme";
 import {
   EXPERIENCE_LEVEL_OPTIONS,
   isProfileBasicsValid,
@@ -271,92 +285,117 @@ export function StartPage() {
     const experienceLabel = EXPERIENCE_LEVEL_OPTIONS.find((o) => o.value === profile.experienceLevel)?.label;
 
     return (
-      <div className="mx-auto max-w-xl px-4 py-16">
+      <div className="relative mx-auto max-w-2xl px-4 py-16">
+        <ResumeIconsBackground />
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold text-neutral-900 sm:text-3xl">Your profile</h1>
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-success-500 to-accent-400 text-white shadow-[0_0_16px_-2px_rgba(34,197,94,0.55)]">
+              <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <div>
+              <h1 className={`text-2xl font-semibold sm:text-3xl ${GRADIENT_HEADING}`}>Your profile</h1>
+              <p className="text-sm font-medium text-success-700">Confirmed</p>
+            </div>
+          </div>
           <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>
             <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
             Edit
           </Button>
         </div>
-        <p className="mt-2 flex items-center gap-1.5 text-sm text-success-700">
-          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-          Confirmed
-        </p>
 
-        <div className="mt-6 space-y-6">
+        <div className="mt-8 space-y-5">
           {profile.hasFile && (
-            <section>
-              <h2 className="text-sm font-semibold text-neutral-800">Résumé</h2>
-              <p className="mt-1 text-sm text-neutral-600">
+            <Card className={CARD_ACCENT}>
+              <SectionHeading icon={FileText} color="primary">
+                Résumé
+              </SectionHeading>
+              <p className="mt-2 text-sm text-neutral-600">
                 {resumeMeta ? `${resumeMeta.fileName} — saved` : "Your résumé is saved with this profile."}
               </p>
-            </section>
+            </Card>
           )}
 
-          <section>
-            <h2 className="text-sm font-semibold text-neutral-800">Your skills</h2>
-            <div className="mt-2 flex flex-wrap gap-1.5">
+          <Card className={CARD_ACCENT}>
+            <SectionHeading icon={Wrench} color="success">
+              Your skills
+            </SectionHeading>
+            <div className="mt-3 flex flex-wrap gap-1.5">
               {profile.skills.map((skill) => (
                 <span
                   key={skill.id ?? skill.skill}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-sm text-neutral-700"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-primary-50 px-2.5 py-1 text-sm font-medium text-primary-800"
                 >
                   {skill.skill}
                 </span>
               ))}
             </div>
-          </section>
+          </Card>
 
           {userInterests.length > 0 && (
-            <section>
-              <h2 className="text-sm font-semibold text-neutral-800">Your interests</h2>
-              <div className="mt-2 flex flex-wrap gap-1.5">
+            <Card className={CARD_ACCENT}>
+              <SectionHeading icon={Heart} color="warning">
+                Your interests
+              </SectionHeading>
+              <div className="mt-3 flex flex-wrap gap-1.5">
                 {userInterests.map((interest) => (
                   <span
                     key={interest}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-sm text-neutral-700"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-warning-50 px-2.5 py-1 text-sm font-medium text-warning-800"
                   >
                     {interest}
                   </span>
                 ))}
               </div>
-            </section>
+            </Card>
           )}
 
-          <section className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Situation</h2>
-              <p className="mt-1 text-sm text-neutral-800">{situationLabel ?? "—"}</p>
+          <Card className={`${CARD_ACCENT} grid gap-4 sm:grid-cols-3`}>
+            <div className="flex items-start gap-2.5">
+              <Compass className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary-500" aria-hidden="true" />
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Situation</h3>
+                <p className="mt-1 text-sm text-neutral-800">{situationLabel ?? "—"}</p>
+              </div>
             </div>
             <div>
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Experience</h2>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Experience</h3>
               <p className="mt-1 text-sm text-neutral-800">{experienceLabel ?? "—"}</p>
             </div>
             <div>
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Years</h2>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Years</h3>
               <p className="mt-1 text-sm text-neutral-800">{profile.yearsOfExperience ?? "—"}</p>
             </div>
-          </section>
+          </Card>
+          <div className="flex justify-end">
+            <Button onClick={() => navigate("/interests")}>Continue to interests</Button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-xl px-4 py-16">
-      <h1 className="text-2xl font-semibold text-neutral-900 sm:text-3xl">
-        Let's see what you've already got
-      </h1>
-      <p className="mt-2 text-neutral-600">
+    <div className="relative mx-auto max-w-2xl px-4 py-16">
+      <ResumeIconsBackground />
+      <div className="flex items-center gap-3">
+        <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-500 to-accent-400 text-white shadow-[0_0_16px_-2px_rgba(79,70,229,0.55)]">
+          <UserRound className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <h1 className={`text-2xl font-semibold sm:text-3xl ${GRADIENT_HEADING}`}>
+          Let's see what you've already got
+        </h1>
+      </div>
+      <p className="mt-3 text-neutral-600">
         Upload your résumé, tell us your skills and interests, and we'll build your profile from
         there.
       </p>
 
-      <div className="mt-8 space-y-8">
-        <section>
-          <h2 className="text-sm font-semibold text-neutral-800">Résumé (optional)</h2>
-          <div className="mt-2 rounded-lg border border-dashed border-neutral-300 bg-white p-6">
+      <div className="mt-8 space-y-5">
+        <Card className={CARD_ACCENT}>
+          <SectionHeading icon={FileText} color="primary">
+            Résumé (optional)
+          </SectionHeading>
+          <div className="mt-3 rounded-lg border border-dashed border-neutral-300 bg-neutral-50/60 p-6">
             <div className="flex items-center gap-2 text-sm font-medium text-neutral-700">
               <Lock className="h-4 w-4 text-neutral-400" aria-hidden="true" />
               Private — used only to build your profile
@@ -419,16 +458,18 @@ export function StartPage() {
               (demo).
             </p>
           </div>
-        </section>
+        </Card>
 
-        <section>
-          <h2 className="text-sm font-semibold text-neutral-800">Your skills</h2>
+        <Card className={CARD_ACCENT}>
+          <SectionHeading icon={Wrench} color="success">
+            Your skills
+          </SectionHeading>
           <TagInput
             value={draftSkills}
             onChange={handleSkillsChange}
             ariaLabel="Your skills"
             placeholder="Type a skill and press Enter"
-            className="mt-2"
+            className="mt-3"
             renderTagBadge={(tag) =>
               fromResume.has(tag) ? (
                 <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600">
@@ -444,18 +485,20 @@ export function StartPage() {
                   key={skill}
                   type="button"
                   onClick={() => addSuggestedSkill(skill)}
-                  className="rounded-full border border-neutral-200 px-2.5 py-1 text-xs text-neutral-600 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+                  className="rounded-full border border-neutral-200 px-2.5 py-1 text-xs text-neutral-600 transition-all hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 hover:shadow-[0_0_10px_-2px_rgba(20,184,166,0.5)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
                 >
                   + {skill}
                 </button>
               ),
             )}
           </div>
-        </section>
+        </Card>
 
-        <section>
-          <h2 className="text-sm font-semibold text-neutral-800">Your interests</h2>
-          <p className="text-xs text-neutral-500">
+        <Card className={CARD_ACCENT}>
+          <SectionHeading icon={Heart} color="warning">
+            Your interests
+          </SectionHeading>
+          <p className="mt-1 text-xs text-neutral-500">
             Optional, but adding at least one helps us tailor what comes next.
           </p>
           <TagInput
@@ -463,7 +506,7 @@ export function StartPage() {
             onChange={setUserInterests}
             ariaLabel="Your interests"
             placeholder="e.g. Building backend systems"
-            className="mt-2"
+            className="mt-3"
           />
           <div className="mt-2 flex flex-wrap gap-1.5">
             {SUGGESTED_INTERESTS.filter(
@@ -473,23 +516,25 @@ export function StartPage() {
                 key={interest}
                 type="button"
                 onClick={() => addSuggestedInterest(interest)}
-                className="inline-flex items-center gap-1 rounded-full border border-neutral-200 px-2.5 py-1 text-xs text-neutral-600 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+                className="inline-flex items-center gap-1 rounded-full border border-neutral-200 px-2.5 py-1 text-xs text-neutral-600 transition-all hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 hover:shadow-[0_0_10px_-2px_rgba(20,184,166,0.5)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
               >
                 <Sparkles className="h-3 w-3" aria-hidden="true" />
                 {interest}
               </button>
             ))}
           </div>
-        </section>
+        </Card>
 
-        <ProfileBasics
-          situation={situation}
-          onSituationChange={setSituation}
-          experienceLevel={experienceLevel}
-          onExperienceLevelChange={setExperienceLevel}
-          yearsOfExperience={yearsOfExperience}
-          onYearsOfExperienceChange={setYearsOfExperience}
-        />
+        <Card className={CARD_ACCENT}>
+          <ProfileBasics
+            situation={situation}
+            onSituationChange={setSituation}
+            experienceLevel={experienceLevel}
+            onExperienceLevelChange={setExperienceLevel}
+            yearsOfExperience={yearsOfExperience}
+            onYearsOfExperienceChange={setYearsOfExperience}
+          />
+        </Card>
 
         <div>
           {buildError && (
@@ -498,7 +543,12 @@ export function StartPage() {
             </Alert>
           )}
           <div className="flex items-center gap-3">
-            <Button onClick={handleAnalyze} disabled={restoring || !canSubmit || isBuilding || isParsingResume}>
+            <Button
+              onClick={handleAnalyze}
+              disabled={restoring || !canSubmit || isBuilding || isParsingResume}
+              size="lg"
+              className={canSubmit && !isBuilding && !isParsingResume && !restoring ? "animate-pulse-glow" : ""}
+            >
               <Upload className="h-4 w-4" aria-hidden="true" />
               {isBuilding ? "Analyzing…" : "Analyze my experience"}
             </Button>

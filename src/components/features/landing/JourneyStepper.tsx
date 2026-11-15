@@ -3,6 +3,7 @@
 // and a plain vertical timeline on mobile.
 
 import { Compass, GitCompare, GraduationCap, UserRound, type LucideIcon, BadgeCheck } from "lucide-react";
+import { StickFigureWalker } from "../../landing/StickFigureWalker";
 
 interface Stage {
   n: number;
@@ -53,6 +54,7 @@ export function JourneyStepper() {
             strokeWidth="1.5"
           />
         </svg>
+        <StickFigureWalker />
         <div className="grid grid-cols-5 gap-4 md:gap-6">
           {stages.map((stage) => (
             <StageCard key={stage.n} stage={stage} />

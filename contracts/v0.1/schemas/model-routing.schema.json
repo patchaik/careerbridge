@@ -190,6 +190,20 @@
             "openai",
             "nebius"
           ]
+        },
+        "check_prepare": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "nebius"
+          ]
+        },
+        "check_feedback": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "nebius"
+          ]
         }
       }
     },

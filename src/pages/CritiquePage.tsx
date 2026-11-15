@@ -5,6 +5,7 @@ import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Skeleton } from "../components/ui/Skeleton";
+import { CARD_ACCENT, GRADIENT_HEADING, ResumeIconsBackground } from "../components/ui/techTheme";
 import { useJourney } from "../context/JourneyContext";
 import { useResumeCritique } from "../hooks/useResumes";
 import type { CritiqueItem, CritiqueSeverity, ResumeSection } from "../lib/types";
@@ -49,7 +50,7 @@ function CritiqueCard({ item }: { item: CritiqueItem }) {
   const config = SEVERITY_CONFIG[item.severity];
   const Icon = config.icon;
   return (
-    <Card>
+    <Card className={CARD_ACCENT}>
       <span
         className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${config.classes}`}
       >
@@ -100,8 +101,9 @@ export function CritiquePage() {
   );
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-16">
-      <h1 className="text-2xl font-semibold text-neutral-900 sm:text-3xl">Résumé critique</h1>
+    <div className="relative mx-auto max-w-3xl px-4 py-16">
+      <ResumeIconsBackground />
+      <h1 className={`text-2xl font-semibold sm:text-3xl ${GRADIENT_HEADING}`}>Résumé critique</h1>
       <p className="mt-2 max-w-xl text-neutral-600">
         Feedback by section — no overall score, just what was found and why it matters.
       </p>
@@ -135,7 +137,9 @@ export function CritiquePage() {
           ))}
 
           <div className="flex justify-end border-t border-neutral-200 pt-6">
-            <Button onClick={() => navigate("/target")}>Continue</Button>
+            <Button size="lg" className="animate-pulse-glow" onClick={() => navigate("/target")}>
+              Continue
+            </Button>
           </div>
         </div>
       )}

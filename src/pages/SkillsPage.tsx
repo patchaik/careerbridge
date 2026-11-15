@@ -1,291 +1,124 @@
-import { CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { SourceLink } from "../components/features/search/SourceLink";
 import { Alert } from "../components/ui/Alert";
-import { Badge } from "../components/ui/Badge";
-import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
+import { CARD_ACCENT, GRADIENT_HEADING, SkillsIconsBackground } from "../components/ui/techTheme";
 import { useJourney } from "../context/JourneyContext";
 import { getGapAnalysis, type GapAnalysis } from "../lib/api/skills";
 import { getJob, type JobPosting } from "../lib/api/jobs";
 
 export function SkillsPage() {
-  const navigate = useNavigate();
-  const { selfReportedSkills, setSelfReportedSkills, setChosenSkill } = useJourney();
   const [params] = useSearchParams();
   const id = params.get("analysis");
-  const [data, setData] = useState<{
-    analysis: GapAnalysis;
-    jobs: JobPosting[];
-  } | null>(null);
+  if (!id) return <div className="mx-auto max-w-3xl px-4 py-12">
+    <h1 className="text-2xl font-semibold">Your skill comparison</h1>
+    <p className="mt-3">Search for a target role to see which skills to work on.</p>
+    <Link to="/target" className="mt-3 inline-block text-primary-700 underline">Search for a target role</Link>
+  </div>;
+  return <Comparison key={id} id={id} />;
+}
+
+function Comparison({ id }: { id: string }) {
+  const { selfReportedSkills, setSelfReportedSkills, setChosenSkill } = useJourney();
+  const [analysis, setAnalysis] = useState<GapAnalysis | null>(null);
+  const [jobs, setJobs] = useState<JobPosting[] | null>(null);
   const [error, setError] = useState("");
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let active = true;
     async function load() {
-      setData(null);
-      setError("");
-      if (!id) return;
       try {
-        const analysis = await getGapAnalysis(id);
-        const jobs = await Promise.all(analysis.job_ids.map(getJob));
-        if (active) setData({ analysis, jobs });
+        const saved = await getGapAnalysis(id);
+        if (!active) return;
+        setAnalysis(saved);
+        const postings = await Promise.allSettled(saved.job_ids.map(getJob));
+        if (active) setJobs(postings.flatMap(job => job.status === "fulfilled" ? [job.value] : []));
       } catch (cause) {
-        if (active)
-          setError(
-            cause instanceof Error ? cause.message : "Couldn't load results. Please try the search again.",
-          );
+        if (active) setError(cause instanceof Error ? cause.message : "Try searching again.");
       }
     }
     void load();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [id]);
 
-  function toggleExpanded(skill: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(skill)) next.delete(skill);
-      else next.add(skill);
-      return next;
-    });
-  }
+  const confirmed = new Set(selfReportedSkills.map(skill => skill.toLowerCase()));
+  const gaps = analysis?.gaps.filter(gap => !confirmed.has(gap.skill.toLowerCase())) ?? [];
+  const selfReported = analysis?.gaps.filter(gap => confirmed.has(gap.skill.toLowerCase())) ?? [];
+  const count = analysis?.job_ids.length ?? 0;
+  const demoIds = new Set([
+    ...(jobs ?? []).filter(job => job.source === "synthetic").map(job => job.id),
+    ...(analysis?.gaps.flatMap(gap => gap.sources.filter(s => s.provider === "synthetic").map(s => s.job_id)) ?? []),
+  ]);
 
-  function markSelfReported(skill: string) {
-    if (!selfReportedSkills.some((s) => s.toLowerCase() === skill.toLowerCase())) {
-      setSelfReportedSkills([...selfReportedSkills, skill]);
-    }
-  }
-
-  function handleLearnThis(skill: string) {
-    setChosenSkill(skill);
-    navigate(`/courses?analysis=${encodeURIComponent(id || "")}&skill=${encodeURIComponent(skill)}`);
-  }
-
-  const isSelfReported = (skill: string) =>
-    selfReportedSkills.some((s) => s.toLowerCase() === skill.toLowerCase());
-
-  const syntheticJobCount = data?.jobs.filter((j) => j.source === "synthetic").length ?? 0;
-  const allSynthetic = Boolean(data?.jobs.length) && syntheticJobCount === data!.jobs.length;
-  const someSynthetic = syntheticJobCount > 0 && !allSynthetic;
-
-  const reviewGaps = data?.analysis.gaps.filter((g) => !isSelfReported(g.skill)) ?? [];
-  const selfReportedGaps = data?.analysis.gaps.filter((g) => isSelfReported(g.skill)) ?? [];
-
-  return (
-    <div className="mx-auto max-w-3xl px-4 py-16">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">Your skill comparison</h1>
-        {allSynthetic && <Badge variant="demo" />}
+  function gapRow(gap: GapAnalysis["gaps"][number]) {
+    const postingCount = gap.job_ids.length;
+    const query = new URLSearchParams({ analysis: id, skill: gap.skill });
+    return <Card key={gap.skill} className={CARD_ACCENT}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="font-semibold">{gap.skill}</h3>
+          <p className="mt-1 text-sm text-neutral-600">{gap.importance === "required" ? "Required" : gap.importance === "preferred" ? "Preferred" : "Listed skill"} · {postingCount} of {count} postings</p>
+        </div>
+        <Link to={`/courses?${query}`} onClick={() => setChosenSkill(gap.skill)} className="rounded-lg border border-primary-200 px-3 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-50" aria-label={`Find resources for ${gap.skill}`}>Find resources</Link>
       </div>
-      <p className="mt-2 text-neutral-600">
-        Based on the retrieved postings and your confirmed profile. A gap means
-        missing profile evidence, not demonstrated inability.
-      </p>
-      {allSynthetic && (
-        <Alert variant="info" className="mt-4">
-          This comparison uses synthetic demo postings, not live job listings.
-        </Alert>
-      )}
-      {someSynthetic && (
-        <Alert variant="info" className="mt-4">
-          {syntheticJobCount} of {data?.jobs.length} postings below are synthetic demo data; the
-          rest are live.
-        </Alert>
-      )}
-      <Link
-        to="/target"
-        className="mt-4 inline-block text-primary-700 underline"
-      >
-        Search another target role
-      </Link>
+      <details className="mt-2 text-sm">
+        <summary className="cursor-pointer text-primary-700">Why this skill?</summary>
+        {gap.reason && <p className="mt-2">{gap.reason}</p>}
+        {gap.sources.map(source => <blockquote key={source.job_id} className="mt-2 border-l-2 border-neutral-200 pl-3">
+          {source.excerpt && <p className="mb-1">“{source.excerpt}”</p>}
+          <SourceLink url={source.url} demo={demoIds.has(source.job_id)}>{source.title}</SourceLink>
+        </blockquote>)}
+        <button type="button" onClick={() => setSelfReportedSkills([...selfReportedSkills, gap.skill])} className="mt-3 text-primary-700 underline">I already have this skill</button>
+      </details>
+    </Card>;
+  }
 
-      {!id && (
-        <div className="mt-6 rounded-lg border border-dashed border-neutral-300 bg-white p-6 text-center">
-          <p className="text-neutral-700">No comparison yet.</p>
-          <p className="mt-1 text-sm text-neutral-500">
-            Run a job search on Direction to see how your skills compare.
-          </p>
-          <Link to="/target" className="mt-3 inline-block text-sm font-medium text-primary-700 underline">
-            Go to Direction
-          </Link>
-        </div>
-      )}
-
-      {id && !data && !error && (
-        <p role="status" className="mt-6">
-          Loading saved evidence…
-        </p>
-      )}
-
-      {error && (
-        <Alert variant="danger" className="mt-6" title="Couldn't load this comparison">
-          {error}
-        </Alert>
-      )}
-
-      {data && (
-        <div className="mt-8 space-y-8">
-          <section>
-            <h2 className="text-lg font-semibold">Profile matches</h2>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {data.analysis.existing_skills.length === 0 && (
-                <p className="text-sm text-neutral-600">No exact skill matches found.</p>
-              )}
-              {data.analysis.existing_skills.map((skill) => (
-                <span key={skill} className="inline-flex items-center gap-1">
-                  <Badge variant="present" />
-                  <span className="text-sm text-neutral-800">{skill}</span>
-                </span>
-              ))}
-            </div>
-            <p className="mt-2 text-xs text-neutral-500">
-              Includes confirmed and self-reported skills; this is not an
-              independent assessment.
-            </p>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-semibold">Skills to review</h2>
-            {!reviewGaps.length && !selfReportedGaps.length && (
-              <p className="mt-2 text-sm text-neutral-600">
-                No gaps found among the extracted requirements. This is not a
-                complete qualification assessment.
-              </p>
-            )}
-            <div className="mt-3 space-y-3">
-              {reviewGaps.map((gap) => {
-                const isOpen = expanded.has(gap.skill);
-                return (
-                  <Card key={gap.skill}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant={gap.importance === "required" ? "mandatory_requirement_unmet" : "not_established"}
-                          />
-                          <h3 className="font-semibold">{gap.skill}</h3>
-                        </div>
-                        <p className="mt-1 text-sm text-neutral-600">
-                          {gap.importance} · mentioned in {gap.frequency} of {data.jobs.length} posting
-                          {data.jobs.length === 1 ? "" : "s"}
-                        </p>
-                        <p className="mt-1 text-sm">{gap.reason}</p>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => toggleExpanded(gap.skill)}
-                        className="inline-flex items-center gap-1 text-sm font-medium text-primary-700 hover:underline"
-                      >
-                        {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                        Why?
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => markSelfReported(gap.skill)}
-                        className="text-sm font-medium text-neutral-600 hover:text-neutral-900 hover:underline"
-                      >
-                        I already have this skill
-                      </button>
-                      <Button size="sm" variant="secondary" onClick={() => handleLearnThis(gap.skill)}>
-                        Learn this skill
-                      </Button>
-                    </div>
-
-                    {isOpen && (
-                      <div className="mt-3 space-y-3 border-t border-neutral-100 pt-3">
-                        {gap.sources.map((source) => (
-                          <blockquote
-                            key={source.job_id}
-                            className="border-l-2 border-neutral-200 pl-3 text-sm"
-                          >
-                            <p>"{source.excerpt}"</p>
-                            <a
-                              className="text-primary-700 underline"
-                              href={source.url}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              {source.title}
-                            </a>
-                          </blockquote>
-                        ))}
-                      </div>
-                    )}
-                  </Card>
-                );
-              })}
-            </div>
-
-            {selfReportedGaps.length > 0 && (
-              <div className="mt-4">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                  You said you already have these
-                </h3>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {selfReportedGaps.map((gap) => (
-                    <span
-                      key={gap.skill}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-success-50 px-2.5 py-1 text-sm text-success-800"
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                      {gap.skill}
-                    </span>
-                  ))}
-                </div>
-                <p className="mt-1 text-xs text-neutral-500">
-                  Self-reported — not verified by an assessment yet.
-                </p>
-              </div>
-            )}
-          </section>
-
-          <section>
-            <h2 className="text-lg font-semibold">Job evidence</h2>
-            <p className="mt-1 text-xs text-neutral-500">
-              Retrieved excerpts may be incomplete. Live availability is not
-              verified. Only explicit required/preferred skills are compared.
-            </p>
-            <div className="mt-3 space-y-3">
-              {data.jobs.map((job) => (
-                <Card key={job.id}>
-                  <div className="flex items-center justify-between gap-2">
-                    <a
-                      href={job.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-semibold text-primary-700 underline"
-                    >
-                      {job.title}
-                    </a>
-                    {job.source === "synthetic" && <Badge variant="demo" />}
-                  </div>
-                  <p className="text-sm">{job.company}</p>
-                  <p className="text-xs text-neutral-500">
-                    Via {job.source} · Retrieved{" "}
-                    {new Date(job.retrieved_at).toLocaleString()}
-                  </p>
-                  {job.requirements.map((req) => (
-                    <p key={req.skill} className="mt-2 text-sm">
-                      <strong>{req.skill}</strong> ({req.importance}): "
-                      {req.excerpt}"
-                    </p>
-                  ))}
-                </Card>
-              ))}
-            </div>
-          </section>
-          <Alert variant="info">
-            Choose a skill to find resources and build a learning plan around your goal.
-            Learning progress is separate from independent competency assessment.
-          </Alert>
-        </div>
-      )}
-    </div>
-  );
+  return <div className="relative mx-auto max-w-3xl px-4 py-12">
+    <SkillsIconsBackground />
+    <h1 className={`text-2xl font-semibold sm:text-3xl ${GRADIENT_HEADING}`}>Your skill comparison</h1>
+    <Link to="/target" className="mt-2 inline-block text-sm text-primary-700 underline">Search another role</Link>
+    {!analysis && !error && <p role="status" className="mt-6">Loading your comparison…</p>}
+    {error && <Alert variant="danger" className="mt-6" title="Couldn't load this comparison">{error}</Alert>}
+    {analysis && <div className="mt-6 space-y-6">
+      <p className="text-neutral-600">{gaps.length} {gaps.length === 1 ? "skill" : "skills"} to review · {analysis.existing_skills.length} {analysis.existing_skills.length === 1 ? "profile match" : "profile matches"} · {count} postings</p>
+      {demoIds.size > 0 && <Alert variant="info">
+        {demoIds.size === count ? "This comparison uses demo postings." : `${demoIds.size} of ${count} postings are demo data.`}
+      </Alert>}
+      <section aria-labelledby="skills-to-review">
+        <h2 id="skills-to-review" className="text-lg font-semibold">Skills to review</h2>
+        <p className="mt-1 text-sm text-neutral-600">These skills weren't found in your confirmed profile.</p>
+        {!gaps.length && <p className="mt-3">{selfReported.length ? "No remaining skills to review." : "No gaps found in these postings."}</p>}
+        <div className="mt-3 space-y-2">{gaps.slice(0, 3).map(gapRow)}</div>
+        {gaps.length > 3 && <details className="mt-3">
+          <summary className="cursor-pointer text-sm font-medium text-primary-700">More skills ({gaps.length - 3})</summary>
+          <div className="mt-2 space-y-2">{gaps.slice(3).map(gapRow)}</div>
+        </details>}
+      </section>
+      <details className="rounded-xl border border-neutral-200 bg-white p-4">
+        <summary className="cursor-pointer font-medium">Skills you already have ({analysis.existing_skills.length + selfReported.length})</summary>
+        <ul className="mt-2 flex flex-wrap gap-2 text-sm">
+          {analysis.existing_skills.map(skill => <li key={skill} className="rounded-full bg-success-50 px-3 py-1">{skill}</li>)}
+          {selfReported.map(gap => <li key={gap.skill} className="rounded-full bg-neutral-100 px-3 py-1">{gap.skill} · Self-reported</li>)}
+        </ul>
+      </details>
+      <details className="rounded-xl border border-neutral-200 bg-white p-4">
+        <summary className="cursor-pointer font-medium">Job postings reviewed ({count})</summary>
+        <p className="mt-2 text-xs text-neutral-600">Links may expire. The comparison uses the saved excerpts.</p>
+        {jobs === null ? <p role="status" className="mt-2 text-sm">Loading posting details…</p> : <>
+          {jobs.length < count && <p className="mt-2 text-sm text-neutral-600">Some posting details couldn’t load. The saved comparison is still available.</p>}
+          <ul className="mt-3 divide-y divide-neutral-100">{jobs.map(job => <li key={job.id} className="py-3 text-sm">
+            <p className="font-medium"><SourceLink url={job.url} demo={job.source === "synthetic"}>{job.title}</SourceLink></p>
+            {(job.company || job.location) && <p className="text-neutral-600">{[job.company, job.location].filter(Boolean).join(" · ")}</p>}
+            {job.requirements.length > 0 && <details className="mt-1">
+              <summary className="cursor-pointer text-primary-700">Requirements ({job.requirements.length})</summary>
+              <ul className="mt-2 list-disc space-y-1 pl-5">{job.requirements.map(req => <li key={req.skill}>
+                <strong>{req.skill}</strong> ({req.importance}): “{req.excerpt}”
+              </li>)}</ul>
+            </details>}
+          </li>)}</ul>
+        </>}
+      </details>
+    </div>}
+  </div>;
 }

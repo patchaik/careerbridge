@@ -18,8 +18,10 @@ export interface LearningPlan {
   learning_outcome: string;
   modality: Modality;
   status: "proposed" | "approved" | "in_progress" | "paused" | "completed";
+  progress: { completed: number; total: number; next_milestone_id: string | null };
   milestones: {
     id: string;
+    done: boolean;
     title: string;
     mode: "text" | "hands_on";
     instruction: string;
@@ -38,6 +40,15 @@ export function generatePath(body: PlanRequest) {
 }
 export function getPath(id: string) {
   return apiRequest<LearningPlan>(`/api/paths/${encodeURIComponent(id)}`);
+}
+export function listPaths() {
+  return apiRequest<{ plans: LearningPlan[] }>("/api/paths");
+}
+export function completeMilestone(pathId: string, milestoneId: string, done: boolean) {
+  return apiRequest<LearningPlan>(
+    `/api/paths/${encodeURIComponent(pathId)}/milestones/${encodeURIComponent(milestoneId)}/completion`,
+    { method: "PUT", body: { done } },
+  );
 }
 export function approvePath(id: string) {
   return apiRequest<LearningPlan>(

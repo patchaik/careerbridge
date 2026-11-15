@@ -6,6 +6,7 @@ export interface JobPosting {
   id: string;
   title: string;
   company: string | null;
+  location: string | null;
   url: string;
   source: string;
   retrieved_at: string;

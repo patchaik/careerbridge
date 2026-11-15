@@ -1,11 +1,14 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Alert } from "../components/ui/Alert";
-import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
+import { Tooltip } from "../components/ui/Tooltip";
+import { CARD_ACCENT, GRADIENT_HEADING, JobIconsBackground } from "../components/ui/techTheme";
 import { ExposureBadge, SeverityBadge, TrendBadge } from "../components/features/target/OutlookBadges";
+import { useSavedSearchProfile } from "../hooks/useSavedSearchProfile";
 import { useJourney } from "../context/JourneyContext";
 import { mockDelay } from "../lib/config";
 import { createGoal } from "../lib/api/goals";
@@ -14,8 +17,35 @@ import { analyzeSkills } from "../lib/api/skills";
 import { generateRoleOutlook } from "../lib/mock/roleOutlook";
 import type { RoleOutlook } from "../lib/types";
 
+function RecommendationsLink() {
+  return (
+    <Tooltip
+      placement="bottom"
+      content={
+        <>
+          <p className="font-semibold text-white">How this works</p>
+          <p className="mt-1 text-neutral-300">
+            Our AI cross-references current labor-market statistics and demand trends with the
+            skills on your résumé, then surfaces the roles where your background is the strongest
+            fit.
+          </p>
+        </>
+      }
+    >
+      <Link
+        to="/recommendations"
+        className="btn-sheen inline-flex items-center gap-2 rounded-lg border border-accent-400/50 bg-gradient-to-r from-primary-600 via-primary-500 to-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-[0_2px_14px_-2px_rgba(55,48,163,0.5)] transition-all duration-200 hover:shadow-[0_0_22px_-1px_rgba(20,184,166,0.6)] hover:brightness-110 active:scale-[0.97]"
+      >
+        <Sparkles className="h-4 w-4" aria-hidden="true" />
+        Get role recommendations
+      </Link>
+    </Tooltip>
+  );
+}
+
 export function TargetPage() {
-  const { profile, situation, experienceLevel, yearsOfExperience, targetRole, setTargetRole } = useJourney();
+  const { profile, loading: profileLoading, error: profileError } = useSavedSearchProfile();
+  const { situation, experienceLevel, yearsOfExperience, targetRole, setTargetRole } = useJourney();
   const navigate = useNavigate();
   const [role, setRole] = useState(targetRole ?? "");
   const [location, setLocation] = useState("");
@@ -82,11 +112,13 @@ export function TargetPage() {
     setEmpty(false);
   }
 
+  if (profileLoading) return <p role="status" className="mx-auto max-w-xl px-4 py-16">Loading your saved profile…</p>;
+  if (profileError) return <p role="alert" className="mx-auto max-w-xl px-4 py-16">{profileError}</p>;
   if (!profile?.confirmedAt)
     return (
       <div className="mx-auto max-w-xl px-4 py-16">
         <p>Confirm your skills before searching.</p>
-        <Link to="/interests" className="text-primary-700 underline">
+        <Link to="/start" className="text-primary-700 underline">
           Review your profile
         </Link>
       </div>
@@ -94,11 +126,9 @@ export function TargetPage() {
 
   if (outlook) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-16">
-        <div className="flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold">AI outlook for {outlook.targetRole}</h1>
-          <Badge variant="demo" />
-        </div>
+      <div className="relative mx-auto max-w-3xl px-4 py-16">
+        <JobIconsBackground />
+        <h1 className={`text-2xl font-semibold ${GRADIENT_HEADING}`}>AI outlook for {outlook.targetRole}</h1>
         <p className="mt-1 text-xs text-neutral-500">
           These are signals based on general labor-market patterns, never a prediction about your
           career specifically.
@@ -114,7 +144,7 @@ export function TargetPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">Risks</h2>
           <div className="mt-3 space-y-3">
             {outlook.risks.map((risk) => (
-              <Card key={risk.id}>
+              <Card key={risk.id} className={CARD_ACCENT}>
                 <div className="flex items-center gap-2">
                   <SeverityBadge severity={risk.severity} />
                   <p className="text-sm font-semibold text-neutral-900">{risk.label}</p>
@@ -143,7 +173,7 @@ export function TargetPage() {
             </h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {outlook.recommendedRoles.map((rec) => (
-                <Card key={rec.role}>
+                <Card key={rec.role} className={CARD_ACCENT}>
                   <p className="text-sm font-semibold text-neutral-900">{rec.role}</p>
                   <p className="mt-1 text-xs text-neutral-500">
                     {rec.skillOverlap.matched} of {rec.skillOverlap.total} skills transfer
@@ -216,67 +246,72 @@ export function TargetPage() {
   }
 
   return (
-    <div className="mx-auto max-w-xl px-4 py-16">
-      <h1 className="text-2xl font-semibold">Choose your target role</h1>
+    <div className="relative mx-auto max-w-xl px-4 py-16">
+      <JobIconsBackground />
+      <h1 className={`text-2xl font-semibold ${GRADIENT_HEADING}`}>Choose your target role</h1>
       <p className="mt-2 text-neutral-600">
         Find relevant postings and compare their requirements with your
         confirmed profile.
       </p>
-      <p className="mt-2 text-sm text-neutral-500">
-        Not sure where to start?{" "}
-        <Link to="/recommendations" className="font-medium text-primary-700 underline">
-          Get role recommendations
-        </Link>
-        .
-      </p>
-      <form onSubmit={handleAnalyzeOutlook} className="mt-8 space-y-5">
-        <fieldset disabled={Boolean(stage)} className="space-y-5">
-          {[
-            {
-              label: "Target role",
-              value: role,
-              change: setRole,
-              required: true,
-            },
-            {
-              label: "Location or remote",
-              value: location,
-              change: setLocation,
-              required: false,
-            },
-            {
-              label: "Seniority (optional)",
-              value: level,
-              change: setLevel,
-              required: false,
-            },
-          ].map((field) => (
-            <label key={field.label} className="block text-sm font-medium">
-              {field.label}
-              <input
-                required={field.required}
-                maxLength={120}
-                value={field.value}
-                onChange={(e) => field.change(e.target.value)}
-                className="mt-2 block w-full rounded-md border border-neutral-300 px-3 py-2"
-              />
-            </label>
-          ))}
-          <Button type="submit" disabled={!role.trim() || Boolean(stage)}>
-            Search jobs and compare skills
-          </Button>
-        </fieldset>
-        {stage && (
-          <p role="status" className="text-sm text-primary-700">
-            {stage}
-          </p>
-        )}
-        {error && (
-          <Alert variant="danger" title="Couldn't complete the search">
-            {error}
-          </Alert>
-        )}
-      </form>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <span className="text-sm text-neutral-500">Not sure where to start?</span>
+        <RecommendationsLink />
+      </div>
+      <Card className={`${CARD_ACCENT} mt-8`}>
+        <form onSubmit={handleAnalyzeOutlook} className="space-y-5">
+          <fieldset disabled={Boolean(stage)} className="space-y-5">
+            {[
+              {
+                label: "Target role",
+                value: role,
+                change: setRole,
+                required: true,
+              },
+              {
+                label: "Location or remote",
+                value: location,
+                change: setLocation,
+                required: false,
+              },
+              {
+                label: "Seniority (optional)",
+                value: level,
+                change: setLevel,
+                required: false,
+              },
+            ].map((field) => (
+              <label key={field.label} className="block text-sm font-medium">
+                {field.label}
+                <input
+                  required={field.required}
+                  maxLength={120}
+                  value={field.value}
+                  onChange={(e) => field.change(e.target.value)}
+                  className="mt-2 block w-full rounded-md border border-neutral-300 px-3 py-2 transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 focus:shadow-[0_0_14px_-3px_rgba(20,184,166,0.5)]"
+                />
+              </label>
+            ))}
+            <Button
+              type="submit"
+              size="lg"
+              disabled={!role.trim() || Boolean(stage)}
+              className={role.trim() && !stage ? "w-full animate-pulse-glow" : "w-full"}
+            >
+              Search jobs and compare skills
+            </Button>
+          </fieldset>
+          {stage && (
+            <p role="status" className="text-sm text-primary-700">
+              {stage}
+            </p>
+          )}
+          {error && (
+            <Alert variant="danger" title="Couldn't complete the search">
+              {error}
+            </Alert>
+          )}
+        </form>
+      </Card>
       <p className="mt-6 text-xs text-neutral-500">
         Search uses your role, location and seniority. Your résumé is not sent
         to the search provider. Listings may be stale; check the original

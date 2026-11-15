@@ -499,6 +499,125 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/SavedResourceSearch" }
 
+  /api/paths/{path_id}/learning-check:
+    parameters:
+      - $ref: '#/components/parameters/PathId'
+    get:
+      tags: [Learning]
+      operationId: getLearningCheck
+      summary: Read the owner's saved formative check without invoking a model
+      responses:
+        '200':
+          description: Saved check or null; answer keys are withheld until feedback is saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [check]
+                properties:
+                  check:
+                    anyOf:
+                      - $ref: '#/components/schemas/LearningCheck'
+                      - type: 'null'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Learning]
+      operationId: startLearningCheck
+      summary: Prepare or resume one formative check for a completed plan
+      responses:
+        '201':
+          description: Saved check; repeating start returns the same check
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LearningCheck' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/ProviderUnavailable' }
+
+  /api/learning-checks/{check_id}/submit:
+    parameters:
+      - name: check_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [Learning]
+      operationId: submitLearningCheck
+      summary: Save immutable answers, score the quiz and generate formative feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LearningCheckSubmission' }
+      responses:
+        '200':
+          description: Saved result; identical resubmission returns it without model calls
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LearningCheck' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Invalid' }
+        '503': { $ref: '#/components/responses/ProviderUnavailable' }
+
+  /api/paths:
+    get:
+      tags: [Learning]
+      operationId: listPaths
+      summary: List the owner's 50 most recent resource-based plans with saved progress
+      responses:
+        '200':
+          description: Plans, newest first; no model calls
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [plans]
+                additionalProperties: false
+                properties:
+                  plans:
+                    type: array
+                    items: { $ref: '#/components/schemas/LearningPath' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/paths/{path_id}/milestones/{milestone_id}/completion:
+    parameters:
+      - name: path_id
+        in: path
+        required: true
+        schema: { type: string }
+      - name: milestone_id
+        in: path
+        required: true
+        schema: { type: string }
+    put:
+      tags: [Learning]
+      operationId: completeMilestone
+      summary: Save or undo self-reported completion of a milestone with saved material
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [done]
+              properties:
+                done: { type: boolean }
+      responses:
+        '200':
+          description: Updated plan and progress; completion is not assessed mastery
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LearningPath' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Invalid' }
+
   /api/paths/generate:
     post:
       tags: [Learning]
@@ -555,7 +674,7 @@ paths:
   /api/paths/{path_id}/status:
     put:
       tags: [Learning]
-      summary: Pause, resume or complete a path
+      summary: Legacy path status update (resource-based plans return 409; use milestone completion)
       operationId: setPathStatus
       security: [{ BearerAuth: [] }]
       x-db-functions: [learning.update_path_status]
@@ -809,10 +928,10 @@ paths:
   /api/progress:
     get:
       tags: [Assessments]
-      summary: Documented competency progress for the active goal
+      summary: Saved learning progress and deterministic next steps
       operationId: getProgress
-      x-db-functions: [users.get_active_goal, jobs.get_latest_gap_analysis, learning.list_paths,
-                       mastery.list_attempts, mastery.list_verified_evidence]
+      x-db-functions: [users.get_active_goal, jobs.get_latest_gap_analysis, learning.list_owned_paths,
+                       users.list_path_workflows, learning.list_learning_checks, mastery.list_verified_evidence]
       responses:
         "200":
           description: Progress
@@ -1066,6 +1185,11 @@ components:
       schema: { type: string, minLength: 8, maxLength: 100 }
 
   responses:
+    Unauthorized:
+      description: Missing or expired Supabase bearer token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
     Accepted:
       description: Still running. Poll the workflow.
       content:
@@ -1389,6 +1513,9 @@ components:
     PlanMilestone:
       additionalProperties: false
       properties:
+        done:
+          type: boolean
+          description: Self-reported completion, defaults to false for existing plans
         title:
           maxLength: 150
           minLength: 1
@@ -1425,6 +1552,7 @@ components:
           type: string
           minLength: 1
       required:
+      - done
       - title
       - mode
       - instruction
@@ -1558,10 +1686,23 @@ components:
       title: ResourceSearchBody
       type: object
 
+    LearningProgress:
+      type: object
+      additionalProperties: false
+      required: [completed, total, next_milestone_id]
+      properties:
+        completed: { type: integer, minimum: 0 }
+        total: { type: integer, minimum: 1 }
+        next_milestone_id:
+          type: [string, 'null']
+          description: First incomplete milestone in plan order; null when all complete
+
     LearningPath:
       type: object
       additionalProperties: false
       properties:
+        progress:
+          $ref: "#/components/schemas/LearningProgress"
         id:
           type: string
           format: uuid
@@ -1613,6 +1754,7 @@ components:
         assessment_available:
           const: false
       required:
+      - progress
       - id
       - workflow_id
       - goal_id
@@ -1867,24 +2009,243 @@ components:
 
     Progress:
       type: object
-      required: [goal, gaps, next_action]
+      additionalProperties: false
+      required:
+      - goal
+      - gaps
+      - verified_evidence
+      - next_action
+      - summary
+      - plans
+      - recommendations
+      - plan_limit
+      - independently_verified
       properties:
-        goal: { $ref: "#/components/schemas/Goal" }
+        goal:
+          anyOf:
+          - $ref: '#/components/schemas/Goal'
+          - type: 'null'
         gaps:
           type: array
           items:
             type: object
-            required: [skill, status]
+            required:
+            - skill
+            - status
             properties:
-              skill: { type: string }
-              status: { type: string, enum: [not_started, learning, assessing, demonstrated] }
-              path_id: { type: [string, "null"], format: uuid }
+              skill:
+                type: string
+              status:
+                type: string
+                enum:
+                - not_started
+                - learning
+                - assessing
+                - demonstrated
+              path_id:
+                type:
+                - string
+                - 'null'
+                format: uuid
         verified_evidence:
           type: array
-          items: { $ref: "#/components/schemas/VerifiedEvidence" }
+          items:
+            $ref: '#/components/schemas/VerifiedEvidence'
         next_action:
           type: string
-          example: Take the RAG assessment
+        summary:
+          $ref: '#/components/schemas/ProgressSummary'
+        plans:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProgressPlan'
+          maxItems: 50
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/NextLearningStep'
+          maxItems: 5
+        plan_limit:
+          const: 50
+        independently_verified:
+          const: false
+    ProgressSummary:
+      type: object
+      additionalProperties: false
+      required:
+      - plans_total
+      - plans_accepted
+      - plans_completed
+      - milestones_completed
+      - milestones_total
+      - checks_completed
+      - plans_to_revisit
+      properties:
+        plans_total:
+          type: integer
+          minimum: 0
+        plans_accepted:
+          type: integer
+          minimum: 0
+        plans_completed:
+          type: integer
+          minimum: 0
+        milestones_completed:
+          type: integer
+          minimum: 0
+        milestones_total:
+          type: integer
+          minimum: 0
+        checks_completed:
+          type: integer
+          minimum: 0
+        plans_to_revisit:
+          type: integer
+          minimum: 0
+    ProgressPlan:
+      type: object
+      additionalProperties: false
+      required:
+      - path_id
+      - goal_id
+      - skill
+      - objective
+      - status
+      - progress
+      - check_status
+      - check_result
+      - revisit
+      properties:
+        path_id:
+          type: string
+          format: uuid
+        goal_id:
+          type: string
+          format: uuid
+        skill:
+          type: string
+        objective:
+          type: string
+        status:
+          enum:
+          - proposed
+          - approved
+          - in_progress
+          - paused
+          - completed
+        progress:
+          type: object
+          additionalProperties: false
+          required:
+          - completed
+          - total
+          - next_milestone_id
+          properties:
+            completed:
+              type: integer
+              minimum: 0
+            total:
+              type: integer
+              minimum: 0
+            next_milestone_id:
+              anyOf:
+              - type: string
+              - type: 'null'
+        check_status:
+          enum:
+          - not_started
+          - new
+          - generating
+          - ready
+          - grading
+          - feedback_pending
+          - completed
+        check_result:
+          anyOf:
+          - $ref: '#/components/schemas/ProgressCheckResult'
+          - type: 'null'
+        revisit:
+          type: array
+          items:
+            $ref: '#/components/schemas/RevisitMilestone'
+    ProgressCheckResult:
+      type: object
+      additionalProperties: false
+      required:
+      - quiz_score
+      - quiz_total
+      - criteria_met
+      - criteria_total
+      - submitted_at
+      properties:
+        quiz_score:
+          type: integer
+          minimum: 0
+        quiz_total:
+          type: integer
+          minimum: 0
+        criteria_met:
+          type: integer
+          minimum: 0
+        criteria_total:
+          type: integer
+          minimum: 0
+        submitted_at:
+          type: string
+          format: date-time
+    RevisitMilestone:
+      type: object
+      additionalProperties: false
+      required:
+      - milestone_id
+      - title
+      - reasons
+      properties:
+        milestone_id:
+          type: string
+        title:
+          type: string
+        reasons:
+          type: array
+          items:
+            type: string
+    NextLearningStep:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      - title
+      - reason
+      - href
+      - path_id
+      - skill
+      properties:
+        kind:
+          enum:
+          - revisit
+          - continue_plan
+          - learning_check
+          - accept_plan
+          - learn_gap
+          - set_goal
+          - review_gaps
+          - review_learning
+        title:
+          type: string
+        reason:
+          type: string
+        href:
+          type: string
+          pattern: ^/(learn|courses|start|target)([?#].*)?$
+        path_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        skill:
+          anyOf:
+          - type: string
+          - type: 'null'
 
     ResumeChange:
       type: object
@@ -1919,3 +2280,275 @@ components:
         opted_in: { type: boolean }
         support_style: { type: string }
         last_checkin_at: { type: [string, "null"], format: date-time }
+
+    LearningCheck:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - path_id
+      - status
+      - questions
+      - practice_prompt
+      - criteria
+      - submission
+      - result
+      - independently_verified
+      properties:
+        id:
+          type: string
+          format: uuid
+        path_id:
+          type: string
+          format: uuid
+        status:
+          enum:
+          - new
+          - generating
+          - ready
+          - grading
+          - feedback_pending
+          - completed
+        questions:
+          type: array
+          maxItems: 5
+          items:
+            additionalProperties: false
+            properties:
+              milestone_id:
+                title: Milestone Id
+                type: string
+              prompt:
+                maxLength: 1200
+                minLength: 1
+                title: Prompt
+                type: string
+              options:
+                items:
+                  maxLength: 1200
+                  minLength: 1
+                  type: string
+                maxItems: 4
+                minItems: 4
+                title: Options
+                type: array
+              id:
+                type: string
+            required:
+            - milestone_id
+            - prompt
+            - options
+            - id
+            title: CheckQuestion
+            type: object
+        practice_prompt:
+          type:
+          - string
+          - 'null'
+        criteria:
+          type: array
+          maxItems: 3
+          items:
+            additionalProperties: false
+            properties:
+              milestone_id:
+                title: Milestone Id
+                type: string
+              description:
+                maxLength: 1200
+                minLength: 1
+                title: Description
+                type: string
+              id:
+                type: string
+            required:
+            - milestone_id
+            - description
+            - id
+            title: PracticeCriterion
+            type: object
+        submission:
+          anyOf:
+          - additionalProperties: false
+            properties:
+              quiz_answers:
+                additionalProperties:
+                  maximum: 3
+                  minimum: 0
+                  type: integer
+                maxProperties: 5
+                minProperties: 5
+                title: Quiz Answers
+                type: object
+              practice_response:
+                maxLength: 8000
+                minLength: 10
+                title: Practice Response
+                type: string
+            required:
+            - quiz_answers
+            - practice_response
+            title: CheckSubmission
+            type: object
+          - type: 'null'
+        result:
+          anyOf:
+          - type: object
+            additionalProperties: false
+            required:
+            - quiz_score
+            - quiz_total
+            - quiz
+            - feedback
+            - submitted_at
+            properties:
+              quiz_score:
+                type: integer
+                minimum: 0
+                maximum: 5
+              quiz_total:
+                const: 5
+              quiz:
+                type: array
+                minItems: 5
+                maxItems: 5
+                items:
+                  type: object
+                  additionalProperties: false
+                  required:
+                  - question_id
+                  - milestone_id
+                  - selected_option
+                  - correct_option
+                  - correct
+                  - explanation
+                  properties:
+                    question_id:
+                      type: string
+                    milestone_id:
+                      type: string
+                    selected_option:
+                      type: integer
+                      minimum: 0
+                      maximum: 3
+                    correct_option:
+                      type: integer
+                      minimum: 0
+                      maximum: 3
+                    correct:
+                      type: boolean
+                    explanation:
+                      type: string
+              feedback:
+                additionalProperties: false
+                properties:
+                  criteria:
+                    items:
+                      $ref: '#/components/schemas/LearningCheck/$defs/CriterionFeedback'
+                    maxItems: 3
+                    minItems: 3
+                    title: Criteria
+                    type: array
+                  summary:
+                    maxLength: 1200
+                    minLength: 1
+                    title: Summary
+                    type: string
+                required:
+                - criteria
+                - summary
+                title: CheckFeedback
+                type: object
+              submitted_at:
+                type: string
+                format: date-time
+          - type: 'null'
+        independently_verified:
+          const: false
+      $defs:
+        CriterionFeedback:
+          additionalProperties: false
+          properties:
+            criterion_id:
+              title: Criterion Id
+              type: string
+            met:
+              title: Met
+              type: boolean
+            evidence:
+              maxLength: 1000
+              title: Evidence
+              type: string
+            feedback:
+              maxLength: 1200
+              minLength: 1
+              title: Feedback
+              type: string
+            next_step:
+              maxLength: 1200
+              minLength: 1
+              title: Next Step
+              type: string
+          required:
+          - criterion_id
+          - met
+          - evidence
+          - feedback
+          - next_step
+          title: CriterionFeedback
+          type: object
+      title: LearningCheck
+      allOf:
+      - if:
+          properties:
+            status:
+              enum:
+              - ready
+              - grading
+              - feedback_pending
+              - completed
+        then:
+          properties:
+            questions:
+              minItems: 5
+            criteria:
+              minItems: 3
+            practice_prompt:
+              type: string
+              minLength: 1
+      - if:
+          properties:
+            status:
+              const: completed
+        then:
+          properties:
+            result:
+              type: object
+            submission:
+              type: object
+        else:
+          properties:
+            result:
+              type: 'null'
+    LearningCheckSubmission:
+      additionalProperties: false
+      properties:
+        quiz_answers:
+          additionalProperties:
+            maximum: 3
+            minimum: 0
+            type: integer
+          maxProperties: 5
+          minProperties: 5
+          title: Quiz Answers
+          type: object
+        practice_response:
+          maxLength: 8000
+          minLength: 10
+          title: Practice Response
+          type: string
+      required:
+      - quiz_answers
+      - practice_response
+      title: CheckSubmission
+      type: object

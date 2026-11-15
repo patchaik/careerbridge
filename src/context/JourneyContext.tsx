@@ -16,7 +16,7 @@ const STORAGE_PREFIX = "careerbridge:journey";
 // Canonical forward order of the main journey. A page's index here is both
 // its nav-lock threshold and its route-guard threshold — see
 // src/components/routing/Protected.tsx. "/recommendations" is a side branch
-// off "/target" and isn't part of this list (see TARGET_INDEX).
+// off "/target" and isn't part of this list.
 export const MAIN_PATH = [
   "/",
   "/start",
@@ -32,8 +32,6 @@ export const MAIN_PATH = [
   "/jobs",
   "/progress",
 ] as const;
-
-export const TARGET_INDEX = MAIN_PATH.indexOf("/target");
 
 interface JourneyState {
   profile: CandidateProfile | null;

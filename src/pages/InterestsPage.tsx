@@ -1,4 +1,4 @@
-import { Check, CheckCircle2, Pencil, Plus, X } from "lucide-react";
+import { Check, CheckCircle2, Heart, Pencil, Plus, Wrench, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Alert } from "../components/ui/Alert";
@@ -7,6 +7,7 @@ import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Skeleton } from "../components/ui/Skeleton";
 import { TagInput } from "../components/ui/TagInput";
+import { CARD_ACCENT, GRADIENT_HEADING, ResumeIconsBackground, SectionHeading } from "../components/ui/techTheme";
 import { getSavedProfile, mergeSavedSkills } from "../lib/api/onboarding";
 import { isReal } from "../lib/api/endpoints";
 import { useJourney } from "../context/JourneyContext";
@@ -176,9 +177,10 @@ export function InterestsPage() {
 
   if (profile.confirmedAt && !isEditing) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-16">
+      <div className="relative mx-auto max-w-3xl px-4 py-16">
+        <ResumeIconsBackground />
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold text-neutral-900 sm:text-3xl">Your interests</h1>
+          <h1 className={`text-2xl font-semibold sm:text-3xl ${GRADIENT_HEADING}`}>Your interests</h1>
           <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>
             <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
             Edit
@@ -189,42 +191,46 @@ export function InterestsPage() {
           Skills confirmed
         </p>
 
-        <section className="mt-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
-            Your skills
-          </h2>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {profile.skills.map((skill) => (
-              <span
-                key={skill.id ?? skill.skill}
-                className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-sm text-neutral-700"
-              >
-                {skill.skill}
-              </span>
-            ))}
-          </div>
-        </section>
-
-        {selectedInterestLabels.length > 0 && (
-          <section className="mt-6">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
-              Your interests
-            </h2>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {selectedInterestLabels.map((label) => (
+        <div className="mt-6 space-y-5">
+          <Card className={CARD_ACCENT}>
+            <SectionHeading icon={Wrench} color="success">
+              Your skills
+            </SectionHeading>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {profile.skills.map((skill) => (
                 <span
-                  key={label}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-sm text-neutral-700"
+                  key={skill.id ?? skill.skill}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-primary-50 px-2.5 py-1 text-sm font-medium text-primary-800"
                 >
-                  {label}
+                  {skill.skill}
                 </span>
               ))}
             </div>
-          </section>
-        )}
+          </Card>
+
+          {selectedInterestLabels.length > 0 && (
+            <Card className={CARD_ACCENT}>
+              <SectionHeading icon={Heart} color="warning">
+                Your interests
+              </SectionHeading>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {selectedInterestLabels.map((label) => (
+                  <span
+                    key={label}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-warning-50 px-2.5 py-1 text-sm font-medium text-warning-800"
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </Card>
+          )}
+        </div>
 
         <div className="mt-8 flex justify-end border-t border-neutral-200 pt-6">
-          <Button onClick={() => navigate("/critique")}>Continue</Button>
+          <Button size="lg" className="animate-pulse-glow" onClick={() => navigate("/critique")}>
+            Continue
+          </Button>
         </div>
       </div>
     );
@@ -241,8 +247,9 @@ export function InterestsPage() {
   ].filter((i) => !dismissed.has(i.id));
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-16">
-      <h1 className="text-2xl font-semibold text-neutral-900 sm:text-3xl">Your interests</h1>
+    <div className="relative mx-auto max-w-3xl px-4 py-16">
+      <ResumeIconsBackground />
+      <h1 className={`text-2xl font-semibold sm:text-3xl ${GRADIENT_HEADING}`}>Your interests</h1>
       <p className="mt-2 max-w-xl text-neutral-600">
         Here's what you told us, combined with what we noticed in your résumé. Pick the ones you
         want to build on — nothing here is graded.
@@ -274,7 +281,7 @@ export function InterestsPage() {
         {skillList.length > 0 && (
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {skillList.map((skill) => (
-              <Card key={skill.id ?? skill.skill} className="relative">
+              <Card key={skill.id ?? skill.skill} className={CARD_ACCENT}>
                 <button
                   type="button"
                   onClick={() => removeSkill(skill)}
@@ -317,6 +324,8 @@ export function InterestsPage() {
             onClick={handleConfirmSkills}
             disabled={skillList.length === 0 || confirmAction.isLoading || skillsConfirmed}
             variant={skillsConfirmed ? "secondary" : "primary"}
+            size="lg"
+            className={skillList.length > 0 && !confirmAction.isLoading && !skillsConfirmed ? "animate-pulse-glow" : ""}
           >
             {confirmAction.isLoading
               ? "Confirming…"
@@ -353,7 +362,7 @@ export function InterestsPage() {
               return (
                 <Card
                   key={interest.id}
-                  className={`relative cursor-pointer ${isSelected ? "border-primary-400 ring-1 ring-primary-200" : ""}`}
+                  className={`${CARD_ACCENT} cursor-pointer ${isSelected ? "border-primary-400 ring-1 ring-primary-200" : ""}`}
                 >
                   <button
                     type="button"
@@ -412,7 +421,12 @@ export function InterestsPage() {
 
           <div className="flex items-center justify-between border-t border-neutral-200 pt-6">
             <p className="text-sm text-neutral-500">{selected.size} selected</p>
-            <Button onClick={handleContinue} disabled={selected.size === 0 || !skillsConfirmed}>
+            <Button
+              onClick={handleContinue}
+              disabled={selected.size === 0 || !skillsConfirmed}
+              size="lg"
+              className={selected.size > 0 && skillsConfirmed ? "animate-pulse-glow" : ""}
+            >
               Continue
             </Button>
           </div>
