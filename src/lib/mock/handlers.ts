@@ -4,7 +4,6 @@
 import { mockDelay } from "../config";
 import type {
   AssessmentAttempt,
-  AuthSession,
   CandidateProfile,
   CandidateSkillEvidence,
   Interest,
@@ -38,40 +37,6 @@ import {
   ragResources,
 } from "./fixtures";
 import { getMockWorkflow, startMockWorkflow } from "./workflow";
-
-function nameFromEmail(email: string): string {
-  const local = email.split("@")[0] ?? "there";
-  return local
-    .replace(/[._-]+/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .trim() || "there";
-}
-
-export async function mockSignIn(email: string): Promise<AuthSession> {
-  await mockDelay(400, 900);
-  const fullName = nameFromEmail(email);
-  return {
-    user: { id: `user_${Date.now()}`, fullName, username: email.split("@")[0] ?? "user", email },
-    token: `mock_token_${Date.now()}`,
-  };
-}
-
-export async function mockSignUp(fields: {
-  fullName: string;
-  username: string;
-  email: string;
-}): Promise<AuthSession> {
-  await mockDelay(500, 1000);
-  return {
-    user: { id: `user_${Date.now()}`, fullName: fields.fullName, username: fields.username, email: fields.email },
-    token: `mock_token_${Date.now()}`,
-  };
-}
-
-export async function mockForgotPassword(): Promise<{ success: true }> {
-  await mockDelay(400, 800);
-  return { success: true };
-}
 
 // Extracts skills from an uploaded résumé — does not build a profile by
 // itself. StartPage merges the result into its skills tag list.

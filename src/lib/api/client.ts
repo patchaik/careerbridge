@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "../config";
+import { supabase } from "../supabase";
 
 export class ApiError extends Error {
   status: number;
@@ -14,30 +15,13 @@ export class ApiError extends Error {
   }
 }
 
-const AUTH_STORAGE_KEY = "careerbridge:auth";
-
-// The real backend's MVP auth: send the signed-in user's backend id as
-// X-User-Id on every call except /api/health and POST /api/users. Read
-// straight from localStorage (not AuthContext) to avoid a circular import
-// between the context layer and the api layer.
-function backendUserId(): string | null {
-  try {
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { backendUserId?: string };
-    return parsed.backendUserId ?? null;
-  } catch {
-    return null;
-  }
-}
-
 interface RequestOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   /** Sent as the Idempotency-Key header. Required by the contract on profile
    * confirm and assessment start/submit; generate with crypto.randomUUID(). */
   idempotencyKey?: string;
-  /** Skip the X-User-Id header — only /api/health and POST /api/users. */
+  /** Skip the Authorization header — only /api/health needs no auth. */
   skipAuth?: boolean;
 }
 
@@ -50,8 +34,10 @@ export async function apiRequest<T>(
   if (!isFormData) headers["Content-Type"] = "application/json";
   if (options.idempotencyKey) headers["Idempotency-Key"] = options.idempotencyKey;
   if (!options.skipAuth) {
-    const userId = backendUserId();
-    if (userId) headers["X-User-Id"] = userId;
+    // getSession() reads the current (auto-refreshed) Supabase session —
+    // no network call unless a refresh is actually due.
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.access_token) headers.Authorization = `Bearer ${data.session.access_token}`;
   }
 
   let response: Response;

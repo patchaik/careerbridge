@@ -3,11 +3,13 @@ import { AppShell } from "./components/layout/AppShell";
 import { Protected, ProtectedBranch } from "./components/routing/Protected";
 import { AuthProvider } from "./context/AuthContext";
 import { JourneyProvider } from "./context/JourneyContext";
+import { AuthCallbackPage } from "./pages/AuthCallbackPage";
 import { ComingSoonPage } from "./pages/ComingSoonPage";
 import { CritiquePage } from "./pages/CritiquePage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { InterestsPage } from "./pages/InterestsPage";
 import { LandingPage } from "./pages/LandingPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
 import { StartPage } from "./pages/StartPage";
@@ -30,6 +32,8 @@ function App() {
             <Route path="/signin" element={<SignInPage />} />
             <Route path="/signup" element={<SignUpPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/auth/callback" element={<AuthCallbackPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
 
             <Route element={<AppLayout />}>
               <Route path="/" element={<LandingPage />} />

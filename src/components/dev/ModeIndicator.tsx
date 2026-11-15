@@ -31,6 +31,9 @@ export function ModeIndicator() {
             Per-endpoint overrides in src/lib/api/endpoints.ts always apply —
             some endpoints stay mock even here.
           </p>
+          <p className="mt-1 text-neutral-400">
+            Auth is always Supabase Auth, regardless of this setting.
+          </p>
         </div>
       )}
     </div>

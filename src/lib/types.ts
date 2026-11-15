@@ -1,18 +1,15 @@
 // Core data model, mirroring the FastAPI backend's Pydantic schemas.
 // JSON over the wire uses snake_case; src/lib/api/ converts to the camelCase shapes below.
 
-// --- Auth (mock only — real auth comes from the backend later) ---
+// --- Auth (Supabase Auth — see src/context/AuthContext.tsx) ---
+// id is the Supabase Auth user id, which is also the app `users` row id
+// (database.users.get_or_link_app_user uses it as the primary key).
 
 export interface AuthUser {
   id: string;
   fullName: string;
   username: string;
   email: string;
-}
-
-export interface AuthSession {
-  user: AuthUser;
-  token: string;
 }
 
 // "domain" exists on the real backend (database/schema.sql's skills.category)
