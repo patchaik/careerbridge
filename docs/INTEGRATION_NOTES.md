@@ -89,7 +89,8 @@ python -m careerbridge.tests.test_mock_skills
 | Résumé drafts/export | **501** — agents don't support it |
 | Diagnostics | **501** — P1, not implemented |
 | Wellbeing | **501** — P1, not implemented |
-| Interest analysis, résumé critique, role outlook, role recommendations, recommended jobs | **Mock in the UI** — no contract endpoint exists; see `docs/API_PROPOSALS.md` |
+| Interest analysis, résumé critique, recommended jobs | **Mock in the UI** — no contract endpoint exists; see `docs/API_PROPOSALS.md` |
+| Role outlook (`/target`), role recommendations (`/recommendations`) | **Mock in the UI**, now actually built (`src/lib/mock/roleOutlook.ts` — a small static role knowledge base + skill-overlap math against the confirmed profile, no model call) — see `docs/API_PROPOSALS.md`'s `POST /roles/outlook` / `POST /roles/recommend` for the shapes a real implementation would need |
 | Auth (sign up/in, email verification, password reset) | **Real** — Supabase Auth, always, regardless of `VITE_USE_MOCKS` (see below) |
 
 `src/lib/api/endpoints.ts` is the single switch; `VITE_USE_MOCKS=true` forces
@@ -116,21 +117,25 @@ probes." Keep `CAREERBRIDGE_SEARCH_MODE=mock` (the `.env`/`.env.example`
 default) for local work — it already returns synthetic postings against
 the same real endpoints, with no model calls and no cost.
 
-**Only `/start`, `/interests` (profile/skills portion), and sign-in/sign-up
-actually call real endpoints from the UI right now** — those are the only
-built pages that touch onboarding/profile data. The rest of `src/lib/api/`
-(goals, jobs, skills/analyze, paths, resources, arena, assessments,
-progress) is wired to the right real paths/methods/auth for when Phase 4+
-pages get built, but **the response shapes in `src/lib/types.ts` still
-reflect the pre-stitch mock design** for those — they were invented before
-`api/openapi.yaml` existed and don't match the real contract's shapes
-closely enough to map losslessly without a real UI consuming them to design
-against. Each affected file (`src/lib/api/{goals,jobs,skills,paths,
-resources,arena,assessments,progress}.ts`) has an inline `NOTE:` comment
-describing its specific mismatch. This was a deliberate scope call: nothing
-in the current UI renders these types, so leaving them until the page that
-needs them is built — and can be designed against the real shape directly —
-seemed better than guessing now and having to redo it anyway.
+**`/start`, `/interests`, sign-in/sign-up, `/target`, `/skills`, and
+`/recommendations` now call real endpoints from the UI** — `goals.ts`,
+`jobs.ts`, and `skills.ts` were rewritten (by the live-job-search work) with
+their own real snake_case request/response shapes, replacing the earlier
+pre-stitch mock types for those three files. `paths.ts`, `resources.ts`,
+`arena.ts`, `assessments.ts`, and `progress.ts` are still wired to the right
+real paths/methods/auth but **still reflect the pre-stitch mock design** in
+`src/lib/types.ts` — each has an inline `NOTE:` comment describing its
+mismatch. Phase 5 (Learn — `/courses`, `/learn`, `/arena`) is where that
+would get resolved; out of scope for now.
+
+`/target`'s AI outlook and `/recommendations` are mock-only (see the table
+above) — no backend call, a small static knowledge base plus skill-overlap
+math in `src/lib/mock/roleOutlook.ts`. `/skills`' "I already have this
+skill" action and "pick a gap to learn" are client-side only too
+(`JourneyContext`'s `selfReportedSkills`/`chosenSkill` — neither calls any
+endpoint; marking a skill self-reported here doesn't update the confirmed
+profile's actual skill evidence, which would need a real design pass if
+this becomes more than a demo affordance).
 
 ## Auth: Supabase Auth end to end
 

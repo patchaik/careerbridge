@@ -72,6 +72,56 @@ export interface ResumeMeta {
   status: "parsed" | "failed";
 }
 
+// --- /target's AI outlook + /recommendations (mock only — see
+// docs/API_PROPOSALS.md's POST /roles/outlook, POST /roles/recommend) ---
+
+export type AutomationExposure = "low" | "medium" | "high";
+export type DemandTrend = "growing" | "stable" | "declining";
+export type RiskSeverity = "low" | "medium" | "high";
+
+export interface RoleRisk {
+  id: string;
+  label: string;
+  severity: RiskSeverity;
+  detail: string;
+}
+
+export interface SkillOverlap {
+  matched: number;
+  total: number;
+}
+
+export interface RecommendedRole {
+  role: string;
+  why: string;
+  skillOverlap: SkillOverlap;
+  outlook: AutomationExposure;
+  demandTrend: DemandTrend;
+}
+
+export interface RoleOutlook {
+  targetRole: string;
+  exposure: AutomationExposure;
+  demandTrend: DemandTrend;
+  summary: string;
+  risks: RoleRisk[];
+  whatStaysHuman: string[];
+  recommendedRoles: RecommendedRole[];
+  suggestions: string[];
+  sources: string[];
+  isDemoData: true;
+}
+
+export interface RoleRecommendation {
+  role: string;
+  why: string;
+  skillOverlap: SkillOverlap;
+  transferableSkills: string[];
+  skillsToLearn: string[];
+  outlook: AutomationExposure;
+  demandTrend: DemandTrend;
+}
+
 // --- /interests (POST /interests/analyze) ---
 
 // Where an interest came from: typed in by the candidate on /start, or

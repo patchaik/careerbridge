@@ -88,25 +88,56 @@ distinct from the gap analysis. No reviewer agent for this exists today.
 
 ## POST /api/roles/outlook
 
-**Page:** `/target`
-**Why:** automation-exposure and demand-trend signal for a target role, with
-sources and (when exposure is high) adjacent-role suggestions. No market/
-automation-trend agent exists today.
+**Page:** `/target` — shown after a role is entered, before the real job
+search runs (the user can "Keep my target role" to proceed with the search,
+or pick a recommended role, which swaps the target and re-runs this
+outlook/search for it).
+**Why:** automation-exposure and demand-trend signal for a target role,
+framed as a signal, never a prediction — with risks, what stays human,
+2-4 recommended adjacent roles, and suggestions. No market/automation-trend
+agent exists today. Currently implemented client-side only
+(`src/lib/mock/roleOutlook.ts`, a small static role knowledge base + skill-
+overlap math against the confirmed profile — no model call).
 
 **Request**
 ```json
-{ "goal_id": "...", "target_role": "Manual QA Tester" }
+{
+  "target_role": "AI Developer",
+  "profile_id": "...",
+  "situation": "upskill",
+  "experience_level": "intermediate",
+  "years_of_experience": 3
+}
 ```
+`situation`/`experience_level`/`years_of_experience` tailor the summary's
+framing (supportive for `no_job`, growth-oriented for `upskill`, exploratory
+for `new_career`) — see the `situation`/`experience_level` proposals above
+for why these aren't on `candidate_profiles` yet.
 
 **Response**
 ```json
 {
-  "exposure": "high",
-  "demand_trend": "declining",
-  "explanation": "...",
-  "sources": ["..."],
-  "is_demo_data": true,
-  "suggested_roles": ["QA Automation Engineer", "Software Engineer — AI Applications"]
+  "target_role": "AI Developer",
+  "exposure": "medium",
+  "demand_trend": "growing",
+  "summary": "AI Developer currently shows medium automation exposure and growing demand. Since you're looking to grow where you are, this outlook is about strengthening your position, not necessarily changing roles.",
+  "risks": [
+    { "id": "risk-partial", "label": "Some tasks are being automated, not the whole role", "severity": "medium",
+      "detail": "Parts of AI Developer work (repetitive analysis, first-draft output) are increasingly AI-assisted, while judgment-heavy parts aren't." }
+  ],
+  "what_stays_human": [
+    "Judgment calls in ambiguous or high-stakes situations",
+    "Stakeholder communication, negotiation, and trust-building"
+  ],
+  "recommended_roles": [
+    { "role": "Ml Engineer", "why": "6 of 7 typical skills for this role already show up in your profile.",
+      "skill_overlap": { "matched": 6, "total": 7 }, "outlook": "low", "demand_trend": "growing" }
+  ],
+  "suggestions": [
+    "Lean into the judgment-heavy, cross-functional parts of the role — they're the hardest to automate."
+  ],
+  "sources": ["Bureau of Labor Statistics Occupational Outlook Handbook", "World Economic Forum Future of Jobs Report"],
+  "is_demo_data": true
 }
 ```
 
@@ -114,26 +145,39 @@ automation-trend agent exists today.
 
 ## POST /api/roles/recommend
 
-**Page:** `/recommendations`
+**Page:** `/recommendations` ("I'm not sure, recommend roles for me")
 **Why:** role suggestions ranked by skill overlap with the candidate's
 confirmed profile, for "I'm not sure" onboarding. No role-matching agent
 exists today — `/api/jobs/search` matches postings for an already-chosen
-role, not candidate-to-role.
+role, not candidate-to-role. Deliberately has no "% chance of getting
+hired" framing. Currently implemented client-side only
+(`src/lib/mock/roleOutlook.ts`'s `generateRoleRecommendations`), ranking a
+small static role knowledge base by skill overlap against the profile.
 
 **Request**
 ```json
-{ "profile_id": "..." }
+{ "profile_id": "...", "situation": "new_career" }
 ```
 
 **Response**
 ```json
 {
   "roles": [
-    { "title": "QA Automation Engineer", "overlap_skills": ["Java", "Docker"],
-      "missing_skills": ["Selenium"], "why": "..." }
+    {
+      "role": "Qa Automation Engineer",
+      "why": "4 of 6 skills transfer directly from your profile.",
+      "skill_overlap": { "matched": 4, "total": 6 },
+      "transferable_skills": ["Python", "Git", "Test Planning"],
+      "skills_to_learn": ["Test Automation", "CI/CD"],
+      "outlook": "low",
+      "demand_trend": "growing"
+    }
   ]
 }
 ```
+Selecting a role (`POST /api/goals` with it as `target_role`) is a
+client-side action today — see `setTargetRole`/navigation to `/target` in
+`src/pages/RecommendationsPage.tsx`.
 
 ---
 

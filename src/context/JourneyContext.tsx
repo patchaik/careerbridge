@@ -56,6 +56,10 @@ interface JourneyState {
   // confirmed user's summary can show them without re-running analysis.
   selectedInterestLabels: string[];
   targetRole: string | null;
+  // Skills a user marked "I already have this skill" on /skills after
+  // seeing a gap — not verified by any backend evidence, just a client-side
+  // note hiding it from the gap list on return.
+  selfReportedSkills: string[];
   chosenSkill: string | null;
   learningPath: LearningPath | null;
   assessmentAttempt: AssessmentAttempt | null;
@@ -77,6 +81,7 @@ const initialState: JourneyState = {
   selectedInterests: [],
   selectedInterestLabels: [],
   targetRole: null,
+  selfReportedSkills: [],
   chosenSkill: null,
   learningPath: null,
   assessmentAttempt: null,
@@ -128,6 +133,7 @@ interface JourneyContextValue extends JourneyState {
   setSelectedInterests: (interests: string[]) => void;
   setSelectedInterestLabels: (labels: string[]) => void;
   setTargetRole: (role: string | null) => void;
+  setSelfReportedSkills: (skills: string[]) => void;
   setChosenSkill: (skill: string | null) => void;
   setLearningPath: (path: LearningPath | null) => void;
   setAssessmentAttempt: (attempt: AssessmentAttempt | null) => void;
@@ -182,6 +188,7 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
     setSelectedInterests: (selectedInterests) => setState((s) => ({ ...s, selectedInterests })),
     setSelectedInterestLabels: (selectedInterestLabels) => setState((s) => ({ ...s, selectedInterestLabels })),
     setTargetRole: (targetRole) => setState((s) => ({ ...s, targetRole })),
+    setSelfReportedSkills: (selfReportedSkills) => setState((s) => ({ ...s, selfReportedSkills })),
     setChosenSkill: (chosenSkill) => setState((s) => ({ ...s, chosenSkill })),
     setLearningPath: (learningPath) => setState((s) => ({ ...s, learningPath })),
     setAssessmentAttempt: (assessmentAttempt) => setState((s) => ({ ...s, assessmentAttempt })),

@@ -9,6 +9,7 @@ import { CritiquePage } from "./pages/CritiquePage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { InterestsPage } from "./pages/InterestsPage";
 import { LandingPage } from "./pages/LandingPage";
+import { RecommendationsPage } from "./pages/RecommendationsPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
@@ -52,7 +53,7 @@ function App() {
               />
               <Route
                 path="/recommendations"
-                element={<ProtectedBranch><ComingSoonPage phase="Phase 4 (Direction + Skills)" /></ProtectedBranch>}
+                element={<ProtectedBranch><RecommendationsPage /></ProtectedBranch>}
               />
               <Route
                 path="/skills"
