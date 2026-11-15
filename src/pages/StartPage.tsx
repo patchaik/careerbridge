@@ -4,23 +4,31 @@ import { useNavigate } from "react-router-dom";
 import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { TagInput } from "../components/ui/TagInput";
+import {
+  isProfileBasicsValid,
+  ProfileBasics,
+  yearsOfExperienceError,
+} from "../components/features/onboarding/ProfileBasics";
 import { useJourney } from "../context/JourneyContext";
 import { useBuildProfile, useParseResume } from "../hooks/useOnboarding";
 import { useWorkflowPolling } from "../hooks/useWorkflow";
-import type { CandidateProfile, CandidateSkillEvidence, Situation } from "../lib/types";
+import type { CandidateProfile, CandidateSkillEvidence } from "../lib/types";
 
 const SUGGESTED_SKILLS = ["Java", "Spring Boot", "REST APIs", "Docker", "SQL", "Python", "Communication"];
 const SUGGESTED_INTERESTS = ["Building backend systems", "Mentoring", "Data and analytics", "Design"];
 
-const SITUATION_OPTIONS: { value: Situation; label: string }[] = [
-  { value: "upskill", label: "I'm looking to upskill in my current career" },
-  { value: "no_job", label: "I don't currently have a job" },
-  { value: "new_career", label: "I want a new career path" },
-];
-
 export function StartPage() {
   const navigate = useNavigate();
-  const { situation, setSituation, setUserInterests, setProfile } = useJourney();
+  const {
+    situation,
+    setSituation,
+    experienceLevel,
+    setExperienceLevel,
+    yearsOfExperience,
+    setYearsOfExperience,
+    setUserInterests,
+    setProfile,
+  } = useJourney();
 
   const [file, setFile] = useState<File | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -166,12 +174,15 @@ export function StartPage() {
   }
 
   async function handleAnalyze() {
-    if (!situation || (!file && skills.length === 0)) return;
+    if (!situation || !experienceLevel || yearsOfExperience === null) return;
+    if (!file && skills.length === 0) return;
     settledRef.current = false;
     setBuildError(null);
     const result = await buildProfile.run({
       skills: compileSkills(),
       situation,
+      experienceLevel,
+      yearsOfExperience,
       ...(realProfileId ? { profileId: realProfileId } : {}),
     });
     if (result) setBuildWorkflowId(result.workflowId);
@@ -179,17 +190,22 @@ export function StartPage() {
 
   const isParsingResume = parseResume.isLoading || (resumeWorkflow !== null && (resumeWorkflow.status === "pending" || resumeWorkflow.status === "running"));
   const isBuilding = buildProfile.isLoading || (buildWorkflow !== null && (buildWorkflow.status === "pending" || buildWorkflow.status === "running"));
-  const canSubmit = Boolean(situation) && (Boolean(file) || skills.length > 0);
+  const hasSkillsOrResume = Boolean(file) || skills.length > 0;
+  const canSubmit = isProfileBasicsValid(situation, experienceLevel, yearsOfExperience) && hasSkillsOrResume;
 
   let disabledHint: string | null = null;
   if (!canSubmit) {
-    if (!situation && !file && skills.length === 0) {
-      disabledHint = "Choose your situation, and add at least one skill or upload a résumé.";
-    } else if (!situation) {
-      disabledHint = "Choose what best describes your situation to continue.";
-    } else {
-      disabledHint = "Add at least one skill, or upload a résumé, to continue.";
-    }
+    const missing: string[] = [];
+    if (!situation) missing.push("your situation");
+    if (!experienceLevel) missing.push("your experience level");
+    if (yearsOfExperienceError(yearsOfExperience)) missing.push("your years of experience");
+    if (!hasSkillsOrResume) missing.push("a skill or résumé");
+
+    const joined =
+      missing.length <= 1
+        ? missing[0]
+        : `${missing.slice(0, -1).join(", ")} and ${missing[missing.length - 1]}`;
+    disabledHint = `Add ${joined} to continue.`;
   }
 
   return (
@@ -317,27 +333,14 @@ export function StartPage() {
           </div>
         </section>
 
-        <section>
-          <label htmlFor="situation" className="block text-sm font-semibold text-neutral-800">
-            What best describes your situation?
-          </label>
-          <select
-            id="situation"
-            value={situation ?? ""}
-            onChange={(e) => setSituation((e.target.value || null) as Situation | null)}
-            required
-            className="mt-2 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
-          >
-            <option value="" disabled>
-              Select one…
-            </option>
-            {SITUATION_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </section>
+        <ProfileBasics
+          situation={situation}
+          onSituationChange={setSituation}
+          experienceLevel={experienceLevel}
+          onExperienceLevelChange={setExperienceLevel}
+          yearsOfExperience={yearsOfExperience}
+          onYearsOfExperienceChange={setYearsOfExperience}
+        />
 
         <div>
           {buildError && (

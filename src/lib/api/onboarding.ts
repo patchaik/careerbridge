@@ -1,4 +1,4 @@
-import type { CandidateProfile, CandidateSkillEvidence, Situation } from "../types";
+import type { CandidateProfile, CandidateSkillEvidence, ExperienceLevel, Situation } from "../types";
 import { isReal } from "./endpoints";
 import { mockBuildProfile, mockConfirmProfile, mockParseResume } from "../mock/handlers";
 import { apiRequest, ApiError } from "./client";
@@ -46,7 +46,13 @@ export function mapBackendProfile(profile: BackendProfile): CandidateProfile {
     level: null,
     workMode: null,
     skills: profile.skills.map(mapBackendSkill),
-    situation: null, // client-side only in both modes — see docs/API_PROPOSALS.md
+    // situation/experienceLevel/yearsOfExperience are client-side/journey
+    // state only in both modes — see docs/API_PROPOSALS.md. The backend
+    // response never carries them; callers that already have them (e.g.
+    // buildProfile) overlay them back onto the mapped profile.
+    situation: null,
+    experienceLevel: null,
+    yearsOfExperience: null,
     confirmedAt: profile.confirmed_at,
   };
 }
@@ -79,6 +85,11 @@ export interface BuildProfileInput {
    * typed in manually with id: null). */
   skills: CandidateSkillEvidence[];
   situation: Situation;
+  /** experienceLevel/yearsOfExperience have no home in api/openapi.yaml yet
+   * (see docs/API_PROPOSALS.md) — client-side/journey state only, same as
+   * situation, never sent to the backend. */
+  experienceLevel: ExperienceLevel;
+  yearsOfExperience: number;
   /** Set when a résumé was already parsed via parseResume — its profile
    * already exists in the backend, so building must not create a duplicate. */
   profileId?: string;
@@ -117,6 +128,8 @@ export async function buildProfile(input: BuildProfileInput): Promise<{ workflow
       workMode: null,
       skills,
       situation: input.situation,
+      experienceLevel: input.experienceLevel,
+      yearsOfExperience: input.yearsOfExperience,
       confirmedAt: null,
     };
     return { workflowId: registerCompletedWorkflow({ profile }) };

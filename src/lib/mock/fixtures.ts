@@ -89,6 +89,8 @@ export const demoProfile: CandidateProfile = {
   workMode: "remote",
   skills: demoResumeSkills,
   situation: null,
+  experienceLevel: null,
+  yearsOfExperience: null,
   confirmedAt: null,
 };
 

@@ -6,6 +6,7 @@ import type {
   AssessmentAttempt,
   CandidateProfile,
   CandidateSkillEvidence,
+  ExperienceLevel,
   Interest,
   InterestAnalysis,
   KnowledgeCheckQuestion,
@@ -55,17 +56,27 @@ export function mockParseResume(simulateFailure = false): string {
 export interface BuildProfileInput {
   skills: CandidateSkillEvidence[];
   situation: Situation;
+  experienceLevel: ExperienceLevel;
+  yearsOfExperience: number;
   profileId?: string;
 }
 
 // Builds the (not-yet-confirmed) profile from whatever StartPage has
 // compiled: full skill evidence (résumé- and/or user-sourced, already
-// carrying excerpts from mockParseResume) and the chosen situation.
-// confirmedAt stays null here — only mockConfirmProfile sets it.
+// carrying excerpts from mockParseResume), the chosen situation, and the
+// candidate's self-reported experience level/years. confirmedAt stays null
+// here — only mockConfirmProfile sets it.
 export function mockBuildProfile(input: BuildProfileInput): string {
   return startMockWorkflow<{ profile: CandidateProfile }>(
     () => ({
-      profile: { ...demoProfile, skills: input.skills, situation: input.situation, confirmedAt: null },
+      profile: {
+        ...demoProfile,
+        skills: input.skills,
+        situation: input.situation,
+        experienceLevel: input.experienceLevel,
+        yearsOfExperience: input.yearsOfExperience,
+        confirmedAt: null,
+      },
     }),
     [500, 1100],
   );

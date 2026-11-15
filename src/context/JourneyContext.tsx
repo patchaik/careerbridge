@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type {
   AssessmentAttempt,
   CandidateProfile,
+  ExperienceLevel,
   LearningPath,
   ResumeDraft,
   Situation,
@@ -34,6 +35,8 @@ export const TARGET_INDEX = MAIN_PATH.indexOf("/target");
 interface JourneyState {
   profile: CandidateProfile | null;
   situation: Situation | null;
+  experienceLevel: ExperienceLevel | null;
+  yearsOfExperience: number | null;
   userInterests: string[];
   selectedInterests: string[];
   targetRole: string | null;
@@ -48,6 +51,8 @@ interface JourneyState {
 const initialState: JourneyState = {
   profile: null,
   situation: null,
+  experienceLevel: null,
+  yearsOfExperience: null,
   userInterests: [],
   selectedInterests: [],
   targetRole: null,
@@ -80,6 +85,8 @@ function saveState(state: JourneyState) {
 interface JourneyContextValue extends JourneyState {
   setProfile: (profile: CandidateProfile | null) => void;
   setSituation: (situation: Situation | null) => void;
+  setExperienceLevel: (level: ExperienceLevel | null) => void;
+  setYearsOfExperience: (years: number | null) => void;
   setUserInterests: (interests: string[]) => void;
   setSelectedInterests: (interests: string[]) => void;
   setTargetRole: (role: string | null) => void;
@@ -104,6 +111,8 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
     ...state,
     setProfile: (profile) => setState((s) => ({ ...s, profile })),
     setSituation: (situation) => setState((s) => ({ ...s, situation })),
+    setExperienceLevel: (experienceLevel) => setState((s) => ({ ...s, experienceLevel })),
+    setYearsOfExperience: (yearsOfExperience) => setState((s) => ({ ...s, yearsOfExperience })),
     setUserInterests: (userInterests) => setState((s) => ({ ...s, userInterests })),
     setSelectedInterests: (selectedInterests) => setState((s) => ({ ...s, selectedInterests })),
     setTargetRole: (targetRole) => setState((s) => ({ ...s, targetRole })),

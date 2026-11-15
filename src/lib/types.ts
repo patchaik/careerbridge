@@ -44,6 +44,9 @@ export interface CandidateSkillEvidence {
 // state only, in both mock and real mode. See docs/API_PROPOSALS.md.
 export type Situation = "upskill" | "no_job" | "new_career";
 
+// Self-reported experience level, captured alongside situation on /start.
+export type ExperienceLevel = "beginner" | "intermediate" | "expert";
+
 export interface CandidateProfile {
   id: string;
   userId: string | null; // set when the profile came from the real backend
@@ -55,6 +58,8 @@ export interface CandidateProfile {
   workMode: "remote" | "hybrid" | "onsite" | null;
   skills: CandidateSkillEvidence[];
   situation: Situation | null;
+  experienceLevel: ExperienceLevel | null;
+  yearsOfExperience: number | null;
   confirmedAt: string | null;
 }
 

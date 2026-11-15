@@ -86,7 +86,12 @@ export function InterestsPage() {
     }));
     const updated = await confirmAction.run(profile.id, payload, Array.from(removedSkillIds));
     if (updated) {
-      setProfile(updated);
+      // confirmProfile's response only carries what the backend actually
+      // knows (skills, confirmedAt) — situation/experienceLevel/
+      // yearsOfExperience are journey-state only and aren't in that
+      // response, so merge onto the existing profile instead of replacing
+      // it wholesale (which would null them out).
+      setProfile({ ...profile, skills: updated.skills, confirmedAt: updated.confirmedAt });
       setSkillList(updated.skills);
       setRemovedSkillIds(new Set());
       setSkillsConfirmed(true);

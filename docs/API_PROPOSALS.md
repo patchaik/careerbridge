@@ -161,3 +161,28 @@ team wants it to inform `/api/roles/outlook`'s tone (e.g. supportive copy for
 the more natural owner than `candidate_profiles`, since it's about intent
 for the CURRENT goal rather than a durable fact about the candidate. See
 `docs/INTEGRATION_NOTES.md`'s open questions.
+
+---
+
+## Not a new endpoint: `experience_level`, `years_of_experience`
+
+`/start`'s new "What's your experience level?" (beginner/intermediate/
+expert) and "How many years of experience do you have?" (0-50) questions
+have no home in `CandidateProfile` either — same situation as `situation`
+above. Right now `experienceLevel`/`yearsOfExperience` are journey-state
+only (`src/context/JourneyContext.tsx`, persisted client-side), carried
+through `buildProfile` into the client's `CandidateProfile` object but never
+sent to `POST /api/onboarding/parse` or `PUT /api/profiles/{id}/confirm`.
+
+Unlike `situation`, these feel more like a durable fact about the candidate
+than intent for the current goal, so `candidate_profiles` (one row per
+résumé/profile) seems like the more natural owner if the team wants them
+persisted server-side — as two plain columns:
+- `experience_level` — `text check (experience_level in ('beginner',
+  'intermediate', 'expert'))`, nullable
+- `years_of_experience` — `smallint check (years_of_experience between 0
+  and 50)`, nullable
+
+Both would round-trip through `GET /api/profiles/{id}` and `PUT
+/api/profiles/{id}/confirm`'s existing response shape with no other schema
+changes.
