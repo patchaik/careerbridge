@@ -21,14 +21,10 @@ next edits the contract itself:
 - Every route that currently documents the `X-User-Id` header parameter
   should instead document `Authorization: Bearer <supabase-access-token>`.
   No request/response body changed.
-- **`POST /api/users` is no longer called by the UI at all.** Sign-up now
-  creates the user directly in Supabase Auth (`supabase.auth.signUp`); the
-  app's `users` row is created lazily by the backend on the first
-  authenticated request (`database.users.get_or_link_app_user`), with
-  `id` = the Supabase Auth user's id. `POST /api/users` / `GET
-  /api/users/{id}` / `DELETE /api/users/{id}` / `GET /api/users/{id}/export`
-  still exist and work (used by `scripts/smoke_test.py` for admin/cleanup),
-  just not from the frontend's sign-up flow anymore.
+- **Direct account creation is disabled.** Sign-up uses Supabase Auth;
+  the app's user row is resolved on the first authenticated request.
+  Account read, export, delete and workflow status require a Supabase token
+  and ownership, even in development header mode.
 - The backend still accepts the old `X-User-Id` header as a dev/test
   fallback behind `AUTH_MODE=header` (default is `AUTH_MODE=supabase`) — see
   `docs/INTEGRATION_NOTES.md`. That's a backend-only escape hatch, not

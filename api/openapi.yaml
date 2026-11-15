@@ -64,7 +64,7 @@ paths:
   /api/workflows/{workflow_id}:
     get:
       tags: [System]
-      summary: Status of a long-running operation
+      summary: Status of my long-running operation
       operationId: getWorkflow
       x-db-functions: [users.get_workflow]
       parameters:
@@ -75,44 +75,26 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Workflow" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
   # ------------------------------------------------------------------- Users
   /api/users:
     post:
       tags: [Users]
-      summary: Sign in or create a user by email
-      description: Returns the existing user if the email is known. Consent is required.
+      summary: Create an account through Supabase Auth.
       operationId: createUser
+      deprecated: true
       security: []
-      x-db-functions: [users.create_user]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email, consent]
-              properties:
-                email: { type: string, format: email }
-                name: { type: string }
-                consent:
-                  type: boolean
-                  description: Must be true. Records consent to process the résumé.
       responses:
-        "200":
-          description: User
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/User" }
-        "422": { $ref: "#/components/responses/Invalid" }
+        "501": { $ref: "#/components/responses/Disabled" }
 
   /api/users/{user_id}:
     parameters:
       - $ref: "#/components/parameters/UserId"
     get:
       tags: [Users]
-      summary: Get a user
+      summary: Get my account
       operationId: getUser
       x-db-functions: [users.get_user]
       responses:
@@ -121,6 +103,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
     delete:
       tags: [Users]
@@ -130,7 +113,8 @@ paths:
       x-db-functions: [users.delete_user]
       responses:
         "204": { description: Deleted }
-        "403": { $ref: "#/components/responses/Forbidden" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /api/users/{user_id}/export:
     get:
@@ -146,6 +130,8 @@ paths:
           content:
             application/json:
               schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   # -------------------------------------------------------------- Onboarding
   /api/onboarding/parse:
@@ -798,39 +784,12 @@ paths:
   /api/arena/tutor:
     post:
       tags: [Arena]
-      summary: Bounded lesson response for the current milestone (P1)
-      description: |
-        Answers only within the milestone's concepts. Gives hints, not full solutions to assessed
-        tasks.
+      summary: Legacy tutor is disabled in this build.
       operationId: tutor
-      security: [{ BearerAuth: [] }]
-      x-db-functions: [learning.save_session, learning.get_session]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [path_id, milestone_id, message]
-              properties:
-                path_id: { type: string, format: uuid }
-                milestone_id: { type: string }
-                session_id: { type: string, format: uuid }
-                mode: { type: string, enum: [written, hands_on], default: written }
-                message: { type: string, maxLength: 4000 }
+      deprecated: true
+      security: []
       responses:
-        "200":
-          description: Tutor reply
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [session_id, reply]
-                properties:
-                  session_id: { type: string, format: uuid }
-                  reply: { type: string }
-                  hint_count: { type: integer }
-                  suggested_next: { type: string }
+        "501": { $ref: "#/components/responses/Disabled" }
 
   /api/arena/practice:
     post:
@@ -867,63 +826,22 @@ paths:
   /api/assessments/start:
     post:
       tags: [Assessments]
-      summary: Start an assessment against the path's frozen rubric
+      summary: Independent assessments are disabled. Use the formative learning check for a completed plan.
       operationId: startAssessment
-      x-db-functions: [mastery.start_attempt]
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [path_id]
-              properties:
-                path_id: { type: string, format: uuid }
+      deprecated: true
+      security: []
       responses:
-        "201":
-          description: Attempt with quiz questions and project task
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/AssessmentStart" }
-        "409": { $ref: "#/components/responses/Conflict" }
+        "501": { $ref: "#/components/responses/Disabled" }
 
   /api/assessments/submit:
     post:
       tags: [Assessments]
-      summary: Grade an attempt against its frozen rubric
-      description: |
-        On `passed`, verified evidence is created, scoped to this exact project and test.
-        On `failed`, missed criteria map to remediation; automatic retries stop after 3.
-        `needs_review` means grading was not reliable enough to decide.
+      summary: Independent assessment submission is disabled.
       operationId: submitAssessment
-      x-db-functions: [mastery.submit_attempt, mastery.record_verified_evidence]
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [attempt_id]
-              properties:
-                attempt_id: { type: string, format: uuid }
-                quiz_answers:
-                  type: array
-                  items: { $ref: "#/components/schemas/Answer" }
-                project_submission:
-                  type: string
-                  maxLength: 50000
-                  description: Code or a link to the submitted project
+      deprecated: true
+      security: []
       responses:
-        "200":
-          description: Result
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/AssessmentResult" }
-        "409": { $ref: "#/components/responses/Conflict" }
+        "501": { $ref: "#/components/responses/Disabled" }
 
   /api/progress:
     get:
@@ -1185,6 +1103,11 @@ components:
       schema: { type: string, minLength: 8, maxLength: 100 }
 
   responses:
+    Disabled:
+      description: Feature is disabled in this build
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
     Unauthorized:
       description: Missing or expired Supabase bearer token
       content:

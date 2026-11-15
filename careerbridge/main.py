@@ -13,7 +13,7 @@ from fastapi import Depends, FastAPI, Header, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, StrictBool, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 
 from database import admin, users
 from database.client import DBError
@@ -89,15 +89,7 @@ def not_implemented(feature: str):
 AUTH_MODE = os.getenv("AUTH_MODE", "supabase").strip().lower()
 
 
-def current_user_id(
-    authorization: Optional[str] = Header(default=None),
-    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
-) -> str:
-    if AUTH_MODE == "header":
-        if not x_user_id:
-            raise ApiError(403, "forbidden", "Missing X-User-Id header")
-        return x_user_id
-
+def signed_in_user_id(authorization: Optional[str] = Header(default=None)) -> str:
     scheme, _, token = (authorization or "").partition(" ")
     if scheme.lower() != "bearer" or not token:
         raise ApiError(401, "unauthorized", "Missing or invalid Authorization header")
@@ -108,6 +100,17 @@ def current_user_id(
 
     app_user = users.get_or_link_app_user(auth_user["id"], auth_user["email"], auth_user.get("user_metadata"))
     return app_user["id"]
+
+
+def current_user_id(
+    authorization: Optional[str] = Header(default=None),
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+) -> str:
+    if AUTH_MODE == "header":
+        if not x_user_id:
+            raise ApiError(403, "forbidden", "Missing X-User-Id header")
+        return x_user_id
+    return signed_in_user_id(authorization)
 
 
 def idempotency_key(key: Optional[str] = Header(default=None, alias="Idempotency-Key")) -> Optional[str]:
@@ -125,9 +128,9 @@ def health():
 
 
 @app.get("/api/workflows/{workflow_id}")
-def get_workflow(workflow_id: str):
+def get_workflow(workflow_id: str, owner_id: str = Depends(signed_in_user_id)):
     wf = users.get_workflow(workflow_id)
-    if not wf:
+    if not wf or wf["user_id"] != owner_id:
         raise ApiError(404, "not_found", "Workflow not found")
     state_json = wf.get("state_json") or {}
     return {
@@ -145,21 +148,20 @@ def get_workflow(workflow_id: str):
 # Users
 # ---------------------------------------------------------------------------
 
-class CreateUserBody(BaseModel):
-    email: EmailStr
-    name: Optional[str] = None
-    consent: bool
-
-
 @app.post("/api/users")
-def create_user(body: CreateUserBody):
-    if not body.consent:
-        raise ApiError(422, "validation_error", "Consent is required", field="consent")
-    return users.create_user(body.email, body.name, consent=True)
+def create_user():
+    # Account creation goes through Supabase Auth; never look up a caller-supplied email.
+    not_implemented("Direct account creation")
+
+
+def require_account_owner(user_id: str, owner_id: str) -> None:
+    if user_id != owner_id:
+        raise ApiError(404, "not_found", "User not found")
 
 
 @app.get("/api/users/{user_id}")
-def get_user(user_id: str):
+def get_user(user_id: str, owner_id: str = Depends(signed_in_user_id)):
+    require_account_owner(user_id, owner_id)
     user = users.get_user(user_id)
     if not user:
         raise ApiError(404, "not_found", "User not found")
@@ -167,13 +169,15 @@ def get_user(user_id: str):
 
 
 @app.delete("/api/users/{user_id}", status_code=204)
-def delete_user(user_id: str):
+def delete_user(user_id: str, owner_id: str = Depends(signed_in_user_id)):
+    require_account_owner(user_id, owner_id)
     users.delete_user(user_id)
     return None
 
 
 @app.get("/api/users/{user_id}/export")
-def export_user_data(user_id: str):
+def export_user_data(user_id: str, owner_id: str = Depends(signed_in_user_id)):
+    require_account_owner(user_id, owner_id)
     return admin.export_user_data(user_id)
 
 
@@ -420,17 +424,9 @@ def list_resources(skill: str):
 # Arena
 # ---------------------------------------------------------------------------
 
-class TutorBody(BaseModel):
-    path_id: str
-    milestone_id: str
-    session_id: Optional[str] = None
-    mode: Literal["written", "hands_on"] = "written"
-    message: str = Field(max_length=4000)
-
-
 @app.post("/api/arena/tutor")
-def tutor(body: TutorBody, user_id: str = Depends(current_user_id)):
-    return store.tutor_flow(body.path_id, body.milestone_id, body.message, body.session_id, body.mode, user_id)
+def tutor():
+    not_implemented("Legacy tutor")
 
 
 @app.post("/api/arena/practice")
@@ -438,37 +434,14 @@ def practice():
     not_implemented("Practice feedback")
 
 
-# ---------------------------------------------------------------------------
-# Assessments
-# ---------------------------------------------------------------------------
-
-class StartAssessmentBody(BaseModel):
-    path_id: str
-
-
-@app.post("/api/assessments/start", status_code=201)
-def start_assessment(body: StartAssessmentBody, user_id: str = Depends(current_user_id),
-                     key: Optional[str] = Depends(idempotency_key)):
-    return store.start_assessment_flow(user_id, body.path_id, key)
-
-
-class AnswerBody(BaseModel):
-    question_id: str
-    answer: str
-
-
-class SubmitAssessmentBody(BaseModel):
-    attempt_id: str
-    quiz_answers: list[AnswerBody] = Field(default_factory=list)
-    project_submission: str = Field(default="", max_length=50000)
+@app.post("/api/assessments/start")
+def start_assessment():
+    not_implemented("Independent assessments")
 
 
 @app.post("/api/assessments/submit")
-def submit_assessment(body: SubmitAssessmentBody, user_id: str = Depends(current_user_id),
-                      key: Optional[str] = Depends(idempotency_key)):
-    return store.submit_assessment_flow(
-        user_id, body.attempt_id, [a.model_dump() for a in body.quiz_answers],
-        body.project_submission, key)
+def submit_assessment():
+    not_implemented("Independent assessments")
 
 
 @app.get("/api/progress")
