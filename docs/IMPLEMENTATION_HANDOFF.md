@@ -37,25 +37,27 @@ No individual assignees are inferred. Teams can assign the linked issues without
 
 Dependencies are recorded as clickable issue references and task lists, not native GitHub blocked-by relationships. Codes remain stable even if titles change.
 
+The same backlog and dependency edges are available in [MVP_ISSUES.json](MVP_ISSUES.json).
+
 | Code | Issue | Workstream | Priority | Integration blocked by |
 | --- | --- | --- | --- | --- |
-| DB-01 | DB-01 | DB | P0 | None |
-| DB-02 | DB-02 | DB | P0 | DB-01 |
-| DB-03 | DB-03 | DB | P0 | DB-01, DB-02 |
-| DB-04 | DB-04 | DB | P0 | DB-01, DB-03 |
-| AF-01 | AF-01 | Agent | P0 | DB-01 |
-| AF-02 | AF-02 | Agent | P0 | None |
-| AF-03 | AF-03 | Agent | P0 | AF-01, AF-02, DB-01 |
-| AF-04 | AF-04 | Agent | P0 | AF-01, AF-02, DB-02, AF-03 |
-| AF-05 | AF-05 | Agent | P0 | AF-01, AF-02, AF-04, DB-03 |
-| AF-06 | AF-06 | Agent | P0 | AF-01, AF-02, AF-05, DB-04 |
-| UI-01 | UI-01 | UI | P0 | AF-01 |
-| UI-02 | UI-02 | UI | P0 | UI-01, AF-03 |
-| UI-03 | UI-03 | UI | P0 | UI-01, AF-04 |
-| UI-04 | UI-04 | UI | P0 | UI-01, UI-03, AF-05 |
-| UI-05 | UI-05 | UI | P0 | UI-01, AF-06 |
-| QA-01 | QA-01 | Integration | P0 | DB-01, DB-02, DB-03, DB-04, AF-01, AF-02, AF-03, AF-04, AF-05, AF-06, UI-01, UI-02, UI-03, UI-04, UI-05 |
-| P1-01 | P1-01 | Cross-stream | P1 | QA-01 |
+| DB-01 | [#4](https://github.com/Shrezz/careerbridge/issues/4) | DB | P0 | None |
+| DB-02 | [#5](https://github.com/Shrezz/careerbridge/issues/5) | DB | P0 | [#4](https://github.com/Shrezz/careerbridge/issues/4) |
+| DB-03 | [#6](https://github.com/Shrezz/careerbridge/issues/6) | DB | P0 | [#4](https://github.com/Shrezz/careerbridge/issues/4), [#5](https://github.com/Shrezz/careerbridge/issues/5) |
+| DB-04 | [#7](https://github.com/Shrezz/careerbridge/issues/7) | DB | P0 | [#4](https://github.com/Shrezz/careerbridge/issues/4), [#6](https://github.com/Shrezz/careerbridge/issues/6) |
+| AF-01 | [#8](https://github.com/Shrezz/careerbridge/issues/8) | Agent | P0 | [#4](https://github.com/Shrezz/careerbridge/issues/4) |
+| AF-02 | [#9](https://github.com/Shrezz/careerbridge/issues/9) | Agent | P0 | None |
+| AF-03 | [#10](https://github.com/Shrezz/careerbridge/issues/10) | Agent | P0 | [#8](https://github.com/Shrezz/careerbridge/issues/8), [#9](https://github.com/Shrezz/careerbridge/issues/9), [#4](https://github.com/Shrezz/careerbridge/issues/4) |
+| AF-04 | [#11](https://github.com/Shrezz/careerbridge/issues/11) | Agent | P0 | [#8](https://github.com/Shrezz/careerbridge/issues/8), [#9](https://github.com/Shrezz/careerbridge/issues/9), [#5](https://github.com/Shrezz/careerbridge/issues/5), [#10](https://github.com/Shrezz/careerbridge/issues/10) |
+| AF-05 | [#12](https://github.com/Shrezz/careerbridge/issues/12) | Agent | P0 | [#8](https://github.com/Shrezz/careerbridge/issues/8), [#9](https://github.com/Shrezz/careerbridge/issues/9), [#11](https://github.com/Shrezz/careerbridge/issues/11), [#6](https://github.com/Shrezz/careerbridge/issues/6) |
+| AF-06 | [#13](https://github.com/Shrezz/careerbridge/issues/13) | Agent | P0 | [#8](https://github.com/Shrezz/careerbridge/issues/8), [#9](https://github.com/Shrezz/careerbridge/issues/9), [#12](https://github.com/Shrezz/careerbridge/issues/12), [#7](https://github.com/Shrezz/careerbridge/issues/7) |
+| UI-01 | [#14](https://github.com/Shrezz/careerbridge/issues/14) | UI | P0 | [#8](https://github.com/Shrezz/careerbridge/issues/8) |
+| UI-02 | [#15](https://github.com/Shrezz/careerbridge/issues/15) | UI | P0 | [#14](https://github.com/Shrezz/careerbridge/issues/14), [#10](https://github.com/Shrezz/careerbridge/issues/10) |
+| UI-03 | [#16](https://github.com/Shrezz/careerbridge/issues/16) | UI | P0 | [#14](https://github.com/Shrezz/careerbridge/issues/14), [#11](https://github.com/Shrezz/careerbridge/issues/11) |
+| UI-04 | [#17](https://github.com/Shrezz/careerbridge/issues/17) | UI | P0 | [#14](https://github.com/Shrezz/careerbridge/issues/14), [#16](https://github.com/Shrezz/careerbridge/issues/16), [#12](https://github.com/Shrezz/careerbridge/issues/12) |
+| UI-05 | [#18](https://github.com/Shrezz/careerbridge/issues/18) | UI | P0 | [#14](https://github.com/Shrezz/careerbridge/issues/14), [#13](https://github.com/Shrezz/careerbridge/issues/13) |
+| QA-01 | [#19](https://github.com/Shrezz/careerbridge/issues/19) | Integration | P0 | [#4](https://github.com/Shrezz/careerbridge/issues/4), [#5](https://github.com/Shrezz/careerbridge/issues/5), [#6](https://github.com/Shrezz/careerbridge/issues/6), [#7](https://github.com/Shrezz/careerbridge/issues/7), [#8](https://github.com/Shrezz/careerbridge/issues/8), [#9](https://github.com/Shrezz/careerbridge/issues/9), [#10](https://github.com/Shrezz/careerbridge/issues/10), [#11](https://github.com/Shrezz/careerbridge/issues/11), [#12](https://github.com/Shrezz/careerbridge/issues/12), [#13](https://github.com/Shrezz/careerbridge/issues/13), [#14](https://github.com/Shrezz/careerbridge/issues/14), [#15](https://github.com/Shrezz/careerbridge/issues/15), [#16](https://github.com/Shrezz/careerbridge/issues/16), [#17](https://github.com/Shrezz/careerbridge/issues/17), [#18](https://github.com/Shrezz/careerbridge/issues/18) |
+| P1-01 | [#20](https://github.com/Shrezz/careerbridge/issues/20) | Cross-stream | P1 | [#19](https://github.com/Shrezz/careerbridge/issues/19) |
 
 ## Suggested integration waves
 
@@ -84,3 +86,7 @@ The checked package passes offline schema/reference and semantic/negative fixtur
 Use `/api/v1`, snake_case, JWT-derived identity, typed async workflows, reviewed competency definitions with private test bundles, and explicit résumé revision/hash approval. OpenAI/Nebius routing is server-side; automatic cross-provider fallback is off unless explicitly configured and tested. Model IDs and credentials are deployment inputs, not frontend fields.
 
 Real competency packages require human review, working resources, diagnostic and final test sets, approved alternate tests for retries and registered graders. The included examples are format fixtures only. Real held-out keys/assets must stay outside this public repository.
+
+Delivery tracker: [#21](https://github.com/Shrezz/careerbridge/issues/21).
+
+Contract PR: [#3](https://github.com/Shrezz/careerbridge/pull/3).
