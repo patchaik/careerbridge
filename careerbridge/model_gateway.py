@@ -221,8 +221,19 @@ class ModelGateway:
     def close(self):
         self.client.close()
 
+    def _skip_capability_check(self):
+        # Local development escape hatch only: never honored outside CAREERBRIDGE_ENV=development.
+        return (
+            self.env.get("CAREERBRIDGE_ENV", "").strip().strip("'\"") == "development"
+            and self.env.get("CAREERBRIDGE_SKIP_CAPABILITY_CHECK", "").strip().strip("'\"").lower() in ("1", "true", "yes")
+        )
+
     def _route(self, name, task):
         profile = self.config["profiles"][name]
+        if self._skip_capability_check():
+            if not profile["model"] or not self.env.get(profile["api_key_env"]):
+                raise ModelError("provider_not_configured")
+            return profile
         try:
             report = json.loads(Path(profile["capability_report_path"]).read_text())
             validate(contract_schema("model-capability-report"), report)
