@@ -1,0 +1,803 @@
+contract_version: 0.1.0
+status: Logical target schema; not executable DDL or a migration. Entries do not
+  mandate separate physical tables or classes. Document the physical mapping and
+  preserve all IDs, ownership, uniqueness, immutability and transaction guards.
+implementation_guidelines: ../../docs/IMPLEMENTATION_GUIDELINES.md
+conventions:
+- UUID PKs and UTC timestamps; indexes on every FK plus status/created_at for queues
+- All user-owned links checked for same owner using composite FKs or transactional
+  guards
+- RLS enabled with no browser access except explicit authorized policies; service-role
+  access must still enforce ownership
+- Append-only published content, market snapshots, terminal attempts, evidence and
+  exported artifacts
+- Migration order creates nullable cyclic pointers first, then adds FK constraints
+tables:
+  users:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      auth_subject: uuid not null
+      display_name: text not null
+      consent_version: text null
+      consent_at: timestamptz null
+      deleted_at: timestamptz null
+    foreign_keys: []
+    unique:
+    - - auth_subject
+    rules:
+    - auth_subject maps verified JWT sub; passwords/keys are never stored here
+  career_goals:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      user_id: uuid not null
+      target_role: text not null
+      location: text not null
+      seniority: text not null
+      learning_objective: text not null
+      modality: 'text: text|hands_on|both'
+      status: 'text: active|archived'
+    foreign_keys:
+    - user_id -> users.id
+    unique: []
+    rules:
+    - Immutable goal fields; modifications create new goal
+  candidate_profiles:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      user_id: uuid not null
+      revision: integer >=1
+      source: 'text: resume|manual'
+      status: 'text: draft|confirmed|superseded'
+      file_asset_id: uuid null
+      experience_json: jsonb validated confirmed background
+      confirmed_at: timestamptz null
+    foreign_keys:
+    - user_id -> users.id
+    - file_asset_id -> assets.id
+    unique: []
+    rules:
+    - status confirmed iff confirmed_at set; confirmed content immutable; draft confirmation
+      uses row lock and expected_revision
+  skills:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      canonical_name: text not null
+      normalized_name: text not null
+      category: 'text: technical|interpersonal|domain'
+    foreign_keys: []
+    unique:
+    - - normalized_name
+    rules: []
+  skill_aliases:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      skill_id: uuid not null
+      normalized_alias: text not null
+    foreign_keys:
+    - skill_id -> skills.id
+    unique:
+    - - normalized_alias
+    rules: []
+  candidate_skill_evidence:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      profile_id: uuid not null
+      skill_id: uuid not null
+      source_kind: 'text: resume|self_reported|assessment'
+      source_record_id: uuid null
+      excerpt: text null
+      status: 'text: present|user_confirmed|self_reported|not_established|demonstrated'
+    foreign_keys:
+    - profile_id -> candidate_profiles.id
+    - skill_id -> skills.id
+    unique: []
+    rules:
+    - Multiple evidence records per skill permitted; UI groups by skill
+    - assessment source_record_id must reference verified_skill_evidence owned by
+      same user and matching skill
+    - Only grader evidence transaction may create demonstrated status; no direct client
+      update
+  journeys:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      user_id: uuid not null
+      goal_id: uuid not null
+      profile_id: uuid not null
+      profile_revision: integer >=1
+      state: text constrained by journey_transitions
+      revision: integer >=1
+      gap_analysis_id: uuid null
+      path_id: uuid null
+      attempt_id: uuid null
+      resume_id: uuid null
+      remediation_count: integer 0..3
+      next_action: text not null
+    foreign_keys:
+    - user_id -> users.id
+    - goal_id -> career_goals.id
+    - profile_id -> candidate_profiles.id
+    - gap_analysis_id -> gap_analyses.id
+    - path_id -> learning_paths.id
+    - attempt_id -> assessment_attempts.id
+    - resume_id -> resume_versions.id
+    unique: []
+    rules:
+    - Composite ownership guards on all links; pointers nullable for creation then
+      atomically filled
+    - One selected path per journey; new goal/profile starts a new journey
+  workflow_operations:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      user_id: uuid not null
+      journey_id: uuid null
+      kind: 'text: OpenAPI Workflow.kind'
+      status: 'text: queued|running|completed|failed'
+      stage: text not null
+      progress: numeric 0..1 null
+      result_type: text null
+      result_id: uuid null
+      error_json: jsonb ErrorDetail null
+      input_json: jsonb private validated input
+      routing_revision: text not null
+      lease_until: timestamptz null
+    foreign_keys:
+    - user_id -> users.id
+    - journey_id -> journeys.id
+    unique: []
+    rules:
+    - completed iff result_type/result_id set and error_json null
+    - failed iff error_json set and result null
+    - Result pointer resolves to correct typed table and same owner; enforce in repository
+      transaction
+    - No private test keys, prompts or provider secrets in status response
+  job_searches:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      journey_id: uuid not null
+      normalized_filters_json: jsonb
+      status: 'text: available|empty|unavailable'
+      warnings_json: jsonb string[]
+      fallback_used: boolean
+    foreign_keys:
+    - journey_id -> journeys.id
+    unique: []
+    rules: []
+  job_snapshots:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      provider: text not null
+      provider_job_id: text not null
+      data_origin: 'text: live|cached|synthetic'
+      url: text HTTPS
+      retrieved_at: timestamptz not null
+      title: text not null
+      company: text null
+      location: text null
+      description: text not null
+      description_sha256: char(64)
+      completeness: 'text: full|partial'
+    foreign_keys: []
+    unique:
+    - - provider
+      - provider_job_id
+      - retrieved_at
+      - description_sha256
+    rules:
+    - Immutable; same provider job may have multiple snapshots
+    - Cached reuse keeps original retrieval time; synthetic never labeled live
+  job_search_snapshots:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      job_search_id: uuid not null
+      job_snapshot_id: uuid not null
+    foreign_keys:
+    - job_search_id -> job_searches.id
+    - job_snapshot_id -> job_snapshots.id
+    unique:
+    - - job_search_id
+      - job_snapshot_id
+    rules: []
+  job_skill_requirements:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      job_snapshot_id: uuid not null
+      skill_id: uuid not null
+      importance: 'text: required|preferred|unspecified'
+      excerpt: text not null
+    foreign_keys:
+    - job_snapshot_id -> job_snapshots.id
+    - skill_id -> skills.id
+    unique:
+    - - job_snapshot_id
+      - skill_id
+    rules:
+    - Excerpt verified against immutable description; immutable row
+  gap_analyses:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      journey_id: uuid not null
+      job_search_id: uuid not null
+      profile_id: uuid not null
+      profile_revision: integer >=1
+      existing_skills_json: jsonb ProfileSkill[0..10]
+      market_skills_json: jsonb [0..10]
+      ranked_gaps_json: jsonb Gap[0..10]
+      eligible_job_count: integer >=0
+    foreign_keys:
+    - journey_id -> journeys.id
+    - job_search_id -> job_searches.id
+    - profile_id -> candidate_profiles.id
+    unique: []
+    rules:
+    - Immutable snapshot
+    - Each gap has UUID; sources reference same skill requirements in job_search_snapshots
+    - All owner/profile/goal relationships checked before insert; no source-only existence
+      check
+  assets:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      owner_user_id: uuid null
+      template_version_id: uuid null
+      attempt_id: uuid null
+      visibility: 'text: private_user|practice|assessment_input|grading_secret'
+      object_key: text not null
+      media_type: text not null
+      sha256: char(64)
+      size_bytes: bigint >=0
+    foreign_keys:
+    - owner_user_id -> users.id
+    - template_version_id -> competency_template_versions.id
+    - attempt_id -> assessment_attempts.id
+    unique: []
+    rules:
+    - Storage private; signed links authorized individually
+    - grading_secret never in learner response or model prompt
+    - Practice/assessment inputs can be shared only through published template/assigned
+      attempt; user artifacts require owner
+    - File/row registration through outbox/staging protocol
+  learning_resources:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      skill_id: uuid not null
+      title: text
+      url: text HTTPS
+      provider: text
+      price_type: 'text: free|paid|mixed|unknown'
+      modality: 'text: text|hands_on|both'
+      level: text
+      concept_ids_json: jsonb
+      verified_at: timestamptz null
+      source_type: 'text: reviewed_catalog|live_supplement'
+      access_note: text
+    foreign_keys:
+    - skill_id -> skills.id
+    unique:
+    - - skill_id
+      - url
+    rules: []
+  competency_template_versions:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      template_key: text
+      version: integer >=1
+      skill_id: uuid
+      author_user_id: uuid
+      definition_json: jsonb TemplateDefinition
+      content_sha256: char(64)
+      lifecycle: 'text: draft|in_review|published|retired'
+      published_at: timestamptz null
+    foreign_keys:
+    - skill_id -> skills.id
+    - author_user_id -> users.id
+    unique:
+    - - template_key
+      - version
+    rules:
+    - Immutable content even in draft for this versioned authoring API
+    - Published/retired rows cannot change content; retirement only changes lifecycle
+    - Definition concept/activity/milestone references validated; concept graph acyclic
+  template_reviews:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      template_version_id: uuid
+      reviewer_user_id: uuid
+      public_content_sha256: char(64)
+      primary_bundle_sha256: char(64)
+      decision: 'text: approve|reject'
+      checks_json: jsonb five boolean review checks
+      notes: text
+    foreign_keys:
+    - template_version_id -> competency_template_versions.id
+    - reviewer_user_id -> users.id
+    unique: []
+    rules:
+    - Reviewer != author, authorized server role, approval checks all true
+    - Append-only; must match current immutable version and bundle
+  rubric_versions:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      template_version_id: uuid not null
+      version: integer >=1
+      criteria_json: jsonb Criterion[]
+      thresholds_json: jsonb Thresholds
+      content_sha256: char(64)
+      frozen_at: timestamptz not null
+    foreign_keys:
+    - template_version_id -> competency_template_versions.id
+    unique:
+    - - template_version_id
+      - version
+    rules:
+    - Created on template publication; immutable; exact copy of reviewed template
+      criteria/thresholds
+  assessment_test_sets:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      template_version_id: uuid
+      rubric_id: uuid null until publication
+      purpose: 'text: diagnostic|final'
+      version: integer >=1
+      private_bundle_json: jsonb GradingBundle
+      bundle_sha256: char(64)
+      review_status: 'text: draft|approved|rejected'
+      author_user_id: uuid
+      reviewer_user_id: uuid null
+      reviewed_at: timestamptz null
+      review_notes: text null
+      grader_build_id: text
+    foreign_keys:
+    - template_version_id -> competency_template_versions.id
+    - rubric_id -> rubric_versions.id
+    - author_user_id -> users.id
+    - reviewer_user_id -> users.id
+    unique:
+    - - template_version_id
+      - purpose
+      - version
+    rules:
+    - Bundle immutable, reviewers cannot self-approve
+    - Primary final set submitted with draft; other sets registered/reviewed using
+      admin APIs
+    - Approved alternate/diagnostic sets must share rubric coverage and thresholds
+      and have disjoint question/asset content
+    - Publication needs an approved diagnostic set plus initial final set; unused
+      alternate final sets needed for automatic retries
+    - Private data unavailable to model gateway, learner API and practice service
+  learning_paths:
+    columns:
+      id: uuid primary key
+      goal_id: uuid
+      skill_id: uuid
+      objective: text learner skill goal
+      status: 'text: proposed|approved|in_progress|paused|completed'
+      milestones_json: jsonb legacy milestone summaries
+    foreign_keys:
+    - skill_id -> skills.id
+    unique: []
+    rules:
+    - Owned saved resource search establishes the selected gap and career goal
+    - No template or rubric binding is required for a learning-only plan
+    - Immutable complete content is stored in the owned generate_path workflow result
+    - Workflow result contains path ID, skill goal, learning outcome, modality, milestone instructions and self-checks, selected resource snapshots and resource search ID
+    - Learner acceptance changes only path status; no assessment or verified evidence is created
+    - See docs/LEARNING_PLANS.md for the existing Supabase physical mapping
+  learning_sessions:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      path_id: uuid
+      milestone_id: text
+      mode: 'text: text|hands_on'
+      status: text
+      state_json: jsonb validated per activity
+      hint_count: integer >=0
+    foreign_keys:
+    - path_id -> learning_paths.id
+    unique: []
+    rules:
+    - Milestone belongs to path; practice completion does not establish mastery
+  lessons:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      path_id: uuid
+      milestone_id: text
+      content_markdown: text
+      resource_ids_json: jsonb UUID[]
+    foreign_keys:
+    - path_id -> learning_paths.id
+    unique: []
+    rules:
+    - Owner through path/journey; no private assessment keys; no direct mastery writes
+  tutor_messages:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      path_id: uuid
+      milestone_id: text
+      question: text
+      answer_markdown: text
+      resource_ids_json: jsonb UUID[]
+    foreign_keys:
+    - path_id -> learning_paths.id
+    unique: []
+    rules:
+    - Owner through path/journey; no private assessment keys; no direct mastery writes
+  practice_runs:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      path_id: uuid
+      milestone_id: text
+      activity_id: text
+      submission_json: jsonb ActivitySubmission
+      feedback_json: jsonb
+      artifact_ids_json: jsonb UUID[]
+    foreign_keys:
+    - path_id -> learning_paths.id
+    unique: []
+    rules:
+    - Owner through path/journey; no private assessment keys; no direct mastery writes
+  assessment_attempts:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      user_id: uuid
+      path_id: uuid
+      purpose: 'text: diagnostic|final'
+      rubric_id: uuid
+      test_set_id: uuid
+      grader_build_id: text
+      status: 'text: in_progress|submitted|passed|failed|needs_review'
+      submission_json: jsonb private, null until submit
+      submission_sha256: char(64) null
+      result_json: jsonb AssessmentResult null
+      submitted_at: timestamptz null
+      completed_at: timestamptz null
+    foreign_keys:
+    - user_id -> users.id
+    - path_id -> learning_paths.id
+    - rubric_id -> rubric_versions.id
+    - test_set_id -> assessment_test_sets.id
+    unique: []
+    rules:
+    - One active in_progress/submitted attempt per path+purpose, partial unique index
+    - Attempt user=journey owner; rubric=path rubric; test set reviewed and rubric
+      matches
+    - Never allocate a previously seen final test set or one overlapping previously
+      exposed content for this learner
+    - Terminal status/submission/result immutable; diagnostic never writes verified
+      evidence
+    - Grade commit holds row/path lock; duplicate consumers cannot increment retries
+      twice
+  assessment_artifacts:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      attempt_id: uuid
+      criterion_id: text
+      asset_id: uuid
+      artifact_sha256: char(64)
+      grader_build_id: text
+    foreign_keys:
+    - attempt_id -> assessment_attempts.id
+    - asset_id -> assets.id
+    unique: []
+    rules:
+    - Criterion belongs to attempt rubric; preserve reproducible submitted and computed
+      evidence, not only LLM summary
+  verified_skill_evidence:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      user_id: uuid
+      skill_id: uuid
+      attempt_id: uuid
+      rubric_id: uuid
+      scope: text
+      summary: text
+      verified_at: timestamptz
+    foreign_keys:
+    - user_id -> users.id
+    - skill_id -> skills.id
+    - attempt_id -> assessment_attempts.id
+    - rubric_id -> rubric_versions.id
+    unique:
+    - - attempt_id
+    rules:
+    - 'DB/service invariant: final passed attempt, same user/skill/rubric, required
+      artifacts exist'
+    - Grader-only insert, immutable; tutor/model gateway cannot insert
+  resume_versions:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      user_id: uuid
+      journey_id: uuid
+      profile_id: uuid
+      profile_revision: integer >=1
+      revision: integer >=1
+      status: 'text: draft|approved|rejected'
+      changes_json: jsonb ResumeChange[]
+      content_sha256: char(64)
+      approved_revision: integer null
+      approved_content_sha256: char(64) null
+      approved_at: timestamptz null
+    foreign_keys:
+    - user_id -> users.id
+    - journey_id -> journeys.id
+    - profile_id -> candidate_profiles.id
+    unique: []
+    rules:
+    - All support refs same owner; platform additions cite verified evidence
+    - Any edit increments revision and clears all approval fields atomically
+    - Approved status requires approved_revision=revision and approved_content_sha256=content_sha256
+  resume_exports:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      resume_id: uuid
+      approved_revision: integer
+      approved_content_sha256: char(64)
+      format: 'text: pdf|docx'
+      asset_id: uuid
+    foreign_keys:
+    - resume_id -> resume_versions.id
+    - asset_id -> assets.id
+    unique:
+    - - resume_id
+      - approved_revision
+      - format
+    rules:
+    - Immutable content snapshot and approval checked before enqueue and again at
+      render commit
+    - Historical approved snapshot retained with export even after later edit; existing
+      artifact never overwritten
+  idempotency_records:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      user_id: uuid
+      method: text
+      route: text
+      key: uuid
+      request_sha256: char(64)
+      response_status: integer
+      response_json: jsonb
+      expires_at: timestamptz
+    foreign_keys:
+    - user_id -> users.id
+    unique:
+    - - user_id
+      - method
+      - route
+      - key
+    rules:
+    - Atomic reservation and effect/enqueue; mismatch rejected; no sensitive payload
+      stored beyond needed response
+  model_invocations:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      workflow_id: uuid
+      metadata_json: jsonb model-invocation.schema.json
+    foreign_keys:
+    - workflow_id -> workflow_operations.id
+    unique: []
+    rules:
+    - No raw prompts/resume text or credentials; record actual provider, model and
+      routing revision
+    - Model gateway has no grading-secret access
+  outbox:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      operation_id: uuid
+      event_type: text
+      payload_json: jsonb minimal private payload
+      status: 'text: pending|delivered|failed'
+      attempt_count: integer >=0
+    foreign_keys: []
+    unique: []
+    rules:
+    - Transactional enqueue for worker and storage actions; retry consumers idempotent
+  audit_events:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      user_id: uuid null
+      event_type: text
+      entity_type: text
+      entity_id: uuid
+      detail_json: jsonb redacted metadata
+    foreign_keys:
+    - user_id -> users.id
+    unique: []
+    rules:
+    - Append-only; record consent, review, approval, grading and deletion transitions;
+      no raw content
+  wellbeing_preferences:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      user_id: uuid
+      opted_in: boolean default false
+      support_style: text null
+    foreign_keys:
+    - user_id -> users.id
+    unique:
+    - - user_id
+    rules:
+    - No scoring/grading/resume query reads this table
+  data_exports:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      user_id: uuid
+      asset_id: uuid
+    foreign_keys:
+    - user_id -> users.id
+    - asset_id -> assets.id
+    unique: []
+    rules: []
+  deletion_requests:
+    columns:
+      id: uuid primary key
+      created_at: timestamptz not null
+      updated_at: timestamptz not null
+      user_id: uuid
+      status: 'text: pending|completed'
+      completed_at: timestamptz null
+    foreign_keys: []
+    unique: []
+    rules:
+    - Minimal tombstone retained 7 days; no user content
+    - Deletion erases owned data/assets, then identity; status tombstone remains accessible
+      only to original token subject until expiry
+journey_transitions:
+- from: PROFILE_REVIEW
+  event: profile confirmed
+  to: JOB_SEARCH
+- from: JOB_SEARCH
+  event: available or empty search stored
+  to: GAP_ANALYSIS
+- from: GAP_ANALYSIS
+  event: supported gap/path selected
+  to: PATH_APPROVAL
+- from: PATH_APPROVAL
+  event: learner approves exact path/rubric
+  to: LEARNING
+- from: LEARNING
+  event: final assessment started
+  to: ASSESSING
+- from: ASSESSING
+  event: final passed + evidence committed
+  to: EVIDENCE_VERIFIED
+- from: ASSESSING
+  event: failed final; count <3
+  to: REMEDIATION
+- from: ASSESSING
+  event: ungradable or retry exhausted
+  to: NEEDS_REVIEW
+- from: REMEDIATION
+  event: learner resumes instruction
+  to: LEARNING
+- from: REMEDIATION
+  event: unused reviewed final set available; learner retries
+  to: ASSESSING
+- from: NEEDS_REVIEW
+  event: human assistance chooses alternate instruction; no grade override
+  to: LEARNING
+- from: EVIDENCE_VERIFIED
+  event: resume draft stored
+  to: RESUME_REVIEW
+- from: RESUME_REVIEW
+  event: exact draft approved
+  to: EXPORT_READY
+- from: EXPORT_READY
+  event: resume edited/rejected
+  to: RESUME_REVIEW
+transactions:
+  confirm_profile:
+  - lock draft + expected revision
+  - validate every keep/remove ID and source evidence
+  - persist confirmed snapshot
+  - advance linked draft journeys
+  - record idempotency/audit
+  publish_template:
+  - validate reviewer role and non-self approval
+  - verify definition/bundle hashes and publication checklist
+  - verify approved diagnostic and final sets
+  - freeze rubric and bind all approved sets
+  - mark published; audit
+  submit_assessment:
+  - lock attempt/path
+  - verify owner, state, rubric and exact assigned IDs
+  - persist immutable submission/hash
+  - enqueue grading in same transaction
+  grade_assessment:
+  - lock attempt/path; return existing terminal outcome if already graded
+  - validate deterministic results for pinned rubric/set/build
+  - persist artifacts/result
+  - increment failed final count once OR insert final passing evidence
+  - advance journey/path and audit; commit all or none
+  edit_resume:
+  - lock expected revision
+  - validate claim supports and scope
+  - increment revision, clear approval
+  - advance checkpoint to RESUME_REVIEW
+  approve_resume:
+  - lock exact revision/hash
+  - revalidate evidence ownership
+  - record user, timestamp and content hash
+  - advance EXPORT_READY
+  export_resume:
+  - verify exact approved snapshot before enqueue
+  - render immutable snapshot and verify format
+  - stage private bytes
+  - recheck approval at commit; register immutable export and outbox cleanup
+  - return existing record for same approved revision/format
+retention_proposed:
+  upload_originals: Delete after successful profile confirmation unless user explicitly
+    opts to retain; extracted confirmed evidence retained until deletion. Draft uploads
+    expire after 7 days.
+  failed_uploads: Delete within 24 hours after failure.
+  model_metadata: 30 days, redacted; no raw prompts by default.
+  user_data: Until user deletion; deletion job target <=24 hours, with visible pending
+    state and retries.
+  idempotency_keys: 7 days; permanent domain uniqueness protects final attempts/exports.
+  reviewed_shared_content: Retained independently of learner deletion; do not embed
+    learner personal data.

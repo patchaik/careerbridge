@@ -5,8 +5,8 @@ Walks the full product flow with a throwaway user, skill and job, checks every
 integrity rule, then deletes everything it created (including stored files).
 
 Usage (from the repo root):
-  pip install -r db_requirements.txt
-  python3 database_tests/test_db_layer.py
+  pip install -r requirements.txt
+  python database_tests/test_db_layer.py
 """
 
 import sys

@@ -1,2 +1,50 @@
-.env
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Node / frontend
+node_modules/
+dist
+dist-ssr
+*.local
+
+# Python / backend
+.venv/
 __pycache__/
+*.pyc
+
+# Env files — never commit secrets. .env.example is the template and IS tracked.
+.env
+.env.*
+!.env.example
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Contract validation and local provider evidence
+*.py[cod]
+.pytest_cache/
+deployment/*-capabilities.json
+deployment/model-routing.yaml
+deployment/job-model-routing.yaml
+deployment/invocations.jsonl
+.ruff_cache/
+
+deployment/resource-model-routing.yaml
+deployment/plan-model-routing.yaml
+*-check.private.json
+
+deployment/lesson-model-routing.yaml

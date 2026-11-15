@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "workflow_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "task": {
+      "type": "string",
+      "enum": [
+        "profile_extract",
+        "job_extract",
+        "gap_explain",
+        "path_plan",
+        "lesson",
+        "tutor",
+        "resume_draft",
+        "resource_extract"
+      ]
+    },
+    "provider": {
+      "type": "string",
+      "enum": [
+        "openai",
+        "nebius"
+      ]
+    },
+    "requested_model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "returned_model": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "routing_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "prompt_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "output_schema_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "provider_request_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "succeeded",
+        "refused",
+        "incomplete",
+        "invalid_output",
+        "failed"
+      ]
+    },
+    "input_tokens": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "output_tokens": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "latency_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "id",
+    "workflow_id",
+    "task",
+    "provider",
+    "requested_model",
+    "returned_model",
+    "routing_revision",
+    "prompt_version",
+    "output_schema_version",
+    "provider_request_id",
+    "status",
+    "input_tokens",
+    "output_tokens",
+    "latency_ms",
+    "created_at"
+  ]
+}

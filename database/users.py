@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import time
 from typing import Optional
 
-from .client import (DBError, delete_by_id, first, get_by_id, now_iso, pick,
-                     remove_files, require, run, storage, table)
+from .client import (DBError, delete_by_id, first, get_by_id, get_client, now_iso,
+                     pick, remove_files, require, run, storage, table)
 from .models import MAX_RETRIES, Modality, WorkflowState
 
 _USER_FIELDS = {"name", "email", "auth_provider", "preferences_json", "consent_at"}
@@ -60,6 +61,58 @@ def delete_user(user_id: str) -> bool:
             files = []
         remove_files(f"{folder}/{f['name']}" for f in files if f.get("name"))
     return delete_by_id("users", user_id, "user")
+
+
+# ---- Supabase Auth (AUTH_MODE=supabase) ---------------------------------------
+# Validating a bearer token is an auth.get_user() call to the Supabase auth
+# server, not a database query, but it lives here (rather than in
+# careerbridge/main.py) because it goes through the same shared client as
+# everything else in this package. Results are cached briefly so a page that
+# fires several requests in quick succession doesn't re-validate every time.
+_AUTH_USER_CACHE: dict[str, tuple[float, Optional[dict]]] = {}
+_AUTH_CACHE_TTL_SECONDS = 60
+
+
+def get_auth_user(access_token: str) -> Optional[dict]:
+    """Validate a Supabase Auth access token. Returns {id, email,
+    user_metadata} for a valid token, or None if it's missing, malformed,
+    expired, or otherwise rejected by the auth server."""
+    now = time.monotonic()
+    cached = _AUTH_USER_CACHE.get(access_token)
+    if cached and cached[0] > now:
+        return cached[1]
+
+    try:
+        response = get_client().auth.get_user(access_token)
+        user = getattr(response, "user", None)
+    except Exception:  # noqa: BLE001 - any invalid/expired/malformed token
+        user = None
+
+    result = {"id": user.id, "email": user.email, "user_metadata": user.user_metadata or {}} if user else None
+    _AUTH_USER_CACHE[access_token] = (now + _AUTH_CACHE_TTL_SECONDS, result)
+    return result
+
+
+def get_or_link_app_user(auth_user_id: str, email: str, metadata: Optional[dict] = None) -> dict:
+    """Resolve the app `users` row for a signed-in Supabase Auth identity:
+    by id first (the normal case), then by email (links an older row from
+    before Supabase Auth, e.g. one created via the legacy X-User-Id flow),
+    then creates a new row with id = the auth user's id."""
+    existing = get_user(auth_user_id)
+    if existing:
+        return existing
+    existing = get_user_by_email(email)
+    if existing:
+        return existing
+    metadata = metadata or {}
+    row = {
+        "id": auth_user_id,
+        "email": (email or "").strip().lower(),
+        "name": metadata.get("full_name"),
+        "auth_provider": "supabase",
+        "consent_at": now_iso() if metadata.get("consent") else None,
+    }
+    return first(run(table("users").insert(row), "Create user"))
 
 
 # ---- Career goals ------------------------------------------------------------
@@ -149,3 +202,20 @@ def log_event(user_id: str, event_type: str, entity_type: Optional[str] = None,
 def list_events(user_id: str, limit: int = 100) -> list[dict]:
     return run(table("audit_events").select("*").eq("user_id", user_id)
                .order("occurred_at", desc=True).limit(limit), "List events")
+
+
+def get_path_workflow(user_id: str, path_id: str) -> Optional[dict]:
+    """Find the completed immutable plan snapshot owned by this learner."""
+    return first(run(table("workflow_runs").select("*").eq("user_id", user_id)
+        .contains("state_json", {"kind": "generate_path", "status": "complete", "result": {"id": path_id}})
+        .limit(1), "Find learning plan snapshot"))
+
+
+def list_lesson_workflows(user_id: str, path_id: str, milestone_id: Optional[str] = None) -> list[dict]:
+    """Read completed material snapshots; a GET never invokes a model."""
+    match = {"kind": "generate_lesson", "status": "complete", "path_id": path_id}
+    if milestone_id is not None:
+        match["milestone_id"] = milestone_id
+    query = (table("workflow_runs").select("*").eq("user_id", user_id)
+             .contains("state_json", match).order("created_at", desc=True))
+    return run(query.limit(1 if milestone_id is not None else 50), "Read milestone material")

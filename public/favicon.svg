@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="68 60 134 84" role="img" aria-label="CareerBridge">
+  <rect x="114" y="66" width="6" height="74" fill="#1E293B"/>
+  <rect x="150" y="66" width="6" height="74" fill="#1E293B"/>
+  <rect x="114" y="79" width="42" height="3" fill="#1E293B"/>
+  <path d="M117 68 Q96 72 78 120 M117 76 Q100 80 86 120 M117 84 Q104 88 94 120 M153 68 Q174 72 192 120 M153 76 Q170 80 184 120 M153 84 Q166 88 176 120 M117 70 Q135 112 153 70" fill="none" stroke="#1E293B" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M127 84 L127 120 M135 90 L135 120 M143 84 L143 120" fill="none" stroke="#1E293B" stroke-width="1.2"/>
+  <rect x="72" y="120" width="126" height="5" rx="1" fill="#1E293B"/>
+  <circle cx="78" cy="122.5" r="3" fill="#3730A3"/>
+  <circle cx="192" cy="122.5" r="3" fill="#3730A3"/>
+</svg>

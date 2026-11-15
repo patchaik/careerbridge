@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "active_profile": {
+      "type": "string",
+      "enum": [
+        "openai",
+        "nebius"
+      ]
+    },
+    "profiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "openai": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "provider": {
+              "const": "openai"
+            },
+            "base_url": {
+              "type": "string",
+              "format": "uri",
+              "pattern": "^https://"
+            },
+            "api_key_env": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "model_env": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "transport": {
+              "const": "chat_completions"
+            },
+            "adapter_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "structured_mode": {
+              "type": "string",
+              "enum": [
+                "json_schema",
+                "json_object_validated"
+              ]
+            },
+            "capability_report_path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          },
+          "required": [
+            "provider",
+            "base_url",
+            "api_key_env",
+            "model_env",
+            "transport",
+            "adapter_version",
+            "structured_mode",
+            "capability_report_path"
+          ]
+        },
+        "nebius": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "provider": {
+              "const": "nebius"
+            },
+            "base_url": {
+              "type": "string",
+              "format": "uri",
+              "pattern": "^https://"
+            },
+            "api_key_env": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "model_env": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "transport": {
+              "const": "chat_completions"
+            },
+            "adapter_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "structured_mode": {
+              "type": "string",
+              "enum": [
+                "json_schema",
+                "json_object_validated"
+              ]
+            },
+            "capability_report_path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          },
+          "required": [
+            "provider",
+            "base_url",
+            "api_key_env",
+            "model_env",
+            "transport",
+            "adapter_version",
+            "structured_mode",
+            "capability_report_path"
+          ]
+        }
+      },
+      "required": [
+        "openai",
+        "nebius"
+      ]
+    },
+    "task_overrides": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profile_extract": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "nebius"
+          ]
+        },
+        "job_extract": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "nebius"
+          ]
+        },
+        "gap_explain": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "nebius"
+          ]
+        },
+        "path_plan": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "nebius"
+          ]
+        },
+        "lesson": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "nebius"
+          ]
+        },
+        "tutor": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "nebius"
+          ]
+        },
+        "resume_draft": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "nebius"
+          ]
+        },
+        "resource_extract": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "nebius"
+          ]
+        }
+      }
+    },
+    "cross_provider_fallback": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "allowed_profiles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "openai",
+              "nebius"
+            ]
+          },
+          "minItems": 0,
+          "maxItems": 2
+        }
+      },
+      "required": [
+        "enabled",
+        "allowed_profiles"
+      ]
+    },
+    "timeout_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 120
+    },
+    "max_transport_attempts": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3
+    },
+    "max_schema_repairs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1
+    }
+  },
+  "required": [
+    "schema_version",
+    "active_profile",
+    "profiles",
+    "task_overrides",
+    "cross_provider_fallback",
+    "timeout_seconds",
+    "max_transport_attempts",
+    "max_schema_repairs"
+  ]
+}

@@ -222,7 +222,7 @@ STORAGE_BUCKET=careerbridge-private
 | `database/users.py`, `profiles.py`, `jobs.py`, `learning.py`, `mastery.py`, `resumes.py`, `wellbeing.py`, `admin.py` | Interface functions by domain |
 | `database_tests/test_db_setup.py` | Connection, 18 tables, bucket, write test |
 | `database_tests/test_db_layer.py` | Full flow and every integrity rule, with cleanup |
-| `db_requirements.txt` | Python dependencies |
+| `requirements.txt` (repo root) | Python dependencies, shared with the rest of the backend |
 | `api/openapi.yaml` | HTTP contract for the UI and backend |
 
 ### Build order

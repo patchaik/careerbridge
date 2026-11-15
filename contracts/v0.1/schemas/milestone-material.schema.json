@@ -1,0 +1,271 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "path_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "milestone_id": {
+      "type": "string"
+    },
+    "workflow_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "content": {
+      "$ref": "#/$defs/LessonContent"
+    },
+    "resources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": {
+        "$ref": "#/$defs/SavedLearningResource"
+      }
+    }
+  },
+  "required": [
+    "path_id",
+    "milestone_id",
+    "workflow_id",
+    "generated_at",
+    "content",
+    "resources"
+  ],
+  "$defs": {
+    "LessonCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "question": {
+          "maxLength": 800,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "answer": {
+          "maxLength": 800,
+          "minLength": 1,
+          "title": "Answer",
+          "type": "string"
+        }
+      },
+      "required": [
+        "question",
+        "answer"
+      ],
+      "title": "LessonCheck",
+      "type": "object"
+    },
+    "LessonPractice": {
+      "additionalProperties": false,
+      "properties": {
+        "setup": {
+          "maxLength": 1200,
+          "minLength": 1,
+          "title": "Setup",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "maxLength": 800,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 6,
+          "minItems": 2,
+          "title": "Steps",
+          "type": "array"
+        },
+        "deliverable": {
+          "maxLength": 800,
+          "minLength": 1,
+          "title": "Deliverable",
+          "type": "string"
+        }
+      },
+      "required": [
+        "setup",
+        "steps",
+        "deliverable"
+      ],
+      "title": "LessonPractice",
+      "type": "object"
+    },
+    "LessonSection": {
+      "additionalProperties": false,
+      "properties": {
+        "heading": {
+          "maxLength": 150,
+          "minLength": 1,
+          "title": "Heading",
+          "type": "string"
+        },
+        "body": {
+          "maxLength": 3000,
+          "minLength": 1,
+          "title": "Body",
+          "type": "string"
+        }
+      },
+      "required": [
+        "heading",
+        "body"
+      ],
+      "title": "LessonSection",
+      "type": "object"
+    },
+    "LessonContent": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "maxLength": 150,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "text",
+            "hands_on"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "learning_objective": {
+          "maxLength": 600,
+          "minLength": 1,
+          "title": "Learning Objective",
+          "type": "string"
+        },
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/LessonSection"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Sections",
+          "type": "array"
+        },
+        "example": {
+          "maxLength": 2500,
+          "minLength": 1,
+          "title": "Example",
+          "type": "string"
+        },
+        "practice": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LessonPractice"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "self_checks": {
+          "items": {
+            "$ref": "#/$defs/LessonCheck"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Self Checks",
+          "type": "array"
+        },
+        "resource_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Resource Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "title",
+        "mode",
+        "learning_objective",
+        "sections",
+        "example",
+        "practice",
+        "self_checks",
+        "resource_ids"
+      ],
+      "title": "LessonContent",
+      "type": "object"
+    },
+    "SavedLearningResource": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "price_type": {
+          "enum": [
+            "free",
+            "paid",
+            "mixed",
+            "unknown"
+          ],
+          "title": "Price Type",
+          "type": "string"
+        },
+        "price_evidence": {
+          "maxLength": 400,
+          "title": "Price Evidence",
+          "type": "string"
+        },
+        "learning_evidence": {
+          "maxLength": 400,
+          "minLength": 1,
+          "title": "Learning Evidence",
+          "type": "string"
+        },
+        "format": {
+          "enum": [
+            "article",
+            "video",
+            "course",
+            "exercise",
+            "unknown"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "checked_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "title",
+        "price_type",
+        "price_evidence",
+        "learning_evidence",
+        "format",
+        "id",
+        "url",
+        "checked_at"
+      ],
+      "title": "Resource",
+      "type": "object"
+    }
+  }
+}
