@@ -1,3 +1,5 @@
+> **Legacy stitch integration:** New MVP work follows [contracts/v0.1](../contracts/v0.1/README.md). Read [reconciliation status](RECONCILIATION.md) for the current baseline and remaining JWT, workflow and deterministic assessment requirements. The behavior below is retained for prototype reference.
+
 # API contract
 
 This file used to be the UI's own invented contract. Superseded as of

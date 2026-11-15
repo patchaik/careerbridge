@@ -1,3 +1,5 @@
+> **Legacy contract:** New MVP implementation targets [contracts/v0.1](../contracts/v0.1/README.md), including `/api/v1` and JWT-derived identity. The specification below documents the earlier baseline and is retained for migration reference.
+
 # CareerBridge API
 
 `openapi.yaml` is the contract between the UI and the FastAPI backend (OpenAPI 3.1).
@@ -47,3 +49,4 @@ bad input → 422 `validation_error`.
 | System | `GET /api/health` · `GET /api/workflows/{id}` | Health and long-running status |
 
 For the weekend demo, the P0 path is steps 1–6, 8 and 9.
+

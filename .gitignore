@@ -33,3 +33,11 @@ __pycache__/
 *.njsproj
 *.sln
 *.sw?
+
+# Contract validation and local provider evidence
+*.py[cod]
+.pytest_cache/
+deployment/*-capabilities.json
+deployment/model-routing.yaml
+deployment/invocations.jsonl
+.ruff_cache/

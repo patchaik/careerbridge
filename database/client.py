@@ -41,11 +41,11 @@ def get_client():
     """Return one shared Supabase client (created on first use)."""
     _load_env()
     url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
-    key = os.getenv("SUPABASE_KEY", "").strip()
+    key = (os.getenv("SUPABASE_SECRET_KEY") or os.getenv("SUPABASE_KEY", "")).strip()
     if url.endswith("/rest/v1"):
         url = url[: -len("/rest/v1")]
     if not url or not key:
-        raise DBError("SUPABASE_URL and SUPABASE_KEY must be set in .env")
+        raise DBError("Set SUPABASE_URL and SUPABASE_SECRET_KEY (or legacy SUPABASE_KEY) in .env")
     try:
         from supabase import create_client
     except ImportError as exc:

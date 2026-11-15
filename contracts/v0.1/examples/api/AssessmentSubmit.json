@@ -1,0 +1,26 @@
+{
+  "rubric_id": "00000000-0000-4000-8000-000000000060",
+  "rubric_content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "knowledge_answers": [
+    {
+      "question_id": "q1",
+      "option_id": "a"
+    }
+  ],
+  "project_submissions": [
+    {
+      "task_id": "p1",
+      "submission": {
+        "kind": "table_transform_v1",
+        "steps": [
+          {
+            "operation": "group_sum",
+            "column": "amount",
+            "value": null,
+            "group_by": "region"
+          }
+        ]
+      }
+    }
+  ]
+}

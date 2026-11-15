@@ -1,37 +1,29 @@
 # CareerBridge
 
-An AI-for-Good Buildathon project: a job-first upskilling app. This repo combines three parts
-that were developed on separate branches and are being stitched together on `stitch-1`:
+Target a role, identify an evidence-backed skill gap, learn and practice, demonstrate a competency, and approve a truthful résumé update.
 
-- **UI** (`src/`) — React + Vite + Tailwind frontend. See inline docs and `docs/API_PROPOSALS.md`.
-- **Database layer** (`database/`, `database_tests/`, `api/openapi.yaml`) — a Python package over
-  Supabase that is the single source of truth for storage, plus the official API contract the
-  backend must expose. See `database/README.md`, `api/README.md`, and `docs/DB_DESIGN.md`.
-- **AI backend** (`careerbridge/`) — a FastAPI app with LangGraph agents (résumé analysis, job
-  search, learning paths, assessment). See `careerbridge/` and `docs/INTEGRATION_NOTES.md` for how
-  it's wired to Supabase and the contract in `stitch-1`.
+This baseline combines the latest `stitch-1` UI/Supabase/agent integration with PR #3's contracts and PR #22's DB/model gateway. Existing onboarding works against the legacy API; the canonical MVP integration remains in progress.
 
-Full instructions for running everything together on Windows (env vars, both servers, the
-database tests, mock mode) are in **`docs/INTEGRATION_NOTES.md`**.
+- [Reconciliation, verified behavior and next work](docs/RECONCILIATION.md)
+- [Requirements](docs/MVP_REQUIREMENTS.md)
+- [Minimal implementation guidelines](docs/IMPLEMENTATION_GUIDELINES.md)
+- [Implementation handoff and issue dependencies](docs/IMPLEMENTATION_HANDOFF.md)
+- [Canonical API/schema/template contracts](contracts/v0.1/README.md)
+- [Wave-one migrations and model gateway](docs/WAVE1_IMPLEMENTATION.md)
+- [Retained stitch setup and prototype behavior](docs/INTEGRATION_NOTES.md)
 
-## Frontend
+## Local development
 
 ```sh
-npm install
-npm run dev
+python -m venv .venv
+# Activate .venv using the command for your shell.
+python -m pip install -r requirements.txt -r requirements-test.txt
+cp .env.example .env
+npm ci
 ```
 
-Runs on `http://localhost:3002`. See `.env.example` for `VITE_USE_MOCKS` / `VITE_API_BASE_URL`.
+Keep credentials in `.env`; use `SUPABASE_SECRET_KEY` for the server. Existing `SUPABASE_KEY` secret/service-role configurations remain supported. `DATABASE_URL` is a separate SQL connection for reviewed migrations and transactional repositories.
 
-## Backend
+The retained development API runs with `uvicorn careerbridge.main:app --host 127.0.0.1 --port 8000`; the UI runs with `npm run dev`. Review the integration notes first: sign-in is still mocked, identity uses caller-supplied `X-User-Id`, and some operations remain mock or unavailable. These routes are not authenticated production services. Use `VITE_USE_MOCKS=true` for an offline UI preview.
 
-```sh
-py -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn careerbridge.main:app --reload --port 8000
-```
-
-Requires a `.env` with `SUPABASE_URL` / `SUPABASE_KEY` (service role — never commit this) and, for
-mock mode, `CAREERBRIDGE_ANALYST_MODE=mock` / `CAREERBRIDGE_SEARCH_MODE=mock`. See
-`docs/INTEGRATION_NOTES.md` for the full setup and what's real vs. mocked vs. not yet available.
+New work follows `contracts/v0.1`; older API documents are historical. Reviewed competency templates support a general platform with RAG as an optional example. OpenAI/Nebius routing is server-side, and automatic cross-provider fallback stays off. Existing agents still need gateway integration.

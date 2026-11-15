@@ -1,0 +1,4 @@
+-r requirements-wave1.txt
+pytest>=8,<10
+
+ruff==0.17.5
