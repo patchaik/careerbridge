@@ -41,6 +41,9 @@ export interface CandidateSkillEvidence {
 // copy for "no_job", exploration-leaning recommendations for "new_career").
 export type Situation = "upskill" | "no_job" | "new_career";
 
+// Self-reported experience level, captured alongside situation on /start.
+export type ExperienceLevel = "beginner" | "intermediate" | "expert";
+
 export interface CandidateProfile {
   id: string;
   targetRole: string | null;
@@ -49,6 +52,8 @@ export interface CandidateProfile {
   workMode: "remote" | "hybrid" | "onsite" | null;
   skills: CandidateSkillEvidence[];
   situation: Situation | null;
+  experienceLevel: ExperienceLevel | null;
+  yearsOfExperience: number | null;
   confirmedAt: string | null;
 }
 

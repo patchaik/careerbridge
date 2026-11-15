@@ -7,6 +7,7 @@ import type {
   AuthSession,
   CandidateProfile,
   CandidateSkillEvidence,
+  ExperienceLevel,
   Interest,
   InterestAnalysis,
   KnowledgeCheckQuestion,
@@ -91,6 +92,8 @@ export function mockParseResume(simulateFailure = false): string {
 export interface CreateProfileInput {
   skills: { skill: string; source: SkillSource }[];
   situation: Situation;
+  experienceLevel: ExperienceLevel;
+  yearsOfExperience: number;
 }
 
 // Builds the profile from whatever StartPage has compiled: skills (résumé-
@@ -109,7 +112,13 @@ export function mockCreateProfile(input: CreateProfileInput): string {
         };
       });
       return {
-        profile: { ...demoProfile, skills, situation: input.situation },
+        profile: {
+          ...demoProfile,
+          skills,
+          situation: input.situation,
+          experienceLevel: input.experienceLevel,
+          yearsOfExperience: input.yearsOfExperience,
+        },
       };
     },
     [500, 1100],
