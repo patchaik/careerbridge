@@ -5,6 +5,7 @@ Target a role, identify an evidence-backed skill gap, learn and practice, demons
 ## Shared MVP implementation baseline
 
 - [Minimal MVP implementation guidelines](docs/IMPLEMENTATION_GUIDELINES.md)
+- [Wave 1 implementation and setup](docs/WAVE1_IMPLEMENTATION.md)
 - [Requirements](docs/MVP_REQUIREMENTS.md)
 - [Implementation handoff, issues and dependencies](docs/IMPLEMENTATION_HANDOFF.md)
 - [Shared API/schema/template contracts](contracts/v0.1/README.md)

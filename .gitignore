@@ -1,2 +1,11 @@
 .env
+.env.*
+!.env.example
 __pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+deployment/*-capabilities.json
+deployment/model-routing.yaml
+deployment/invocations.jsonl
+.ruff_cache/
