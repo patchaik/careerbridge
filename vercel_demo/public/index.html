@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CareerBridge</title>
+  <style>
+    :root { --bg: #f7f7f5; --card: #fff; --ink: #1f2328; --muted: #5f6368; --line: #e3e3df;
+            --ok: #1a7f37; --warn: #9a6700; --bad: #cf222e; --accent: #2457c5; --on-accent: #fff; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #16171a; --card: #1f2125; --ink: #e8e8e6; --muted: #a0a3a8; --line: #33363b;
+              --ok: #3fb950; --warn: #d29922; --bad: #f85149; --accent: #6d9cff; --on-accent: #0d1117; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 16px/1.6 system-ui, -apple-system, Segoe UI, sans-serif;
+           background: var(--bg); color: var(--ink); }
+    main { max-width: 640px; margin: 0 auto; padding: 48px 16px; }
+    h1 { font-size: 28px; margin: 0 0 4px; }
+    p.lead { color: var(--muted); margin: 0 0 32px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+            padding: 20px; margin-bottom: 16px; }
+    h2 { font-size: 16px; margin: 0 0 12px; }
+    dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+    dt { color: var(--muted); }
+    dd { margin: 0; font-variant-numeric: tabular-nums; }
+    .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+    form { display: flex; gap: 8px; flex-wrap: wrap; }
+    input { flex: 1; min-width: 160px; padding: 8px 12px; border-radius: 8px;
+            border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
+    button { padding: 8px 16px; border-radius: 8px; border: 0; background: var(--accent);
+             color: var(--on-accent); font: inherit; cursor: pointer; }
+    #reply { margin: 12px 0 0; color: var(--muted); min-height: 1.6em; }
+    footer { color: var(--muted); font-size: 14px; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+<main>
+  <h1>CareerBridge</h1>
+  <p class="lead">Target a job. Discover a genuine skill gap. Learn it. Demonstrate it.</p>
+
+  <section class="card" aria-live="polite">
+    <h2>System status</h2>
+    <dl>
+      <dt>API</dt><dd id="api">Checking…</dd>
+      <dt>Database</dt><dd id="db">Checking…</dd>
+      <dt>Environment</dt><dd id="env">–</dd>
+      <dt>Commit</dt><dd id="commit">–</dd>
+    </dl>
+  </section>
+
+  <section class="card">
+    <h2>Try the API</h2>
+    <form id="hello">
+      <label for="name" class="sr">Your name</label>
+      <input id="name" name="name" placeholder="Your name" maxlength="50" required>
+      <button type="submit">Say hello</button>
+    </form>
+    <p id="reply"></p>
+  </section>
+
+  <footer>API docs: <a href="/docs">/docs</a></footer>
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const DB_TEXT = {
+    connected: ["Connected to Supabase", "ok"],
+    not_configured: ["Not configured (add SUPABASE_URL and SUPABASE_KEY in Vercel)", "warn"],
+    error: ["Cannot reach Supabase (check the key and that the project is awake)", "bad"],
+  };
+
+  async function checkHealth() {
+    try {
+      const res = await fetch("/api/health");
+      const data = await res.json();
+      $("api").textContent = "Running"; $("api").className = "ok";
+      const [text, cls] = DB_TEXT[data.database] || ["Unknown", "warn"];
+      $("db").textContent = text; $("db").className = cls;
+      $("env").textContent = data.environment;
+      $("commit").textContent = data.commit;
+    } catch (e) {
+      $("api").textContent = "Not reachable"; $("api").className = "bad";
+      $("db").textContent = "–";
+    }
+  }
+
+  $("hello").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const name = $("name").value.trim();
+    if (!name) { $("reply").textContent = "Enter a name first."; return; }
+    $("reply").textContent = "…";
+    try {
+      const res = await fetch("/api/hello?name=" + encodeURIComponent(name));
+      const data = await res.json();
+      $("reply").textContent = res.ok ? data.message : "The API rejected that name.";
+    } catch (e) {
+      $("reply").textContent = "Could not reach the API.";
+    }
+  });
+
+  checkHealth();
+</script>
+<style>.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }</style>
+</body>
+</html>
