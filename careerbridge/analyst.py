@@ -11,7 +11,7 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from pypdf import PdfReader
 
-from careerbridge import db
+from careerbridge.mock_skills import extract_mock_skills
 from careerbridge.prompts.career_analyst import EXTRACT_SKILLS
 from careerbridge.schemas import ExtractedSkills, Skill
 
@@ -26,7 +26,6 @@ class AnalystState(TypedDict, total=False):
 
 
 def parse_resume(state: AnalystState):
-    db.set_stage(state["workflow_id"], "parsing_resume")
     file = io.BytesIO(state["file_data"])
     if state["file_type"] == ".pdf":
         reader = PdfReader(file)
@@ -49,16 +48,11 @@ def parse_resume(state: AnalystState):
 
 
 def extract_skills(state: AnalystState):
-    db.set_stage(state["workflow_id"], "extracting_skills")
     mode = os.getenv("CAREERBRIDGE_ANALYST_MODE", "llm")
     if mode == "mock":
-        # A small deterministic fixture, only matching skills in the actual text.
-        skills = []
-        for name in ("Python", "Java", "SQL"):
-            match = re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", state["text"], re.IGNORECASE)
-            if match:
-                skills.append(Skill(name=name, category="technical", evidence=match.group()))
-        result = ExtractedSkills(skills=skills)
+        # A deterministic fixture (careerbridge/mock_skills.py), only matching
+        # skills actually present in the text — no AI calls.
+        result = ExtractedSkills(skills=[Skill(**item) for item in extract_mock_skills(state["text"])])
     elif mode == "llm":
         model = ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"), temperature=0)
         result = model.with_structured_output(ExtractedSkills).invoke([

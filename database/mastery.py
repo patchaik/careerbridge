@@ -95,6 +95,30 @@ def start_attempt(user_id: str, rubric_id: str,
     return first(run(table("assessment_attempts").insert(row), "Start attempt"))
 
 
+def save_pending_assessment_set(attempt_id: str, assessment_set: dict) -> dict:
+    """Stash the generated quiz + project task (with answer keys) on an
+    in-progress attempt, so submit_attempt's caller can grade it later.
+
+    Added for stitch-1: there is no dedicated assessment-set table, so this
+    reuses the attempt's own (otherwise-empty, pre-grading) quiz_results_json
+    under a reserved key. submit_attempt's real results overwrite it, so
+    answer keys never leak past that point. See docs/INTEGRATION_NOTES.md.
+    """
+    attempt = require(get_attempt(attempt_id), "Attempt")
+    if attempt["status"] != "in_progress":
+        raise DBError("Can only attach a pending assessment set to an in-progress attempt")
+    return first(run(table("assessment_attempts").update(
+        {"quiz_results_json": {"_pending_assessment_set": assessment_set}}).eq("id", attempt_id),
+        "Save pending assessment set"))
+
+
+def get_pending_assessment_set(attempt_id: str) -> Optional[dict]:
+    """The quiz + answer keys stashed by save_pending_assessment_set, or None
+    once the attempt has been submitted (submit_attempt overwrites the field)."""
+    attempt = require(get_attempt(attempt_id), "Attempt")
+    return (attempt.get("quiz_results_json") or {}).get("_pending_assessment_set")
+
+
 def submit_attempt(attempt_id: str, outcome: str, quiz_results: Optional[dict] = None,
                    project_results: Optional[dict] = None,
                    score: Optional[dict] = None) -> dict:
