@@ -93,7 +93,28 @@ python -m careerbridge.tests.test_mock_skills
 | Auth (sign up/in, email verification, password reset) | **Real** — Supabase Auth, always, regardless of `VITE_USE_MOCKS` (see below) |
 
 `src/lib/api/endpoints.ts` is the single switch; `VITE_USE_MOCKS=true` forces
-everything to mock regardless of that table.
+everything to mock regardless of that table — **except** job search/gap
+analysis (`src/lib/api/jobs.ts`, `skills.ts`), which have no frontend mock at
+all. Mock-ness for those lives entirely on the **backend**
+(`CAREERBRIDGE_SEARCH_MODE=mock` → synthetic postings, same real endpoints).
+`analyzeSkills`/`getGapAnalysis` always call the real endpoint unconditionally;
+`searchJobs`/`createGoal` still check `isReal()`, but only to fail with a
+clear error in pure demo mode (`VITE_USE_MOCKS=true`, where no backend is
+assumed to exist) rather than silently hitting one that might not be
+running. If you hit "Live job search requires the connected backend" (or
+its demo-mode variant) with the backend actually up, check `VITE_USE_MOCKS`
+in `.env` first — Vite only reads `.env` at startup, so a value changed
+after the dev server started needs a restart to take effect.
+
+**Live Keenable job search** (`CAREERBRIDGE_SEARCH_MODE=live`) is **not
+free**: `docs/LIVE_JOB_SEARCH.md`'s setup calls it out explicitly —
+`KEENABLE_API_KEY` is optional (its public search endpoints need no key),
+but the requirement-extraction step (`job_extract`) goes through the shared
+model gateway (OpenAI or Nebius), which is billable, and its own setup step
+(`python -m scripts.check_job_model`) is described as making "billable...
+probes." Keep `CAREERBRIDGE_SEARCH_MODE=mock` (the `.env`/`.env.example`
+default) for local work — it already returns synthetic postings against
+the same real endpoints, with no model calls and no cost.
 
 **Only `/start`, `/interests` (profile/skills portion), and sign-in/sign-up
 actually call real endpoints from the UI right now** — those are the only

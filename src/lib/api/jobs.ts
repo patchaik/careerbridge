@@ -1,4 +1,5 @@
 import { isReal } from "./endpoints";
+import { USE_MOCKS } from "../config";
 import { apiRequest, ApiError } from "./client";
 
 export interface JobPosting {
@@ -16,9 +17,21 @@ export interface JobPosting {
   }[];
 }
 
+// Job search has no frontend mock fallback — mock-ness lives on the backend
+// (CAREERBRIDGE_SEARCH_MODE=mock returns synthetic postings); this call
+// always hits the real endpoint. The isReal() check below only exists to
+// fail clearly in pure demo mode (VITE_USE_MOCKS=true, where no backend is
+// assumed to be running at all) instead of silently calling a backend that
+// might not exist.
 export async function searchJobs(goalId: string) {
-  if (!isReal("searchJobs"))
-    throw new ApiError(503, "Live job search requires the connected backend.");
+  if (!isReal("searchJobs")) {
+    throw new ApiError(
+      503,
+      USE_MOCKS
+        ? "The app is running in demo mode (VITE_USE_MOCKS=true in .env). Set it to false and restart the dev server to use live job search against the real backend."
+        : "Live job search requires the connected backend.",
+    );
+  }
   return apiRequest<{
     workflow_id: string;
     jobs: JobPosting[];
