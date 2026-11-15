@@ -13,7 +13,8 @@ import {
 } from "../components/features/onboarding/ProfileBasics";
 import { useJourney } from "../context/JourneyContext";
 import { isReal } from "../lib/api/endpoints";
-import { useBuildProfile, useGetProfile, useParseResume } from "../hooks/useOnboarding";
+import { getSavedProfile } from "../lib/api/onboarding";
+import { useBuildProfile, useParseResume } from "../hooks/useOnboarding";
 import { useWorkflowPolling } from "../hooks/useWorkflow";
 import type { CandidateProfile, CandidateSkillEvidence } from "../lib/types";
 
@@ -48,11 +49,7 @@ export function StartPage() {
   const [resumeWorkflowId, setResumeWorkflowId] = useState<string | null>(null);
   const [buildError, setBuildError] = useState<string | null>(null);
 
-  // Set only when a NEW résumé is parsed in THIS session — otherwise the
-  // existing confirmed/unconfirmed profile's own id is reused (see
-  // handleAnalyze), so editing without re-uploading doesn't create a
-  // duplicate backend profile every time.
-  const [sessionProfileId, setSessionProfileId] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(isReal("getProfile"));
 
   const [buildWorkflowId, setBuildWorkflowId] = useState<string | null>(null);
   const settledRef = useRef(false);
@@ -64,31 +61,46 @@ export function StartPage() {
 
   const parseResume = useParseResume();
   const buildProfile = useBuildProfile();
-  const getProfile = useGetProfile();
 
   const resumeWorkflow = useWorkflowPolling<{ skills: CandidateSkillEvidence[]; profileId?: string }>(resumeWorkflowId);
   const buildWorkflow = useWorkflowPolling<{ profile: CandidateProfile }>(buildWorkflowId);
 
   const fromResume = new Set(draftFromResume);
 
-  // Returning to /start: the backend's copy of a confirmed profile is the
-  // source of truth for skills (another device/session could have changed
-  // them), so best-effort refresh it. Mock mode has no independent backend
-  // to refresh from — journey state's `profile` already is the full picture.
+  // Restore from Supabase, including a draft uploaded before a refresh. Local
+  // storage is only a convenience, never proof that a profile/file exists.
   useEffect(() => {
-    if (!profile?.confirmedAt || !isReal("getProfile")) return;
+    if (!isReal("getProfile")) return;
     let cancelled = false;
     (async () => {
-      const refreshed = await getProfile.run(profile.id);
-      await Promise.resolve();
-      if (cancelled || !refreshed) return;
-      setProfile({ ...profile, skills: refreshed.skills, confirmedAt: refreshed.confirmedAt });
+      try {
+        const saved = await getSavedProfile(profile?.id);
+        if (cancelled) return;
+        if (saved) {
+          const changed = saved.id !== profile?.id;
+          setProfile({ ...saved, situation, experienceLevel, yearsOfExperience });
+          setIsEditing(!saved.confirmedAt);
+          if (changed || !draftSkills.length) {
+            setDraftSkills(saved.skills.map(s => s.skill));
+            setDraftResumeSkillEvidence(saved.skills.filter(s => s.source === "resume"));
+            setDraftFromResume(saved.skills.filter(s => s.source === "resume").map(s => s.skill));
+          }
+          if (changed) setResumeMeta(null);
+        } else if (profile) {
+          setProfile(null);
+          setResumeMeta(null);
+          setIsEditing(true);
+          setBuildError("The previous profile is no longer saved. Upload your résumé again, or continue with self-reported skills.");
+          setDraftFromResume([]);
+          setDraftResumeSkillEvidence([]);
+        }
+      } catch (error) {
+        if (!cancelled) setBuildError(error instanceof Error ? error.message : "Couldn't load your saved profile.");
+      } finally { if (!cancelled) setRestoring(false); }
     })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run if the profile id itself changes
-  }, [profile?.id]);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- restore once; later local edits belong to the learner
+  }, []);
 
   // Merge résumé-extracted skills into the shared skills list once parsing completes.
   useEffect(() => {
@@ -109,7 +121,6 @@ export function StartPage() {
         }
         setDraftSkills(merged);
         setDraftFromResume([...new Set([...draftFromResume, ...found])]);
-        if (resumeWorkflow.result.profileId) setSessionProfileId(resumeWorkflow.result.profileId);
         setParseError(null);
         if (file) {
           setResumeMeta({ fileName: file.name, uploadedAt: new Date().toISOString(), status: "parsed" });
@@ -163,7 +174,12 @@ export function StartPage() {
       return;
     }
     const result = await parseResume.run(next, false);
-    if (result) setResumeWorkflowId(result.workflowId);
+    if (result) {
+      // Persist the real profile identity immediately, before the next screen or
+      // a reload; the old session-only ID was lost while the filename survived.
+      if (result.profile) setProfile({ ...result.profile, situation, experienceLevel, yearsOfExperience });
+      setResumeWorkflowId(result.workflowId);
+    }
   }
 
   async function handlePreviewFailure() {
@@ -214,7 +230,7 @@ export function StartPage() {
     if (!file && draftSkills.length === 0) return;
     settledRef.current = false;
     setBuildError(null);
-    const profileId = sessionProfileId ?? profile?.id;
+    const profileId = profile?.id;
     const result = await buildProfile.run({
       skills: compileSkills(),
       situation,
@@ -247,6 +263,8 @@ export function StartPage() {
 
   const isAlreadyConfirmed = Boolean(profile?.confirmedAt);
 
+  if (restoring) return <p role="status" className="mx-auto max-w-xl px-4 py-16">Loading your saved profile…</p>;
+
   // Read-only summary once confirmed, unless the user explicitly chose to edit.
   if (isAlreadyConfirmed && !isEditing && profile) {
     const situationLabel = SITUATION_OPTIONS.find((o) => o.value === profile.situation)?.label;
@@ -267,11 +285,11 @@ export function StartPage() {
         </p>
 
         <div className="mt-6 space-y-6">
-          {resumeMeta && (
+          {profile.hasFile && (
             <section>
               <h2 className="text-sm font-semibold text-neutral-800">Résumé</h2>
               <p className="mt-1 text-sm text-neutral-600">
-                {resumeMeta.fileName} — uploaded {new Date(resumeMeta.uploadedAt).toLocaleDateString()}
+                {resumeMeta ? `${resumeMeta.fileName} — saved` : "Your résumé is saved with this profile."}
               </p>
             </section>
           )}
@@ -344,10 +362,9 @@ export function StartPage() {
               Private — used only to build your profile
             </div>
 
-            {resumeMeta && !file && (
+            {profile?.hasFile && !file && (
               <p className="mt-3 text-sm text-neutral-600">
-                Previously uploaded: <span className="font-medium">{resumeMeta.fileName}</span> (
-                {new Date(resumeMeta.uploadedAt).toLocaleDateString()})
+                {resumeMeta ? `Saved résumé: ${resumeMeta.fileName}` : "Your résumé is saved with this profile."}
               </p>
             )}
 
@@ -365,7 +382,7 @@ export function StartPage() {
               id="resume-file"
               type="file"
               accept=".pdf,.docx"
-              disabled={isParsingResume || isBuilding}
+              disabled={restoring || isParsingResume || isBuilding}
               onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
               className="mt-3 block w-full text-sm text-neutral-600 file:mr-3 file:rounded-md file:border file:border-neutral-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-neutral-700 hover:file:bg-neutral-50"
             />
@@ -385,7 +402,7 @@ export function StartPage() {
 
             {!isParsingResume && !parseError && fromResume.size > 0 && (
               <p className="mt-3 text-sm text-success-700">
-                Added {fromResume.size} skill{fromResume.size === 1 ? "" : "s"} from your résumé below.
+                {profile?.hasFile ? "Résumé saved. " : ""}Added {fromResume.size} skill{fromResume.size === 1 ? "" : "s"} from your résumé below.
               </p>
             )}
 
@@ -394,7 +411,7 @@ export function StartPage() {
               <button
                 type="button"
                 onClick={handlePreviewFailure}
-                disabled={isParsingResume || isBuilding}
+                disabled={restoring || isParsingResume || isBuilding}
                 className="underline hover:text-neutral-600"
               >
                 preview what happens if parsing fails
@@ -481,7 +498,7 @@ export function StartPage() {
             </Alert>
           )}
           <div className="flex items-center gap-3">
-            <Button onClick={handleAnalyze} disabled={!canSubmit || isBuilding || isParsingResume}>
+            <Button onClick={handleAnalyze} disabled={restoring || !canSubmit || isBuilding || isParsingResume}>
               <Upload className="h-4 w-4" aria-hidden="true" />
               {isBuilding ? "Analyzing…" : "Analyze my experience"}
             </Button>

@@ -105,6 +105,20 @@ def with_idempotency(key: Optional[str], compute):
 # B. Onboarding / profile
 # ---------------------------------------------------------------------------
 
+def owned_profile(profile_id: str, user_id: str) -> dict:
+    profile = call(profiles.get_profile, profile_id)
+    if not profile or profile["user_id"] != user_id:
+        raise ApiError(404, "not_found", "Profile not found")
+    return profile
+
+
+def get_saved_profile_flow(user_id: str, profile_id: Optional[str] = None) -> dict:
+    profile = owned_profile(profile_id, user_id) if profile_id else call(profiles.get_latest_profile, user_id)
+    if not profile:
+        raise ApiError(404, "not_found", "No saved profile yet. Upload your résumé or add your skills first.")
+    return profile_response(profile["id"])
+
+
 def profile_response(profile_id: str) -> dict:
     profile = call(profiles.get_profile, profile_id)
     if not profile:
@@ -194,11 +208,10 @@ def parse_manual_skills_flow(user_id: str, skill_names: list[str],
 
 def confirm_profile_flow(profile_id: str, skills_payload: list[dict],
                          remove_skill_ids: list[str], clear_resume_text: bool,
-                         idempotency_key: Optional[str]) -> dict:
+                         idempotency_key: Optional[str], user_id: str) -> dict:
+    profile = owned_profile(profile_id, user_id)
+
     def compute():
-        profile = call(profiles.get_profile, profile_id)
-        if not profile:
-            raise ApiError(404, "not_found", "Profile not found")
         existing = call(profiles.list_skill_evidence, profile_id)
         by_skill = {row["skill_id"]: row for row in existing}
         removals = set(remove_skill_ids or [])
@@ -233,7 +246,8 @@ def confirm_profile_flow(profile_id: str, skills_payload: list[dict],
                         result={"profile_id": profile_id})
         return profile_response(profile_id)
 
-    return with_idempotency(idempotency_key, compute)
+    scoped_key = f"confirm:{user_id}:{profile_id}:{idempotency_key}" if idempotency_key else None
+    return with_idempotency(scoped_key, compute)
 
 
 # ---------------------------------------------------------------------------

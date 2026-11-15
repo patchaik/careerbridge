@@ -7,6 +7,8 @@ import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Skeleton } from "../components/ui/Skeleton";
 import { TagInput } from "../components/ui/TagInput";
+import { getSavedProfile, mergeSavedSkills } from "../lib/api/onboarding";
+import { isReal } from "../lib/api/endpoints";
 import { useJourney } from "../context/JourneyContext";
 import { useInterestAnalysis } from "../hooks/useInterests";
 import { useConfirmProfile } from "../hooks/useOnboarding";
@@ -25,6 +27,9 @@ export function InterestsPage() {
   } = useJourney();
   const analysis = useInterestAnalysis();
   const confirmAction = useConfirmProfile();
+  const [restoring, setRestoring] = useState(isReal("getProfile"));
+  const [restoreError, setRestoreError] = useState("");
+  const [restoreNotice, setRestoreNotice] = useState("");
 
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set(selectedInterests));
@@ -43,6 +48,41 @@ export function InterestsPage() {
   // Once confirmed, show a saved summary instead of the full review UI,
   // unless the user explicitly chose to edit.
   const [isEditing, setIsEditing] = useState(() => !profile?.confirmedAt);
+
+  useEffect(() => {
+    if (!isReal("getProfile")) return;
+    let active = true;
+    (async () => {
+      try {
+        const saved = await getSavedProfile(profile?.id);
+        if (!active) return;
+        if (!saved) {
+          setProfile(null);
+          setRestoreError("No saved profile was found. Please upload your résumé again or add your skills.");
+          return;
+        }
+        const sameProfile = saved.id === profile?.id;
+        const restored = { ...profile, ...saved,
+          situation: profile?.situation ?? null,
+          experienceLevel: profile?.experienceLevel ?? null,
+          yearsOfExperience: profile?.yearsOfExperience ?? null,
+          skills: sameProfile && profile ? mergeSavedSkills(profile.skills, saved.skills) : saved.skills,
+          confirmedAt: sameProfile && !profile?.confirmedAt ? null : saved.confirmedAt,
+        };
+        setProfile(restored);
+        setSkillList(restored.skills);
+        setSkillsConfirmed(Boolean(restored.confirmedAt));
+        setIsEditing(!restored.confirmedAt);
+        const keptNames = new Set(restored.skills.map(s => s.skill.toLowerCase()));
+        setRemovedSkillIds(new Set(saved.skills.filter(s => s.id && !keptNames.has(s.skill.toLowerCase())).map(s => s.id!)));
+        if (!sameProfile) setRestoreNotice("Restored your latest saved profile. Please review these skills before confirming.");
+      } catch (error) {
+        if (active) setRestoreError(error instanceof Error ? error.message : "Couldn't load your saved profile.");
+      } finally { if (active) setRestoring(false); }
+    })();
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- validate the saved identity once before review/editing
+  }, []);
 
   useEffect(() => {
     if (profile) void analysis.run(profile.id, userInterests);
@@ -87,7 +127,7 @@ export function InterestsPage() {
   }
 
   async function handleConfirmSkills() {
-    if (!profile) return;
+    if (!profile || restoring || restoreError) return;
     const payload = skillList.map((s) => ({
       skill: s.skill,
       status: (s.source === "resume" ? "user_confirmed" : "self_reported") as
@@ -102,7 +142,7 @@ export function InterestsPage() {
       // yearsOfExperience are journey-state only and aren't in that
       // response, so merge onto the existing profile instead of replacing
       // it wholesale (which would null them out).
-      setProfile({ ...profile, skills: updated.skills, confirmedAt: updated.confirmedAt });
+      setProfile({ ...profile, ...updated, situation: profile.situation, experienceLevel: profile.experienceLevel, yearsOfExperience: profile.yearsOfExperience });
       setSkillList(updated.skills);
       setRemovedSkillIds(new Set());
       setSkillsConfirmed(true);
@@ -115,6 +155,13 @@ export function InterestsPage() {
     setSelectedInterestLabels(interests.filter((i) => selected.has(i.id)).map((i) => i.label));
     navigate("/critique");
   }
+
+  if (restoring) return <p role="status" className="mx-auto max-w-xl px-4 py-16">Loading your saved profile…</p>;
+  if (restoreError) return <div className="mx-auto max-w-xl px-4 py-16">
+    <Alert variant="danger">{restoreError}</Alert>
+    <Button className="mt-4" onClick={() => window.location.reload()}>Retry</Button>
+    <Link to="/start" className="ml-4 text-primary-700 underline">Return to your profile</Link>
+  </div>;
 
   if (!profile) {
     return (
@@ -201,6 +248,8 @@ export function InterestsPage() {
         want to build on — nothing here is graded.
       </p>
 
+      {restoreNotice && <Alert variant="info" className="mt-4">{restoreNotice}</Alert>}
+      {profile.hasFile && <p className="mt-3 text-sm text-success-700">Your résumé is saved with this profile.</p>}
       <Alert variant="info" className="mt-6">
         Not on your résumé doesn't mean you don't have it — add anything we missed below.
       </Alert>
