@@ -17,7 +17,6 @@ import type {
   ResumeDraft,
   Situation,
   SkillAnalysis,
-  SkillSource,
   TutorMessage,
   WellbeingCheckIn,
 } from "../types";
@@ -88,33 +87,52 @@ export function mockParseResume(simulateFailure = false): string {
   );
 }
 
-export interface CreateProfileInput {
-  skills: { skill: string; source: SkillSource }[];
+export interface BuildProfileInput {
+  skills: CandidateSkillEvidence[];
   situation: Situation;
+  profileId?: string;
 }
 
-// Builds the profile from whatever StartPage has compiled: skills (résumé-
-// and/or user-sourced), the chosen situation, and any interests typed in.
-export function mockCreateProfile(input: CreateProfileInput): string {
+// Builds the (not-yet-confirmed) profile from whatever StartPage has
+// compiled: full skill evidence (résumé- and/or user-sourced, already
+// carrying excerpts from mockParseResume) and the chosen situation.
+// confirmedAt stays null here — only mockConfirmProfile sets it.
+export function mockBuildProfile(input: BuildProfileInput): string {
   return startMockWorkflow<{ profile: CandidateProfile }>(
-    () => {
-      const skills: CandidateSkillEvidence[] = input.skills.map(({ skill, source }) => {
-        const fromResume = demoResumeSkills.find((s) => s.skill.toLowerCase() === skill.toLowerCase());
-        return {
-          id: fromResume?.id ?? `evidence_${skill.toLowerCase().replace(/\s+/g, "_")}`,
-          skill,
-          category: fromResume?.category ?? "technical",
-          status: source === "resume" ? "present" : "self_reported",
-          source,
-          sourceExcerpt: source === "resume" ? fromResume?.sourceExcerpt ?? null : null,
-        };
-      });
-      return {
-        profile: { ...demoProfile, skills, situation: input.situation },
-      };
-    },
+    () => ({
+      profile: { ...demoProfile, skills: input.skills, situation: input.situation, confirmedAt: null },
+    }),
     [500, 1100],
   );
+}
+
+// Finalizes the profile the user reviewed on /interests: applies removals,
+// then the (possibly edited) skill list, and stamps confirmedAt. Mirrors the
+// real PUT /api/profiles/{id}/confirm contract closely enough for the demo.
+export async function mockConfirmProfile(
+  profileId: string,
+  skills: { skill: string; status: CandidateSkillEvidence["status"]; excerpt?: string | null }[],
+  _removeSkillIds: string[],
+): Promise<CandidateProfile> {
+  await mockDelay(300, 700);
+  const confirmedSkills: CandidateSkillEvidence[] = skills
+    .map(({ skill, status, excerpt }) => {
+      const fromResume = demoResumeSkills.find((s) => s.skill.toLowerCase() === skill.toLowerCase());
+      return {
+        id: fromResume?.id ?? `evidence_${skill.toLowerCase().replace(/\s+/g, "_")}`,
+        skill,
+        category: fromResume?.category ?? "technical",
+        status,
+        source: fromResume ? "resume" : "user",
+        sourceExcerpt: excerpt ?? fromResume?.sourceExcerpt ?? null,
+      };
+    });
+  return {
+    ...demoProfile,
+    id: profileId,
+    skills: confirmedSkills,
+    confirmedAt: new Date().toISOString(),
+  };
 }
 
 export function mockGetWorkflow<T>(workflowId: string) {

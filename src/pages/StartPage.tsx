@@ -5,7 +5,7 @@ import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { TagInput } from "../components/ui/TagInput";
 import { useJourney } from "../context/JourneyContext";
-import { useCreateProfile, useParseResume } from "../hooks/useOnboarding";
+import { useBuildProfile, useParseResume } from "../hooks/useOnboarding";
 import { useWorkflowPolling } from "../hooks/useWorkflow";
 import type { CandidateProfile, CandidateSkillEvidence, Situation } from "../lib/types";
 
@@ -30,15 +30,20 @@ export function StartPage() {
   const [skills, setSkills] = useState<string[]>([]);
   const [fromResume, setFromResume] = useState<Set<string>>(new Set());
   const [interests, setInterests] = useState<string[]>([]);
+  // Full evidence (excerpt, category, backend id) for skills parsed from the
+  // résumé, keyed by name — carried through to buildProfile so /interests
+  // can show excerpts instead of bare skill names.
+  const [resumeSkillEvidence, setResumeSkillEvidence] = useState<CandidateSkillEvidence[]>([]);
   // Real mode only: the backend profile id created by parseResume, threaded
-  // through to createProfile's confirm call. Unused (stays null) in mock mode.
+  // through to buildProfile so it doesn't create a duplicate. Unused (stays
+  // null) in mock mode.
   const [realProfileId, setRealProfileId] = useState<string | null>(null);
 
   const [buildWorkflowId, setBuildWorkflowId] = useState<string | null>(null);
   const settledRef = useRef(false);
 
   const parseResume = useParseResume();
-  const createProfile = useCreateProfile();
+  const buildProfile = useBuildProfile();
 
   const resumeWorkflow = useWorkflowPolling<{ skills: CandidateSkillEvidence[]; profileId?: string }>(resumeWorkflowId);
   const buildWorkflow = useWorkflowPolling<{ profile: CandidateProfile }>(buildWorkflowId);
@@ -53,7 +58,9 @@ export function StartPage() {
       if (cancelled) return;
 
       if (resumeWorkflow.status === "complete" && resumeWorkflow.result) {
-        const found = resumeWorkflow.result.skills.map((s) => s.skill);
+        const evidence = resumeWorkflow.result.skills;
+        const found = evidence.map((s) => s.skill);
+        setResumeSkillEvidence(evidence);
         setSkills((prev) => {
           const merged = [...prev];
           for (const name of found) {
@@ -139,15 +146,31 @@ export function StartPage() {
     }
   }
 
+  // Combines full résumé evidence (excerpt, category, backend id) with
+  // whatever's currently in the flat skills tag list — preserving edits
+  // (removals, manual additions) the user made after the résumé was parsed.
+  function compileSkills(): CandidateSkillEvidence[] {
+    const byName = new Map(resumeSkillEvidence.map((e) => [e.skill.toLowerCase(), e]));
+    return skills.map((name) => {
+      const existing = byName.get(name.toLowerCase());
+      if (existing) return existing;
+      return {
+        id: null,
+        skill: name,
+        category: "technical",
+        status: "self_reported",
+        source: "user",
+        sourceExcerpt: null,
+      };
+    });
+  }
+
   async function handleAnalyze() {
     if (!situation || (!file && skills.length === 0)) return;
     settledRef.current = false;
     setBuildError(null);
-    const result = await createProfile.run({
-      skills: skills.map((skill) => ({
-        skill,
-        source: fromResume.has(skill) ? "resume" : "user",
-      })),
+    const result = await buildProfile.run({
+      skills: compileSkills(),
       situation,
       ...(realProfileId ? { profileId: realProfileId } : {}),
     });
@@ -155,7 +178,7 @@ export function StartPage() {
   }
 
   const isParsingResume = parseResume.isLoading || (resumeWorkflow !== null && (resumeWorkflow.status === "pending" || resumeWorkflow.status === "running"));
-  const isBuilding = createProfile.isLoading || (buildWorkflow !== null && (buildWorkflow.status === "pending" || buildWorkflow.status === "running"));
+  const isBuilding = buildProfile.isLoading || (buildWorkflow !== null && (buildWorkflow.status === "pending" || buildWorkflow.status === "running"));
   const canSubmit = Boolean(situation) && (Boolean(file) || skills.length > 0);
 
   let disabledHint: string | null = null;
