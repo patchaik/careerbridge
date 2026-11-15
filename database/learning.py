@@ -166,3 +166,12 @@ def save_learning_check(before: dict, state: dict) -> Optional[dict]:
         if current and current["state_json"] == updated:
             return current
         raise
+
+
+def list_learning_checks(user_id: str, path_ids: list[str]) -> list[dict]:
+    """One owner-scoped read; never expose private check state directly to clients."""
+    if not path_ids:
+        return []
+    return run(table("workflow_runs").select("state_json").eq("user_id", user_id)
+        .contains("state_json", {"kind": "learning_check"})
+        .in_("id", [check_id_for(pid) for pid in path_ids]), "Read saved learning checks")

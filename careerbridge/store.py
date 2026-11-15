@@ -906,47 +906,5 @@ def _map_assessment_result(attempt: dict, graded: Optional[dict], verified: Opti
 # ---------------------------------------------------------------------------
 
 def progress_flow(user_id: str) -> dict:
-    goal = call(users.get_active_goal, user_id)
-    if not goal:
-        raise ApiError(409, "rule_violation", "Create a goal before checking progress")
-    analysis = call(jobs.get_latest_gap_analysis, goal["id"])
-    paths = call(learning.list_paths, goal["id"])
-    verified = call(mastery.list_verified_evidence, user_id)
-    verified_names = {(v.get("skills") or {}).get("canonical_name") for v in verified}
-
-    gaps = []
-    for gap in (analysis or {}).get("ranked_gaps_json", []):
-        skill_name = gap["skill"]
-        path = next((p for p in paths if (p.get("skills") or {}).get("canonical_name") == skill_name), None)
-        if skill_name in verified_names:
-            status = "demonstrated"
-        elif path and path["status"] == "approved":
-            status = "assessing"
-        elif path:
-            status = "learning"
-        else:
-            status = "not_started"
-        gaps.append({"skill": skill_name, "status": status, "path_id": path["id"] if path else None})
-
-    next_action = "Review your skill gap analysis"
-    if gaps:
-        in_progress = next((g for g in gaps if g["status"] in ("learning", "assessing")), None)
-        not_started = next((g for g in gaps if g["status"] == "not_started"), None)
-        if in_progress:
-            next_action = f"Continue working on {in_progress['skill']}"
-        elif not_started:
-            next_action = f"Start a learning path for {not_started['skill']}"
-        else:
-            next_action = "Review your verified skills"
-
-    return {
-        "goal": goal,
-        "gaps": gaps,
-        "verified_evidence": [
-            {"id": v["id"], "skill": (v.get("skills") or {}).get("canonical_name"),
-             "scope": v.get("scope", ""), "summary": v.get("summary"),
-             "attempt_id": v.get("attempt_id"), "verified_at": v["verified_at"]}
-            for v in verified
-        ],
-        "next_action": next_action,
-    }
+    from careerbridge.progress import get_progress
+    return get_progress(user_id)

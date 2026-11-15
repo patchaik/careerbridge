@@ -83,6 +83,7 @@ export function LearnPage() {
     <div className="relative mx-auto max-w-3xl px-4 py-12">
       <LearnIconsBackground />
       <h1 className={`text-2xl font-semibold sm:text-3xl ${GRADIENT_HEADING}`}>{id ? "Your learning plan" : "My learning"}</h1>
+      <Link to="/progress" className="mt-2 mr-4 inline-block text-primary-700 underline">Overall progress and next steps</Link>
       {id && <Link to="/learn" className="mt-2 inline-block text-primary-700 underline">All saved plans</Link>}
       {error && (
         <Alert variant="danger" className="mt-4">

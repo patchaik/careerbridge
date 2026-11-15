@@ -17,6 +17,7 @@ import { TargetPage } from "./pages/TargetPage";
 import { SkillsPage } from "./pages/SkillsPage";
 import { CoursesPage } from "./pages/CoursesPage";
 import { LearnPage } from "./pages/LearnPage";
+import { ProgressPage } from "./pages/ProgressPage";
 import { StartPage } from "./pages/StartPage";
 
 function AppLayout() {
@@ -65,7 +66,7 @@ function App() {
               {/* Learn */}
               <Route
                 path="/courses"
-                element={<Protected index={6}><CoursesPage /></Protected>}
+                element={<Protected><CoursesPage /></Protected>}
               />
               <Route
                 path="/learn"
@@ -91,7 +92,7 @@ function App() {
               />
               <Route
                 path="/progress"
-                element={<Protected index={12}><ComingSoonPage phase="Phase 6 (Prove + Progress)" /></Protected>}
+                element={<Protected><ProgressPage /></Protected>}
               />
 
               <Route path="*" element={<ComingSoonPage phase="a later phase" />} />

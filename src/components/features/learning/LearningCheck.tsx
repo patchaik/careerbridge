@@ -1,16 +1,21 @@
 import { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { getLearningCheck, startLearningCheck, submitLearningCheck, type LearningCheck as SavedCheck } from "../../../lib/api/learningChecks";
 import { Alert } from "../../ui/Alert";
 import { Button } from "../../ui/Button";
 import { Card } from "../../ui/Card";
 
 export function LearningCheck({ pathId, completed }: { pathId: string; completed: boolean }) {
+  const { hash } = useLocation();
   const [check, setCheck] = useState<SavedCheck | null>(null);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  useEffect(() => {
+    if (!loading && hash) document.getElementById(hash.slice(1))?.scrollIntoView({ block: "start" });
+  }, [loading, hash]);
   function receive(saved: SavedCheck | null) {
     setCheck(saved);
     if (saved?.submission) {
@@ -45,7 +50,7 @@ export function LearningCheck({ pathId, completed }: { pathId: string; completed
   const submitted = Boolean(check?.submission);
   const result = check?.result;
   return <Card>
-    <section aria-label="Learning check" className="space-y-4">
+    <section id="learning-check" aria-label="Learning check" className="scroll-mt-20 space-y-4">
       <h2 className="text-lg font-semibold">Check what you learned</h2>
       <p className="text-sm text-neutral-600">Five quiz questions and one short written practice task based on your completed material. Quiz scoring uses the saved answer key; practice feedback is AI-generated. This does not independently verify your skill or certify mastery.</p>
       {error && <Alert variant="danger">{error}</Alert>}
@@ -85,6 +90,7 @@ export function LearningCheck({ pathId, completed }: { pathId: string; completed
         </form>}
         {result && check && <div className="space-y-5">
           <Alert variant="success">Results saved · Quiz: {result.quiz_score} / {result.quiz_total}</Alert>
+          <Link className="text-primary-700 underline" to="/progress">View overall progress and next steps</Link>
           <h3 className="font-semibold">Quiz feedback</h3>
           {result.quiz.map(item => {
             const question = check.questions.find(q => q.id === item.question_id)!;

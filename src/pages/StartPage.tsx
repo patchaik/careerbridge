@@ -366,6 +366,9 @@ export function StartPage() {
               <p className="mt-1 text-sm text-neutral-800">{profile.yearsOfExperience ?? "—"}</p>
             </div>
           </Card>
+          <div className="flex justify-end">
+            <Button onClick={() => navigate("/interests")}>Continue to interests</Button>
+          </div>
         </div>
       </div>
     );

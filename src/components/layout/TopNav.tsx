@@ -115,7 +115,7 @@ export function TopNav() {
         <nav aria-label="Journey groups" className="overflow-x-auto">
           <ol className="flex items-center gap-1 sm:gap-2">
             {groups.map((group, i) => {
-              const unlocked = (isSignedIn && group.to === "/learn") || furthestStepIndex >= group.firstIndex;
+              const unlocked = (isSignedIn && ["/learn", "/progress"].includes(group.to)) || furthestStepIndex >= group.firstIndex;
               const isCurrent = group.matches.some(
                 (m) => location.pathname === m || location.pathname.startsWith(`${m}/`),
               );

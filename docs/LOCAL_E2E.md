@@ -135,3 +135,12 @@ and saved written feedback after all milestones are complete. Before its PR is m
 use that feature branch. Configure the additional check route/capability report above,
 then choose **Start learning check** on the completed plan. This is separate from
 independent mastery assessment; results never promote profile skills.
+
+### Progress overview
+
+After saving a learning check, follow **View overall progress and next steps**, or
+open `/progress`. Learn and Progress are available after signing in again. Review
+milestone counts, saved scores and suggested next actions; refresh/reload should
+show the same saved data. Follow a revisit link to the referenced milestone, or an
+unaddressed gap to resource discovery. Reading progress makes no model calls.
+See [Progress acceptance and limitations](PROGRESS_OVERVIEW.md).
