@@ -499,6 +499,61 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/SavedResourceSearch" }
 
+  /api/paths:
+    get:
+      tags: [Learning]
+      operationId: listPaths
+      summary: List the owner's 50 most recent resource-based plans with saved progress
+      responses:
+        '200':
+          description: Plans, newest first; no model calls
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [plans]
+                additionalProperties: false
+                properties:
+                  plans:
+                    type: array
+                    items: { $ref: '#/components/schemas/LearningPath' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/paths/{path_id}/milestones/{milestone_id}/completion:
+    parameters:
+      - name: path_id
+        in: path
+        required: true
+        schema: { type: string }
+      - name: milestone_id
+        in: path
+        required: true
+        schema: { type: string }
+    put:
+      tags: [Learning]
+      operationId: completeMilestone
+      summary: Save or undo self-reported completion of a milestone with saved material
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [done]
+              properties:
+                done: { type: boolean }
+      responses:
+        '200':
+          description: Updated plan and progress; completion is not assessed mastery
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LearningPath' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Invalid' }
+
   /api/paths/generate:
     post:
       tags: [Learning]
@@ -555,7 +610,7 @@ paths:
   /api/paths/{path_id}/status:
     put:
       tags: [Learning]
-      summary: Pause, resume or complete a path
+      summary: Legacy path status update (resource-based plans return 409; use milestone completion)
       operationId: setPathStatus
       security: [{ BearerAuth: [] }]
       x-db-functions: [learning.update_path_status]
@@ -1066,6 +1121,11 @@ components:
       schema: { type: string, minLength: 8, maxLength: 100 }
 
   responses:
+    Unauthorized:
+      description: Missing or expired Supabase bearer token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
     Accepted:
       description: Still running. Poll the workflow.
       content:
@@ -1389,6 +1449,9 @@ components:
     PlanMilestone:
       additionalProperties: false
       properties:
+        done:
+          type: boolean
+          description: Self-reported completion, defaults to false for existing plans
         title:
           maxLength: 150
           minLength: 1
@@ -1425,6 +1488,7 @@ components:
           type: string
           minLength: 1
       required:
+      - done
       - title
       - mode
       - instruction
@@ -1558,10 +1622,23 @@ components:
       title: ResourceSearchBody
       type: object
 
+    LearningProgress:
+      type: object
+      additionalProperties: false
+      required: [completed, total, next_milestone_id]
+      properties:
+        completed: { type: integer, minimum: 0 }
+        total: { type: integer, minimum: 1 }
+        next_milestone_id:
+          type: [string, 'null']
+          description: First incomplete milestone in plan order; null when all complete
+
     LearningPath:
       type: object
       additionalProperties: false
       properties:
+        progress:
+          $ref: "#/components/schemas/LearningProgress"
         id:
           type: string
           format: uuid
@@ -1613,6 +1690,7 @@ components:
         assessment_available:
           const: false
       required:
+      - progress
       - id
       - workflow_id
       - goal_id
