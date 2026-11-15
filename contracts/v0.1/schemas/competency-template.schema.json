@@ -1,0 +1,369 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/TemplateDefinition",
+  "$defs": {
+    "TemplateDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0"
+        },
+        "template_key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{2,79}$"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "competency": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "skill_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "level": {
+              "type": "string",
+              "enum": [
+                "beginner",
+                "intermediate",
+                "advanced"
+              ]
+            },
+            "objective": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "evidence_scope": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          },
+          "required": [
+            "skill_id",
+            "level",
+            "objective",
+            "evidence_scope"
+          ]
+        },
+        "prerequisite_skill_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "minItems": 0,
+          "maxItems": 30,
+          "uniqueItems": true
+        },
+        "modalities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "text",
+              "hands_on"
+            ]
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true
+        },
+        "concepts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Concept"
+          },
+          "minItems": 1,
+          "maxItems": 30
+        },
+        "milestones": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Milestone"
+          },
+          "minItems": 1,
+          "maxItems": 20
+        },
+        "activities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Activity"
+          },
+          "minItems": 1,
+          "maxItems": 20
+        },
+        "criteria": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Criterion"
+          },
+          "minItems": 2,
+          "maxItems": 30
+        },
+        "thresholds": {
+          "$ref": "#/$defs/Thresholds"
+        },
+        "diagnostic_policy": {
+          "const": "instruction_placement_only"
+        },
+        "remediation_limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "minItems": 0,
+          "maxItems": 30,
+          "uniqueItems": true
+        },
+        "claim_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "allowed_scope": {
+              "const": "platform_practical_training"
+            },
+            "prohibited_claims": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "employment",
+                  "certification",
+                  "years_experience",
+                  "production_ownership"
+                ]
+              },
+              "minItems": 4,
+              "maxItems": 4
+            }
+          },
+          "required": [
+            "allowed_scope",
+            "prohibited_claims"
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "template_key",
+        "version",
+        "title",
+        "competency",
+        "prerequisite_skill_ids",
+        "modalities",
+        "concepts",
+        "milestones",
+        "activities",
+        "criteria",
+        "thresholds",
+        "diagnostic_policy",
+        "remediation_limit",
+        "resource_ids",
+        "claim_policy"
+      ]
+    },
+    "Concept": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "prerequisite_concept_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "minItems": 0,
+          "maxItems": 20
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "prerequisite_concept_ids"
+      ]
+    },
+    "Milestone": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "objective": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "concept_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "minItems": 1,
+          "maxItems": 20
+        },
+        "activity_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "minItems": 1,
+          "maxItems": 20
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "objective",
+        "concept_ids",
+        "activity_ids"
+      ]
+    },
+    "Activity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "table_transform_v1",
+            "evidence_selection_v1"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "instructions": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 6000
+        },
+        "public_asset_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "title",
+        "instructions",
+        "public_asset_ids"
+      ]
+    },
+    "Criterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "component": {
+          "type": "string",
+          "enum": [
+            "knowledge",
+            "project"
+          ]
+        },
+        "critical": {
+          "type": "boolean"
+        },
+        "evidence_description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "component",
+        "critical",
+        "evidence_description"
+      ]
+    },
+    "Thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "knowledge_min_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "project_min_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "all_critical_required": {
+          "const": true
+        }
+      },
+      "required": [
+        "knowledge_min_fraction",
+        "project_min_fraction",
+        "all_critical_required"
+      ]
+    }
+  }
+}

@@ -1,0 +1,21 @@
+id,owner,priority,acceptance_criterion
+API-01,UI + Agent,P0,Run all P0 operations with frontend mocks disabled; request/response payloads validate against OpenAPI; auth derives identity from JWT.
+API-02,UI + Agent + DB,P0,Identical idempotency retry returns same workflow/attempt/export; changed body with same key returns 409; concurrent consumers create one product effect.
+API-03,UI + Agent,P0,Slow calls always return Accepted; each completed workflow resolves via its typed GET endpoint; refresh resumes from server journey.
+DB-01,DB,P0,Clean install and migration preserve supported records; conflicting agent tables are not initialized; legacy model-reviewed evidence is not promoted.
+DB-02,DB + Agent,P0,Cross-user profile/path/attempt/evidence/file IDs return 404; public storage access fails; deletion removes owned rows and files.
+TPL-01,Agent + DB,P0,Draft/unreviewed/self-approved template cannot publish; changed hash invalidates review; published criteria/test keys are immutable.
+TPL-02,UI + Agent,P0,Two reviewed distinct competency templates including a non-RAG template complete the journey using common workflows; unsupported gaps never default to RAG.
+TPL-03,Agent + DB,P0,"Unknown activity kind, cyclic concept graph, missing criterion tests, overlapping practice/final content and unverified resource coverage prevent publication."
+AI-01,Agent,P0,Run the same extraction/tutor/draft contract fixtures against configured OpenAI and Nebius routes; both validate business rules and correctly handle refusal/incomplete/invalid output.
+AI-02,Agent + DB,P0,Changing active profile changes only new workflows; invocation metadata records actual provider/model; missing capability report fails preflight.
+AI-03,Agent,P0,Fallback disabled sends no data to other provider; enabled fallback stays within approved profiles; no secrets/private tests/raw prompts appear in logs.
+MKT-01,UI + Agent + DB,P0,Every ranked gap cites matching skill requirements in selected immutable snapshots; aliases normalized; required/preferred/unknown correctly displayed.
+MKT-02,UI + Agent,P0,"Live success, zero results, rate limit, stale cache and unavailable provider cases yield honest labeled outcomes, never invented evidence."
+ASM-01,Agent + DB,P0,Reviewed pass/fail/ungradable fixtures match deterministic outcomes; critical failure cannot pass; no client score/rubric override accepted.
+ASM-02,UI + Agent,P0,"Final prompts are unseen, hints blocked during assessment, answers/keys absent from learner payloads and model context; diagnostic never awards evidence."
+ASM-03,Agent + DB,P0,Duplicate grading increments failure count once; only final pass atomically writes verified evidence and artifacts; alternate-set exhaustion returns needs_review.
+CV-01,UI + Agent + DB,P0,Unsupported claims rejected; edit clears approval; stale approval/hash blocks export; PDF and DOCX render exact approved content with usable expiring links.
+UX-01,UI,P0,Keyboard-only full journey succeeds; errors and unavailable templates explain recovery; logout clears user-specific caches.
+SAFE-01,Agent + UI,P0,Prompt-injected resumes/jobs cannot change instructions or trigger privileged actions; equivalent skill profiles with different personal details keep equivalent rankings.
+P1-01,UI + Agent + DB,P1,"Wellbeing defaults off, can pause only on user confirmation, and never influences matching/grading/export."

@@ -111,6 +111,7 @@ export function StartPage() {
   async function handleFileChange(next: File | null) {
     setFile(next);
     setParseError(null);
+    setResumeWorkflowId(null);
     if (!next) {
       setResumeWorkflowId(null);
       return;
@@ -176,8 +177,8 @@ export function StartPage() {
     if (result) setBuildWorkflowId(result.workflowId);
   }
 
-  const isParsingResume = resumeWorkflow !== null && (resumeWorkflow.status === "pending" || resumeWorkflow.status === "running");
-  const isBuilding = buildWorkflow !== null && (buildWorkflow.status === "pending" || buildWorkflow.status === "running");
+  const isParsingResume = parseResume.isLoading || (resumeWorkflow !== null && (resumeWorkflow.status === "pending" || resumeWorkflow.status === "running"));
+  const isBuilding = buildProfile.isLoading || (buildWorkflow !== null && (buildWorkflow.status === "pending" || buildWorkflow.status === "running"));
   const canSubmit = Boolean(situation) && (Boolean(file) || skills.length > 0);
 
   let disabledHint: string | null = null;
@@ -216,6 +217,7 @@ export function StartPage() {
               id="resume-file"
               type="file"
               accept=".pdf,.docx"
+              disabled={isParsingResume || isBuilding}
               onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
               className="mt-3 block w-full text-sm text-neutral-600 file:mr-3 file:rounded-md file:border file:border-neutral-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-neutral-700 hover:file:bg-neutral-50"
             />
@@ -244,6 +246,7 @@ export function StartPage() {
               <button
                 type="button"
                 onClick={handlePreviewFailure}
+                disabled={isParsingResume || isBuilding}
                 className="underline hover:text-neutral-600"
               >
                 preview what happens if parsing fails
@@ -342,7 +345,7 @@ export function StartPage() {
               {buildError}
             </Alert>
           )}
-          <Button onClick={handleAnalyze} disabled={!canSubmit || isBuilding}>
+          <Button onClick={handleAnalyze} disabled={!canSubmit || isBuilding || isParsingResume}>
             <Upload className="h-4 w-4" aria-hidden="true" />
             {isBuilding ? "Analyzing…" : "Analyze my experience"}
           </Button>

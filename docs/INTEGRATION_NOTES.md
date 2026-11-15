@@ -1,3 +1,5 @@
+> **Legacy stitch integration:** New MVP work follows [contracts/v0.1](../contracts/v0.1/README.md). Read [reconciliation status](RECONCILIATION.md) for the current baseline and remaining JWT, workflow and deterministic assessment requirements. The behavior below is retained for prototype reference.
+
 # Integration notes (stitch-1)
 
 How the UI (`src/`), the database layer (`database/`), and the AI backend

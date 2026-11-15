@@ -1,3 +1,5 @@
+> For new MVP work, use the [v0.1 migration and intake guide](../docs/WAVE1_IMPLEMENTATION.md). The functions below describe the legacy interface; they are not owner-scoped v0.1 API handlers.
+
 # CareerBridge data layer (`database/`)
 
 All database and file-storage access goes through this package. Other modules
