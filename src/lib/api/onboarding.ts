@@ -1,6 +1,6 @@
-import type { CandidateProfile, CandidateSkillEvidence } from "../types";
+import type { CandidateProfile, CandidateSkillEvidence, Situation } from "../types";
 import { isReal } from "./endpoints";
-import { mockCreateProfile, mockParseResume, type CreateProfileInput } from "../mock/handlers";
+import { mockBuildProfile, mockConfirmProfile, mockParseResume } from "../mock/handlers";
 import { apiRequest, ApiError } from "./client";
 import { registerCompletedWorkflow, registerFailedWorkflow } from "./realWorkflowCache";
 
@@ -74,41 +74,87 @@ export async function parseResume(
   }
 }
 
-export type { CreateProfileInput };
+export interface BuildProfileInput {
+  /** Full evidence for skills already known (résumé-parsed, with excerpts, or
+   * typed in manually with id: null). */
+  skills: CandidateSkillEvidence[];
+  situation: Situation;
+  /** Set when a résumé was already parsed via parseResume — its profile
+   * already exists in the backend, so building must not create a duplicate. */
+  profileId?: string;
+}
 
-// Real mode: the contract has no "create profile from compiled skills"
-// endpoint (unlike the mock layer's single-shot design) — parse creates the
-// profile (from the résumé, or from manual skills if none was uploaded) and
-// confirm finalizes whatever skills StartPage compiled. See
-// docs/INTEGRATION_NOTES.md for why this is two calls here but one in mock.
-export async function createProfile(
-  input: CreateProfileInput & { profileId?: string },
-): Promise<{ workflowId: string }> {
-  if (!isReal("confirmProfile")) return { workflowId: mockCreateProfile(input) };
+// Compiles what StartPage has gathered (résumé skills + manually typed ones)
+// into a CandidateProfile that is NOT YET CONFIRMED (confirmedAt stays null).
+// This is intentionally the only thing /start does — the user reviews and
+// explicitly confirms on /interests (see confirmProfile below). Real mode:
+// if no résumé was parsed, this is the first time the backend hears about
+// the profile, so it creates one (POST /api/onboarding/parse with the
+// compiled skill names) — still "awaiting confirmation" per the contract.
+export async function buildProfile(input: BuildProfileInput): Promise<{ workflowId: string }> {
+  if (!isReal("parseOnboarding")) return { workflowId: mockBuildProfile(input) };
 
   try {
     let profileId = input.profileId;
+    let skills = input.skills;
     if (!profileId) {
       const created = await apiRequest<BackendProfile>("/api/onboarding/parse", {
         method: "POST",
         body: { skills: input.skills.map((s) => s.skill) },
       });
       profileId = created.id;
+      skills = created.skills.map(mapBackendSkill);
     }
 
-    const confirmed = await apiRequest<BackendProfile>(`/api/profiles/${profileId}/confirm`, {
-      method: "PUT",
-      idempotencyKey: crypto.randomUUID(),
-      body: {
-        skills: input.skills.map((s) => ({
-          skill: s.skill,
-          status: s.source === "resume" ? "present" : "self_reported",
-        })),
-      },
-    });
-    return { workflowId: registerCompletedWorkflow({ profile: mapBackendProfile(confirmed) }) };
+    const profile: CandidateProfile = {
+      id: profileId,
+      userId: null,
+      source: input.skills.some((s) => s.source === "resume") ? "resume" : "manual",
+      hasFile: input.skills.some((s) => s.source === "resume"),
+      targetRole: null,
+      location: null,
+      level: null,
+      workMode: null,
+      skills,
+      situation: input.situation,
+      confirmedAt: null,
+    };
+    return { workflowId: registerCompletedWorkflow({ profile }) };
   } catch (err) {
     const message = err instanceof ApiError ? err.message : "We couldn't build your profile.";
     return { workflowId: registerFailedWorkflow(message) };
   }
+}
+
+export interface ConfirmSkillInput {
+  skill: string;
+  status: "present" | "user_confirmed" | "self_reported" | "not_established";
+  excerpt?: string | null;
+}
+
+// The ONLY call that finalizes the profile — fired exclusively by /interests'
+// "Confirm my skills" button, never automatically. `removeSkillIds` targets
+// backend-persisted skill-evidence rows (non-null CandidateSkillEvidence.id);
+// skills the user removed before ever syncing to the backend simply aren't
+// included in `skills` and need no removal call.
+export async function confirmProfile(
+  profileId: string,
+  skills: ConfirmSkillInput[],
+  removeSkillIds: string[] = [],
+): Promise<CandidateProfile> {
+  if (!isReal("confirmProfile")) return mockConfirmProfile(profileId, skills, removeSkillIds);
+
+  const confirmed = await apiRequest<BackendProfile>(`/api/profiles/${profileId}/confirm`, {
+    method: "PUT",
+    idempotencyKey: crypto.randomUUID(),
+    body: {
+      skills: skills.map((s) => ({
+        skill: s.skill,
+        status: s.status,
+        ...(s.excerpt ? { excerpt: s.excerpt } : {}),
+      })),
+      remove_skill_ids: removeSkillIds,
+    },
+  });
+  return mapBackendProfile(confirmed);
 }
