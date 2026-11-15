@@ -29,6 +29,7 @@ export const CACHED_SNAPSHOT_AT = "2026-11-08T09:00:00Z";
 
 export const demoResumeSkills: CandidateSkillEvidence[] = [
   {
+    id: "evidence_java",
     skill: "Java",
     category: "technical",
     status: "present",
@@ -36,6 +37,7 @@ export const demoResumeSkills: CandidateSkillEvidence[] = [
     sourceExcerpt: "5 years building backend services in Java across two teams.",
   },
   {
+    id: "evidence_spring_boot",
     skill: "Spring Boot",
     category: "technical",
     status: "present",
@@ -43,6 +45,7 @@ export const demoResumeSkills: CandidateSkillEvidence[] = [
     sourceExcerpt: "Built and maintained REST APIs with Spring Boot and Spring Data.",
   },
   {
+    id: "evidence_rest_apis",
     skill: "REST APIs",
     category: "technical",
     status: "present",
@@ -50,6 +53,7 @@ export const demoResumeSkills: CandidateSkillEvidence[] = [
     sourceExcerpt: "Designed and documented REST APIs consumed by 3 internal teams.",
   },
   {
+    id: "evidence_oracle",
     skill: "Oracle",
     category: "technical",
     status: "present",
@@ -57,6 +61,7 @@ export const demoResumeSkills: CandidateSkillEvidence[] = [
     sourceExcerpt: "Wrote and tuned PL/SQL against an Oracle 19c database.",
   },
   {
+    id: "evidence_docker",
     skill: "Docker",
     category: "technical",
     status: "present",
@@ -64,6 +69,7 @@ export const demoResumeSkills: CandidateSkillEvidence[] = [
     sourceExcerpt: "Containerized services with Docker for staging and production.",
   },
   {
+    id: "evidence_collaboration",
     skill: "Collaboration",
     category: "interpersonal",
     status: "self_reported",
@@ -73,6 +79,9 @@ export const demoResumeSkills: CandidateSkillEvidence[] = [
 ];
 
 export const demoProfile: CandidateProfile = {
+  userId: "user_demo_1",
+  source: "resume",
+  hasFile: false,
   id: "profile_demo_1",
   targetRole: null,
   location: "Remote",

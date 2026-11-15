@@ -1,28 +1,17 @@
-import { USE_MOCKS } from "../config";
 import type { ResumeCritique, ResumeDraft } from "../types";
 import { mockDraftResume, mockExportResume, mockGetResumeCritique } from "../mock/handlers";
-import { apiRequest } from "./client";
 
-export async function draftResume(assessmentAttemptId: string): Promise<ResumeDraft> {
-  if (USE_MOCKS) return mockDraftResume();
-  return apiRequest<ResumeDraft>("/resumes/draft", {
-    method: "POST",
-    body: { assessmentAttemptId },
-  });
+// The real backend's résumé draft/export routes return 501 (the agents
+// don't support it yet) and there's no /resumes/critique in the contract
+// at all (see docs/API_PROPOSALS.md) — all three stay mock regardless of mode.
+export async function draftResume(_assessmentAttemptId: string): Promise<ResumeDraft> {
+  return mockDraftResume();
 }
 
-export async function exportResume(draft: ResumeDraft): Promise<{ success: true; filename: string }> {
-  if (USE_MOCKS) return mockExportResume();
-  return apiRequest<{ success: true; filename: string }>("/resumes/export", {
-    method: "POST",
-    body: draft,
-  });
+export async function exportResume(_draft: ResumeDraft): Promise<{ success: true; filename: string }> {
+  return mockExportResume();
 }
 
-export async function critiqueResume(profileId: string): Promise<ResumeCritique> {
-  if (USE_MOCKS) return mockGetResumeCritique();
-  return apiRequest<ResumeCritique>("/resumes/critique", {
-    method: "POST",
-    body: { profileId },
-  });
+export async function critiqueResume(_profileId: string): Promise<ResumeCritique> {
+  return mockGetResumeCritique();
 }

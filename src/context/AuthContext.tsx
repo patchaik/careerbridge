@@ -1,22 +1,26 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import type { SignUpInput } from "../lib/api/auth";
 import type { AuthSession, AuthUser } from "../lib/types";
-import { useForgotPassword, useSignIn, useSignUp } from "../hooks/useAuthActions";
+import { useCreateBackendUser, useForgotPassword, useSignIn, useSignUp } from "../hooks/useAuthActions";
 
 const STORAGE_KEY = "careerbridge:auth";
+
+interface StoredSession extends AuthSession {
+  backendUserId?: string;
+}
 
 function loadUser(): AuthUser | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as AuthSession;
+    const parsed = JSON.parse(raw) as StoredSession;
     return parsed?.user ?? null;
   } catch {
     return null;
   }
 }
 
-function saveSession(session: AuthSession | null) {
+function saveSession(session: StoredSession | null) {
   try {
     if (session) localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
     else localStorage.removeItem(STORAGE_KEY);
@@ -44,13 +48,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInAction = useSignIn();
   const signUpAction = useSignUp();
   const forgotPasswordAction = useForgotPassword();
+  const createBackendUserAction = useCreateBackendUser();
+
+  // After the mock sign-in/up succeeds, also register with the real backend
+  // (POST /api/users) so X-User-Id has a value for real-mode calls. Best
+  // effort: if the backend is unreachable, sign-in still succeeds — real-mode
+  // calls will then fail with their own clear error instead of blocking auth.
+  async function registerWithBackend(session: AuthSession): Promise<StoredSession> {
+    try {
+      const backendUser = await createBackendUserAction.run(session.user.email, session.user.fullName, true);
+      return { ...session, backendUserId: backendUser?.id };
+    } catch {
+      return session;
+    }
+  }
 
   async function signIn(email: string, password: string) {
     const session = await signInAction.run(email, password);
     if (session) {
-      setUser(session.user);
-      saveSession(session);
-      return session.user;
+      const stored = await registerWithBackend(session);
+      setUser(stored.user);
+      saveSession(stored);
+      return stored.user;
     }
     return undefined;
   }
@@ -58,9 +77,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signUp(fields: SignUpInput) {
     const session = await signUpAction.run(fields);
     if (session) {
-      setUser(session.user);
-      saveSession(session);
-      return session.user;
+      const stored = await registerWithBackend(session);
+      setUser(stored.user);
+      saveSession(stored);
+      return stored.user;
     }
     return undefined;
   }

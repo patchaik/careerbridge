@@ -1,9 +1,8 @@
-import { USE_MOCKS } from "../config";
 import type { WellbeingCheckIn } from "../types";
 import { mockWellbeingCheckIn } from "../mock/handlers";
-import { apiRequest } from "./client";
 
+// The real backend's POST /api/wellbeing/checkin returns 501 (P1, not
+// implemented by the agents yet) — stays mock regardless of mode.
 export async function submitCheckIn(pace: WellbeingCheckIn["pace"]): Promise<WellbeingCheckIn> {
-  if (USE_MOCKS) return mockWellbeingCheckIn(pace);
-  return apiRequest<WellbeingCheckIn>("/wellbeing/checkin", { method: "POST", body: { pace } });
+  return mockWellbeingCheckIn(pace);
 }

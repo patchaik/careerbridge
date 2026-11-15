@@ -1,12 +1,8 @@
-import { USE_MOCKS } from "../config";
 import type { KnowledgeCheckQuestion } from "../types";
 import { mockStartDiagnostic } from "../mock/handlers";
-import { apiRequest } from "./client";
 
-export async function startDiagnostic(skill: string): Promise<{ questions: KnowledgeCheckQuestion[] }> {
-  if (USE_MOCKS) return mockStartDiagnostic();
-  return apiRequest<{ questions: KnowledgeCheckQuestion[] }>("/diagnostics/start", {
-    method: "POST",
-    body: { skill },
-  });
+// The real backend's POST /api/diagnostics/start returns 501 (P1, not
+// implemented by the agents yet) — stays mock regardless of mode.
+export async function startDiagnostic(_skill: string): Promise<{ questions: KnowledgeCheckQuestion[] }> {
+  return mockStartDiagnostic();
 }

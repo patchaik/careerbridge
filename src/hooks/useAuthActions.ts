@@ -1,4 +1,4 @@
-import { forgotPassword, signIn, signUp } from "../lib/api/auth";
+import { createBackendUser, forgotPassword, signIn, signUp } from "../lib/api/auth";
 import { useAsyncAction } from "./useAsync";
 
 export function useSignIn() {
@@ -11,4 +11,8 @@ export function useSignUp() {
 
 export function useForgotPassword() {
   return useAsyncAction(forgotPassword);
+}
+
+export function useCreateBackendUser() {
+  return useAsyncAction(createBackendUser);
 }

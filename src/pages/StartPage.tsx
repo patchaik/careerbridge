@@ -25,10 +25,14 @@ export function StartPage() {
   const [file, setFile] = useState<File | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [resumeWorkflowId, setResumeWorkflowId] = useState<string | null>(null);
+  const [buildError, setBuildError] = useState<string | null>(null);
 
   const [skills, setSkills] = useState<string[]>([]);
   const [fromResume, setFromResume] = useState<Set<string>>(new Set());
   const [interests, setInterests] = useState<string[]>([]);
+  // Real mode only: the backend profile id created by parseResume, threaded
+  // through to createProfile's confirm call. Unused (stays null) in mock mode.
+  const [realProfileId, setRealProfileId] = useState<string | null>(null);
 
   const [buildWorkflowId, setBuildWorkflowId] = useState<string | null>(null);
   const settledRef = useRef(false);
@@ -36,7 +40,7 @@ export function StartPage() {
   const parseResume = useParseResume();
   const createProfile = useCreateProfile();
 
-  const resumeWorkflow = useWorkflowPolling<{ skills: CandidateSkillEvidence[] }>(resumeWorkflowId);
+  const resumeWorkflow = useWorkflowPolling<{ skills: CandidateSkillEvidence[]; profileId?: string }>(resumeWorkflowId);
   const buildWorkflow = useWorkflowPolling<{ profile: CandidateProfile }>(buildWorkflowId);
 
   // Merge résumé-extracted skills into the shared skills list once parsing completes.
@@ -58,6 +62,7 @@ export function StartPage() {
           return merged;
         });
         setFromResume((prev) => new Set([...prev, ...found]));
+        if (resumeWorkflow.result.profileId) setRealProfileId(resumeWorkflow.result.profileId);
         setParseError(null);
       }
       if (resumeWorkflow.status === "failed") {
@@ -72,12 +77,27 @@ export function StartPage() {
 
   useEffect(() => {
     if (!buildWorkflow || settledRef.current) return;
-    if (buildWorkflow.status === "complete" && buildWorkflow.result) {
-      settledRef.current = true;
-      setProfile(buildWorkflow.result.profile);
-      setUserInterests(interests);
-      navigate("/interests");
-    }
+    let cancelled = false;
+
+    (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+
+      if (buildWorkflow.status === "complete" && buildWorkflow.result) {
+        settledRef.current = true;
+        setProfile(buildWorkflow.result.profile);
+        setUserInterests(interests);
+        navigate("/interests");
+      }
+      if (buildWorkflow.status === "failed") {
+        settledRef.current = true;
+        setBuildError(buildWorkflow.error ?? "We couldn't build your profile. Please try again.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- interests captured at submit time, not reactive here
   }, [buildWorkflow, navigate, setProfile, setUserInterests]);
 
@@ -121,12 +141,14 @@ export function StartPage() {
   async function handleAnalyze() {
     if (!situation || (!file && skills.length === 0)) return;
     settledRef.current = false;
+    setBuildError(null);
     const result = await createProfile.run({
       skills: skills.map((skill) => ({
         skill,
         source: fromResume.has(skill) ? "resume" : "user",
       })),
       situation,
+      ...(realProfileId ? { profileId: realProfileId } : {}),
     });
     if (result) setBuildWorkflowId(result.workflowId);
   }
@@ -292,6 +314,11 @@ export function StartPage() {
         </section>
 
         <div>
+          {buildError && (
+            <Alert variant="danger" className="mb-3" title="Couldn't build your profile">
+              {buildError}
+            </Alert>
+          )}
           <Button onClick={handleAnalyze} disabled={!canSubmit || isBuilding}>
             <Upload className="h-4 w-4" aria-hidden="true" />
             {isBuilding ? "Analyzing…" : "Analyze my experience"}

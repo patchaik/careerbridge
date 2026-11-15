@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { AuthLayout } from "../components/features/auth/AuthLayout";
 import { CaptchaModal } from "../components/features/auth/CaptchaModal";
 import { Button } from "../components/ui/Button";
+import { Checkbox } from "../components/ui/Checkbox";
 import { TextField } from "../components/ui/TextField";
 import { useAuth } from "../context/AuthContext";
 import { isValidEmail, isValidUsername } from "../lib/validation";
@@ -14,6 +15,7 @@ interface FormErrors {
   email?: string;
   password?: string;
   confirmPassword?: string;
+  consent?: string;
 }
 
 export function SignUpPage() {
@@ -26,6 +28,7 @@ export function SignUpPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [consent, setConsent] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [captchaOpen, setCaptchaOpen] = useState(false);
 
@@ -42,6 +45,7 @@ export function SignUpPage() {
     else if (password.length < 8) next.password = "Password must be at least 8 characters.";
     if (!confirmPassword) next.confirmPassword = "Please confirm your password.";
     else if (confirmPassword !== password) next.confirmPassword = "Passwords don't match.";
+    if (!consent) next.consent = "You must agree before creating an account.";
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -118,6 +122,14 @@ export function SignUpPage() {
           required
           autoComplete="new-password"
         />
+        <div>
+          <Checkbox
+            label="I agree to CareerBridge processing my résumé to build my profile"
+            checked={consent}
+            onChange={(e) => setConsent(e.target.checked)}
+          />
+          {errors.consent && <p className="mt-1 text-xs text-danger-600">{errors.consent}</p>}
+        </div>
         <Button type="submit" className="w-full" disabled={isSigningUp}>
           {isSigningUp ? "Creating account…" : "Sign up"}
         </Button>

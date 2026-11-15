@@ -2,6 +2,7 @@ import { Check, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Alert } from "../components/ui/Alert";
+import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Skeleton } from "../components/ui/Skeleton";
@@ -78,6 +79,29 @@ export function InterestsPage() {
       <Alert variant="info" className="mt-6">
         Not on your résumé doesn't mean you don't have it — add anything we missed below.
       </Alert>
+
+      {profile.skills.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+            Your skills
+          </h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {profile.skills.map((skill) => (
+              <Card key={skill.id ?? skill.skill}>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-neutral-900">{skill.skill}</p>
+                  <Badge variant={skill.status} />
+                </div>
+                {skill.sourceExcerpt && (
+                  <p className="mt-2 border-l-2 border-neutral-200 pl-2 text-xs italic text-neutral-500">
+                    "{skill.sourceExcerpt}"
+                  </p>
+                )}
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
 
       {analysis.isLoading && (
         <div className="mt-8 space-y-3">

@@ -15,13 +15,16 @@ export interface AuthSession {
   token: string;
 }
 
-export type SkillCategory = "technical" | "interpersonal";
+// "domain" exists on the real backend (database/schema.sql's skills.category)
+// but mock mode/this UI's /start only ever produces technical/interpersonal.
+export type SkillCategory = "technical" | "interpersonal" | "domain";
 
 export type EvidenceStatus =
   | "present"
   | "user_confirmed"
   | "self_reported"
-  | "not_established";
+  | "not_established"
+  | "demonstrated";
 
 // Where a skill entry came from: extracted from an uploaded résumé, or typed
 // in directly by the candidate. Distinct from `status`, which describes how
@@ -29,6 +32,7 @@ export type EvidenceStatus =
 export type SkillSource = "resume" | "user";
 
 export interface CandidateSkillEvidence {
+  id: string | null; // the backend's skill-evidence row id; null for not-yet-persisted mock entries
   skill: string;
   category: SkillCategory;
   status: EvidenceStatus;
@@ -39,10 +43,15 @@ export interface CandidateSkillEvidence {
 // What best describes the candidate's current situation — chosen on /start,
 // used to tailor tone and emphasis later in the journey (e.g. supportive
 // copy for "no_job", exploration-leaning recommendations for "new_career").
+// No endpoint in api/openapi.yaml carries this — it's client-side/journey
+// state only, in both mock and real mode. See docs/API_PROPOSALS.md.
 export type Situation = "upskill" | "no_job" | "new_career";
 
 export interface CandidateProfile {
   id: string;
+  userId: string | null; // set when the profile came from the real backend
+  source: "resume" | "manual";
+  hasFile: boolean;
   targetRole: string | null;
   location: string | null;
   level: string | null;

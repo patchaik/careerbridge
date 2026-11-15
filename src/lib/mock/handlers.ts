@@ -101,6 +101,7 @@ export function mockCreateProfile(input: CreateProfileInput): string {
       const skills: CandidateSkillEvidence[] = input.skills.map(({ skill, source }) => {
         const fromResume = demoResumeSkills.find((s) => s.skill.toLowerCase() === skill.toLowerCase());
         return {
+          id: fromResume?.id ?? `evidence_${skill.toLowerCase().replace(/\s+/g, "_")}`,
           skill,
           category: fromResume?.category ?? "technical",
           status: source === "resume" ? "present" : "self_reported",

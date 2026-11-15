@@ -1,15 +1,11 @@
-import { USE_MOCKS } from "../config";
 import type { InterestAnalysis } from "../types";
 import { mockAnalyzeInterests } from "../mock/handlers";
-import { apiRequest } from "./client";
 
+// No /interests/analyze endpoint exists in api/openapi.yaml — see
+// docs/API_PROPOSALS.md. Stays mock regardless of mode.
 export async function analyzeInterests(
-  profileId: string,
+  _profileId: string,
   userInterests: string[],
 ): Promise<InterestAnalysis> {
-  if (USE_MOCKS) return mockAnalyzeInterests(userInterests);
-  return apiRequest<InterestAnalysis>("/interests/analyze", {
-    method: "POST",
-    body: { profileId, userInterests },
-  });
+  return mockAnalyzeInterests(userInterests);
 }
