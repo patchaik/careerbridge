@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "./AuthContext";
 import type {
   AssessmentAttempt,
@@ -148,30 +148,17 @@ const JourneyContext = createContext<JourneyContextValue | null>(null);
 
 export function JourneyProvider({ children }: { children: ReactNode }) {
   const { user, isInitializing } = useAuth();
-  const userId = user?.id ?? null;
+  // Mount journey state only once identity is known. A keyed child loads the
+  // correct user's progress before route guards render or persistence runs.
+  if (isInitializing) return null;
+  return <UserJourneyProvider key={user?.id ?? "signed-out"} userId={user?.id ?? null}>
+    {children}
+  </UserJourneyProvider>;
+}
 
+function UserJourneyProvider({ userId, children }: { userId: string | null; children: ReactNode }) {
   const [state, setState] = useState<JourneyState>(() => loadState(userId));
-  // Tracks which user's data `state` currently holds, so the load effect
-  // only fires on an actual sign-in/sign-out/account-switch — not on every
-  // render — and so the save effect never fires before that reload happens
-  // (which would otherwise overwrite the next user's stored state with the
-  // previous user's in-memory state for one tick).
-  const loadedForUserId = useRef<string | null>(userId);
-  const hasLoadedOnce = useRef(false);
-
-  useEffect(() => {
-    if (isInitializing) return; // don't know the real user yet
-    if (hasLoadedOnce.current && loadedForUserId.current === userId) return;
-    hasLoadedOnce.current = true;
-    loadedForUserId.current = userId;
-    setState(loadState(userId));
-  }, [userId, isInitializing]);
-
-  useEffect(() => {
-    if (isInitializing) return;
-    if (loadedForUserId.current !== userId) return; // state is still the previous user's — don't save it under this one
-    saveState(userId, state);
-  }, [state, userId, isInitializing]);
+  useEffect(() => saveState(userId, state), [state, userId]);
 
   const value: JourneyContextValue = {
     ...state,

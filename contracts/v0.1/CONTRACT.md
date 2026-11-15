@@ -1,15 +1,17 @@
 # CareerBridge Shared Implementation Contract
-Version 0.1.0 | Proposed baseline | 14 November 2026
+Version 0.1.1 | Learning-plan scope update | 14 November 2026
 
 ## Purpose and authority
 
 This package defines the contracts for parallel UI, agent-framework and DB work.
-It is a specification and validation package, not an implemented backend or an
-applied migration. No GitHub branch or live database has been changed.
+The target API and assessment design are specified here. The deployed stitch-1
+learning slice is mapped in docs/LEARNING_PLANS.md and api/openapi.yaml; do not
+assume all target infrastructure or assessment capabilities are implemented.
 
 Scope agreed with the product owner: any target role and evidence-backed gap
-analysis; learning and assessment for a small set of reviewed competency
-templates. There is no required RAG competency, model provider or RAG grader.
+analysis; resource-grounded learning plans for selected gaps, without reviewed
+templates. Reviewed templates and grading remain a future assessment boundary,
+not a prerequisite for learning. There is no required RAG competency or grader.
 OpenAI and Nebius are interchangeable behind the internal model gateway.
 
 Normative files:
@@ -155,7 +157,7 @@ Credential/experience barriers are labeled rather than mapped to a short course.
 Every gap source must reference a requirement for that normalized skill within
 the selected job-search snapshot. Excerpt must equal stored requirement evidence.
 
-## 4. Reviewed Competency Template Format
+## 4. Reviewed Competency Template Format (future assessment only)
 
 A TemplateDefinition contains:
   stable template_key + immutable version
@@ -226,21 +228,35 @@ No arbitrary Python/SQL/script submission or unrestricted URL fetching is allowe
 
 5. LEARNING, DIAGNOSTICS AND ASSESSMENT
 
-A supported gap may map to a published template only if normalized skill/scope,
-prerequisites and required handlers match. Unsupported gaps remain visible with
-no_published_template or prerequisites_unmet; path generation returns 409
-template_unavailable. Never substitute a trendy skill or silently use RAG.
+Learning plan generation does not require a reviewed competency template. A learner
+selects a gap, discovers and saves resources, selects resource IDs, enters a
+skill-specific learning_goal (10–600 characters), and chooses text, hands_on or both.
+The career target is context; it is not substituted for this skill learning goal.
 
-Generate a path from journey, analysis, selected gap and template version. Store
-an immutable rubric binding and server-only test-set binding. Learner approval
-acknowledges the exact path revision/rubric hash; it is not template publication.
-Published rubrics are already frozen. Reject lesson/practice/final-assessment
-requests before path approval. Resume a paused path only on explicit user intent.
+The shared gateway returns a concrete learning_outcome and 1–5 ordered milestones.
+Each milestone has a mode, clear instruction, 1–3 observable self-check criteria,
+and only selected saved resource IDs. Text plans contain text milestones; hands_on
+plans contain practical tasks; both must include both modes. Practical tasks are
+suggested work outside the app, not an execution/assessment engine.
 
-Resources: reviewed catalog first; live supplements must be validated for link,
-access terms, concept coverage and learner level. Limit five free and five paid;
-mixed/unknown are separately labeled. Timestamp and ranking reason are returned.
-No quota padding. Resource content is linked, not copied without permission.
+Persist the exact learner goal, expected outcome, modality, resource snapshot and
+milestones. Reload must not call discovery or a model. Learner acceptance changes
+only plan status; it never creates/freezes a rubric, publishes a template, awards
+mastery or enables assessment. Learning-only paths have rubric=null and
+assessment_available=false; assessment start returns 409 assessment_unavailable.
+Generate a new plan to change its content; acceptance retries are harmless.
+
+Resources: discover both free and paid options, retain URL, retrieval time, format,
+and exact coverage/access excerpts. Price classification requires source evidence;
+trials are not labeled free; mixed/unknown are separate. Limit five per price group,
+never pad a quota, and allow truthful empty results. Learners select 1–10 saved
+resources; paid options are opt-in, enrollment/payment stays on the provider site.
+A link/content check is not human curriculum review. Resource snapshots retain the
+original evidence even if the shared catalog changes. Material is linked, not copied.
+
+The remaining diagnostics, reviewed templates and assessment rules describe a
+separate future competency-verification capability. They do not gate the learning
+plan MVP. Unsupported assessment must never substitute a latest skill rubric.
 
 Diagnostic is optional. It uses separate diagnostic tasks with no overlap with
 practice or final test assets and returns placement feedback only. It never

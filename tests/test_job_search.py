@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from careerbridge import search_agent, store
+from careerbridge import search_agent, store, model_tasks
 from careerbridge.errors import ApiError
 from careerbridge.model_gateway import ModelError
 from careerbridge.prompts.search_agent import job_source_supported
@@ -78,7 +78,7 @@ def test_gateway_uses_pinned_context_and_audit(monkeypatch, audit_fails):
         return_value={"id": "saved"},
         side_effect=DBError("failed") if audit_fails else None,
     )
-    monkeypatch.setattr(search_agent.users, "log_event", audit)
+    monkeypatch.setattr(model_tasks.users, "log_event", audit)
     gateway = MagicMock()
 
     def factory(routing, suite, record):
@@ -100,7 +100,7 @@ def test_gateway_uses_pinned_context_and_audit(monkeypatch, audit_fails):
         gateway.generate_json.side_effect = generate
         return gateway
 
-    monkeypatch.setattr(search_agent, "ModelGateway", factory)
+    monkeypatch.setattr(model_tasks, "ModelGateway", factory)
     if audit_fails:
         with pytest.raises(ModelError, match="invocation_not_recorded"):
             search_agent.extract_jobs(state)

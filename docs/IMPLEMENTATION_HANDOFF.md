@@ -1,5 +1,15 @@
 # CareerBridge implementation handoff
 
+## Learning scope update (14 November 2026)
+
+Learning no longer depends on reviewed templates, publication, activity handlers or
+grading bundles. Follow [LEARNING_PLANS.md](LEARNING_PLANS.md) and the deployed
+[API contract](../api/openapi.yaml): saved resource search → skill-specific goal +
+selected resource IDs + modality → learning outcome/milestones → learner acceptance.
+Earlier template dependencies below now apply only to independent assessments.
+Keep rubric publication and competency evidence separate from this learning slice.
+
+
 ## Scope and source of truth
 
 Implement [MVP_REQUIREMENTS.md](MVP_REQUIREMENTS.md) against [contracts/v0.1](../contracts/v0.1/README.md). OpenAPI defines wire shapes; the normative contract defines cross-record invariants; data-model.yaml defines the logical storage target. The old api/openapi.yaml and docs/DB_DESIGN.md describe the previous baseline and are not competing v0.1 contracts.

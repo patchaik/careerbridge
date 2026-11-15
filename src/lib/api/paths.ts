@@ -1,15 +1,47 @@
-import { isReal } from "./endpoints";
-import type { LearningPath } from "../types";
-import { mockGeneratePath } from "../mock/handlers";
 import { apiRequest } from "./client";
+import type { SavedResource } from "./resources";
 
-// NOTE: the contract's POST /api/paths/generate takes {goal_id, skill} (no
-// goal id here yet) and its Milestone schema is {id,title,concepts,mode,done}
-// — the coach agent's richer explanation/exercise/resource_urls per
-// milestone isn't in the contract (meant to come from /api/arena/tutor
-// instead). No page calls this yet (Phase 4+ /path); needs a real mapping
-// pass when that page is built. See docs/INTEGRATION_NOTES.md.
-export async function generatePath(skill: string): Promise<LearningPath> {
-  if (!isReal("generatePath")) return mockGeneratePath();
-  return apiRequest<LearningPath>("/api/paths/generate", { method: "POST", body: { skill } });
+export type Modality = "text" | "hands_on" | "both";
+export interface PlanRequest {
+  resource_search_id: string;
+  learning_goal: string;
+  modality: Modality;
+  resource_ids: string[];
+}
+export interface LearningPlan {
+  id: string;
+  workflow_id: string;
+  goal_id: string;
+  resource_search_id: string;
+  skill: string;
+  objective: string;
+  learning_outcome: string;
+  modality: Modality;
+  status: "proposed" | "approved" | "in_progress" | "paused" | "completed";
+  milestones: {
+    id: string;
+    title: string;
+    mode: "text" | "hands_on";
+    instruction: string;
+    success_criteria: string[];
+    resource_ids: string[];
+  }[];
+  resources: SavedResource[];
+  rubric: null;
+  assessment_available: false;
+}
+export function generatePath(body: PlanRequest) {
+  return apiRequest<LearningPlan>("/api/paths/generate", {
+    method: "POST",
+    body,
+  });
+}
+export function getPath(id: string) {
+  return apiRequest<LearningPlan>(`/api/paths/${encodeURIComponent(id)}`);
+}
+export function approvePath(id: string) {
+  return apiRequest<LearningPlan>(
+    `/api/paths/${encodeURIComponent(id)}/approve`,
+    { method: "PUT" },
+  );
 }

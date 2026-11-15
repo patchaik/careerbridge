@@ -202,3 +202,10 @@ def log_event(user_id: str, event_type: str, entity_type: Optional[str] = None,
 def list_events(user_id: str, limit: int = 100) -> list[dict]:
     return run(table("audit_events").select("*").eq("user_id", user_id)
                .order("occurred_at", desc=True).limit(limit), "List events")
+
+
+def get_path_workflow(user_id: str, path_id: str) -> Optional[dict]:
+    """Find the completed immutable plan snapshot owned by this learner."""
+    return first(run(table("workflow_runs").select("*").eq("user_id", user_id)
+        .contains("state_json", {"kind": "generate_path", "status": "complete", "result": {"id": path_id}})
+        .limit(1), "Find learning plan snapshot"))

@@ -15,6 +15,8 @@ import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
 import { TargetPage } from "./pages/TargetPage";
 import { SkillsPage } from "./pages/SkillsPage";
+import { CoursesPage } from "./pages/CoursesPage";
+import { LearnPage } from "./pages/LearnPage";
 import { StartPage } from "./pages/StartPage";
 
 function AppLayout() {
@@ -63,11 +65,11 @@ function App() {
               {/* Learn */}
               <Route
                 path="/courses"
-                element={<Protected index={6}><ComingSoonPage phase="Phase 5 (Learn)" /></Protected>}
+                element={<Protected index={6}><CoursesPage /></Protected>}
               />
               <Route
                 path="/learn"
-                element={<Protected index={7}><ComingSoonPage phase="Phase 5 (Learn)" /></Protected>}
+                element={<Protected index={7}><LearnPage /></Protected>}
               />
               <Route
                 path="/arena"

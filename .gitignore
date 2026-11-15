@@ -42,3 +42,7 @@ deployment/model-routing.yaml
 deployment/job-model-routing.yaml
 deployment/invocations.jsonl
 .ruff_cache/
+
+deployment/resource-model-routing.yaml
+deployment/plan-model-routing.yaml
+*-check.private.json

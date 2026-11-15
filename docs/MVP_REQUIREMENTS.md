@@ -6,7 +6,7 @@ Status: proposed shared implementation baseline v0.1.0. Product scope was agreed
 
 CareerBridge helps a learner choose a target role, compare confirmed experience with sourced job requirements, select a relevant competency, learn and practice, demonstrate it independently, and approve a truthful résumé update.
 
-The platform accepts **any target role**. Learning and assessment are available for a **small set of reviewed competency templates**. RAG may be one template; it is not a platform requirement or default fallback. Unsupported competencies remain visible with an honest coverage explanation.
+The platform accepts **any target role**. Learning plans use saved resources, a **skill-specific learning goal** and the learner’s chosen modality. Reviewed templates are **not required for learning**. Independent assessments remain a separate future feature requiring reviewed criteria; accepting a plan never certifies a skill. There is no RAG dependency.
 
 OpenAI and Nebius are interchangeable server-side model providers. Provider choice must not alter public APIs, competency identity, rubric criteria, deterministic grading or résumé approval rules.
 
@@ -22,9 +22,9 @@ OpenAI and Nebius are interchangeable server-side model providers. Provider choi
 | FR-06 | P0 | Skill Bridge | Return up to ten existing, market and ranked gap skills; every market gap cites matching requirements in selected snapshots. |
 | FR-07 | P0 | Honest evidence states | Required/preferred/unspecified and self-reported/confirmed/demonstrated/not-established are distinct; omission is not inability. |
 | FR-08 | P0 | Optional diagnostic | Learner can skip it or receive placement feedback; diagnostic alone never writes verified mastery. |
-| FR-09 | P0 | Competency pathway | A supported gap maps to a published template, prerequisite concepts, milestones and observable objectives. |
-| FR-10 | P0 | Resource discovery | Reviewed catalog first; verified supplements; up to five free and five paid, with mixed/unknown labeled and no quota padding. |
-| FR-11 | P0 | Learn and practice | Written lesson, tutor and bounded hands-on activity work for each supported template; practice cannot award mastery. |
+| FR-09 | P0 | Competency pathway | Selected gap + explicit skill goal + chosen modality + selected saved resources produce a concrete learning outcome and ordered milestones; no template required. |
+| FR-10 | P0 | Resource discovery | Discover and save free and paid resources with coverage/access evidence and checked times; mixed/unknown labeled, no quota padding. |
+| FR-11 | P0 | Learn and practice | Text, hands-on or both plans respect modality and provide observable self-checks; practical activities happen outside the app; acceptance and progress do not award mastery. |
 | FR-12 | P0 | Reviewed frozen rubric | Publication requires reviewer evidence; attempts pin immutable template, rubric, test-set and grader versions. |
 | FR-13 | P0 | Independent assessment | Knowledge and practical work use unseen tasks; deterministic critical checks cannot be overridden by model narrative or browser scores. |
 | FR-14 | P0 | Verified skill evidence | Only a passing final attempt atomically creates evidence with reproducible artifacts and limited scope. |
@@ -54,7 +54,7 @@ The exact wire/schema definitions are in [the contract package](../contracts/v0.
 | Long operations | Always 202 plus workflow ID; poll and follow a typed result reference. |
 | Writes | Idempotency key; revision/hash guards for confirmation and approval. |
 | Source history | Immutable job/profile/goal snapshots, distinct provider and data-origin fields. |
-| Templates | Generic published definitions with registered activity types; no model/provider settings or grading keys. |
+| Templates | Not required for learning plans; reviewed criteria remain necessary for later competency assessment. |
 | Diagnostics | Placement-only; prior knowledge can shorten instruction but final practical evidence remains necessary. |
 | Retry policy | At most three failed final attempts; fresh reviewed tests required; ambiguity does not count as learner failure. |
 | Provider routing | OpenAI or Nebius selected on server; task overrides allowed; automatic cross-provider fallback off by default. |
@@ -66,10 +66,14 @@ The initial cache-age, retention, timeout and retry limits in the normative cont
 
 The MVP must stay small, clearly organized and easy to change. Follow [implementation guidelines](IMPLEMENTATION_GUIDELINES.md): reuse the existing stack, keep domain logic, prompts and persistence in their modules, use concise task-specific prompts, and justify each new dependency or abstraction. Logical records do not mandate separate physical tables or services. Each implementation PR must demonstrate its acceptance criteria with the smallest clear change.
 
-## MVP release gates
+## Release gates
 
-1. Complete the browser journey with mocks disabled for two reviewed distinct competencies, including a non-RAG template, using common workflow logic.
-2. Show an unsupported gap honestly without silently substituting RAG or awarding mastery.
+The learning-plan slice is specified in [LEARNING_PLANS.md](LEARNING_PLANS.md).
+Assessment/export gates below apply when those separate capabilities ship; they
+do not block learning plan generation.
+
+1. Complete gap → saved free/paid resources → skill goal → modality → plan review → acceptance and reload with mocks disabled. Exercise all three modalities; no template or rubric required.
+2. Show empty resources/provider failures honestly; reject unsaved resource IDs and cross-user records; never substitute RAG or award mastery.
 3. Demonstrate real job retrieval and honest zero-result/provider-outage/stale-cache handling.
 4. Known passing, failing and ambiguous submissions produce expected outcomes; failed critical checks cannot pass.
 5. Attempts retain frozen versions even after new template publication; private answers and test keys never reach learner or model surfaces.

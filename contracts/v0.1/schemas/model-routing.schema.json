@@ -183,6 +183,13 @@
             "openai",
             "nebius"
           ]
+        },
+        "resource_extract": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "nebius"
+          ]
         }
       }
     },

@@ -404,32 +404,21 @@ tables:
   learning_paths:
     columns:
       id: uuid primary key
-      created_at: timestamptz not null
-      updated_at: timestamptz not null
-      journey_id: uuid
-      gap_analysis_id: uuid
-      gap_id: uuid within analysis JSON
-      template_version_id: uuid
-      rubric_id: uuid
-      revision: integer >=1
+      goal_id: uuid
+      skill_id: uuid
+      objective: text learner skill goal
       status: 'text: proposed|approved|in_progress|paused|completed'
-      objective: text
-      modality: text
-      milestones_json: jsonb Milestone[]
-      approved_at: timestamptz null
+      milestones_json: jsonb legacy milestone summaries
     foreign_keys:
-    - journey_id -> journeys.id
-    - gap_analysis_id -> gap_analyses.id
-    - template_version_id -> competency_template_versions.id
-    - rubric_id -> rubric_versions.id
-    unique:
-    - - journey_id
+    - skill_id -> skills.id
+    unique: []
     rules:
-    - Gap belongs to selected analysis and compatible published template; unsupported
-      gap cannot create path
-    - rubric belongs to exact selected template; immutable bindings
-    - Learner approval records path revision and rubric hash, independently from template
-      publication
+    - Owned saved resource search establishes the selected gap and career goal
+    - No template or rubric binding is required for a learning-only plan
+    - Immutable complete content is stored in the owned generate_path workflow result
+    - Workflow result contains path ID, skill goal, learning outcome, modality, milestone instructions and self-checks, selected resource snapshots and resource search ID
+    - Learner acceptance changes only path status; no assessment or verified evidence is created
+    - See docs/LEARNING_PLANS.md for the existing Supabase physical mapping
   learning_sessions:
     columns:
       id: uuid primary key

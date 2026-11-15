@@ -20,7 +20,8 @@
         "path_plan",
         "lesson",
         "tutor",
-        "resume_draft"
+        "resume_draft",
+        "resource_extract"
       ]
     },
     "provider": {

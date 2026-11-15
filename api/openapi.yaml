@@ -448,39 +448,66 @@ paths:
                   score: { type: number, minimum: 0, maximum: 1 }
                   recommendation: { type: string, enum: [skip_training, short_refresher, full_path] }
 
-  /api/paths/generate:
+  /api/resources/search:
     post:
       tags: [Learning]
-      summary: Create a learning path and its rubric for one gap
-      description: |
-        Returns a proposed path and the rubric that will grade it. The rubric is shown to the user
-        before learning starts and is frozen when the path is approved.
-      operationId: generatePath
-      x-db-functions: [learning.create_path, mastery.get_frozen_rubric, mastery.create_rubric]
+      operationId: discoverResources
+      security: [{ BearerAuth: [] }]
+      summary: Discover and save free and paid learning resources for an owned gap
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [goal_id, skill]
-              properties:
-                goal_id: { type: string, format: uuid }
-                skill: { type: string }
-                modality: { $ref: "#/components/schemas/Modality" }
+            schema: { $ref: "#/components/schemas/ResourceSearchRequest" }
+      responses:
+        "200":
+          description: Saved results; empty price groups are valid
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SavedResourceSearch" }
+  /api/resource-searches/{workflow_id}:
+    get:
+      tags: [Learning]
+      operationId: getResourceSearch
+      security: [{ BearerAuth: [] }]
+      summary: Reload owned saved resources without a search or model call
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Original search snapshot
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SavedResourceSearch" }
+
+  /api/paths/generate:
+    post:
+      tags: [Learning]
+      summary: Propose a learning-only plan from saved resources and a skill goal
+      operationId: generatePath
+      security: [{ BearerAuth: [] }]
+      x-db-functions: [learning.create_path, users.save_workflow_state]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PathGenerate" }
       responses:
         "201":
-          description: Proposed path
+          description: Saved plan with expected outcome and self-checks; no assessment rubric
           content:
             application/json:
               schema: { $ref: "#/components/schemas/LearningPath" }
-        "202": { $ref: "#/components/responses/Accepted" }
 
   /api/paths/{path_id}:
     get:
       tags: [Learning]
       summary: Get a learning path
       operationId: getPath
+      security: [{ BearerAuth: [] }]
       x-db-functions: [learning.get_path]
       parameters:
         - $ref: "#/components/parameters/PathId"
@@ -495,14 +522,15 @@ paths:
   /api/paths/{path_id}/approve:
     put:
       tags: [Learning]
-      summary: Approve a path and freeze its rubric
+      summary: Accept a saved learning plan without creating assessment evidence
       operationId: approvePath
-      x-db-functions: [learning.update_path_status, mastery.approve_rubric, mastery.freeze_rubric]
+      security: [{ BearerAuth: [] }]
+      x-db-functions: [learning.update_path_status, users.get_path_workflow]
       parameters:
         - $ref: "#/components/parameters/PathId"
       responses:
         "200":
-          description: Approved path with frozen rubric
+          description: Accepted learning plan; rubric remains null
           content:
             application/json:
               schema: { $ref: "#/components/schemas/LearningPath" }
@@ -513,6 +541,7 @@ paths:
       tags: [Learning]
       summary: Pause, resume or complete a path
       operationId: setPathStatus
+      security: [{ BearerAuth: [] }]
       x-db-functions: [learning.update_path_status]
       parameters:
         - $ref: "#/components/parameters/PathId"
@@ -575,6 +604,7 @@ paths:
         Answers only within the milestone's concepts. Gives hints, not full solutions to assessed
         tasks.
       operationId: tutor
+      security: [{ BearerAuth: [] }]
       x-db-functions: [learning.save_session, learning.get_session]
       requestBody:
         required: true
@@ -912,6 +942,10 @@ paths:
 
 components:
   securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
     bearerAuth:
       type: http
       scheme: bearer
@@ -1233,20 +1267,285 @@ components:
           type: object
           description: Shown to the user before learning starts
 
+    PathGenerate:
+      additionalProperties: false
+      properties:
+        resource_search_id:
+          title: Resource Search Id
+          type: string
+        learning_goal:
+          maxLength: 600
+          minLength: 10
+          title: Learning Goal
+          type: string
+        modality:
+          enum:
+          - text
+          - hands_on
+          - both
+          title: Modality
+          type: string
+        resource_ids:
+          items:
+            type: string
+          maxItems: 10
+          minItems: 1
+          title: Resource Ids
+          type: array
+      required:
+      - resource_search_id
+      - learning_goal
+      - modality
+      - resource_ids
+      title: GeneratePathBody
+      type: object
+
+    PathApprove:
+      type: object
+      additionalProperties: false
+      properties: {}
+      required: []
+
+    PlanMilestone:
+      additionalProperties: false
+      properties:
+        title:
+          maxLength: 150
+          minLength: 1
+          title: Title
+          type: string
+        mode:
+          enum:
+          - text
+          - hands_on
+          title: Mode
+          type: string
+        instruction:
+          maxLength: 1500
+          minLength: 1
+          title: Instruction
+          type: string
+        success_criteria:
+          items:
+            maxLength: 500
+            minLength: 1
+            type: string
+          maxItems: 3
+          minItems: 1
+          title: Success Criteria
+          type: array
+        resource_ids:
+          items:
+            type: string
+          maxItems: 10
+          minItems: 1
+          title: Resource Ids
+          type: array
+        id:
+          type: string
+          minLength: 1
+      required:
+      - title
+      - mode
+      - instruction
+      - success_criteria
+      - resource_ids
+      - id
+      title: PlanMilestone
+      type: object
+
+    SavedLearningResource:
+      additionalProperties: false
+      properties:
+        title:
+          maxLength: 200
+          minLength: 1
+          title: Title
+          type: string
+        price_type:
+          enum:
+          - free
+          - paid
+          - mixed
+          - unknown
+          title: Price Type
+          type: string
+        price_evidence:
+          maxLength: 400
+          title: Price Evidence
+          type: string
+        learning_evidence:
+          maxLength: 400
+          minLength: 1
+          title: Learning Evidence
+          type: string
+        format:
+          enum:
+          - article
+          - video
+          - course
+          - exercise
+          - unknown
+          title: Format
+          type: string
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        checked_at:
+          type: string
+          format: date-time
+      required:
+      - title
+      - price_type
+      - price_evidence
+      - learning_evidence
+      - format
+      - id
+      - url
+      - checked_at
+      title: Resource
+      type: object
+
+    SavedResourceSearch:
+      type: object
+      additionalProperties: false
+      properties:
+        workflow_id:
+          type: string
+          format: uuid
+        analysis_id:
+          type: string
+          format: uuid
+        goal_id:
+          type: string
+          format: uuid
+        skill:
+          type: string
+        source:
+          const: keenable
+        retrieved_at:
+          type: string
+          format: date-time
+        free:
+          type: array
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/SavedLearningResource'
+        paid:
+          type: array
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/SavedLearningResource'
+        mixed:
+          type: array
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/SavedLearningResource'
+        unknown:
+          type: array
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/SavedLearningResource'
+      required:
+      - workflow_id
+      - analysis_id
+      - goal_id
+      - skill
+      - source
+      - retrieved_at
+      - free
+      - paid
+      - mixed
+      - unknown
+
+    ResourceSearchRequest:
+      additionalProperties: false
+      properties:
+        analysis_id:
+          title: Analysis Id
+          type: string
+        skill:
+          maxLength: 120
+          minLength: 1
+          title: Skill
+          type: string
+      required:
+      - analysis_id
+      - skill
+      title: ResourceSearchBody
+      type: object
+
     LearningPath:
       type: object
-      required: [id, goal_id, skill, objective, status, milestones]
+      additionalProperties: false
       properties:
-        id: { type: string, format: uuid }
-        workflow_id: { type: string, format: uuid }
-        goal_id: { type: string, format: uuid }
-        skill: { type: string }
-        objective: { type: string }
-        status: { type: string, enum: [proposed, approved, in_progress, completed, paused] }
+        id:
+          type: string
+          format: uuid
+        workflow_id:
+          type: string
+          format: uuid
+        goal_id:
+          type: string
+          format: uuid
+        resource_search_id:
+          type: string
+          format: uuid
+        skill:
+          type: string
+        objective:
+          type: string
+          minLength: 10
+          maxLength: 600
+        learning_outcome:
+          type: string
+          minLength: 1
+          maxLength: 600
+        modality:
+          enum:
+          - text
+          - hands_on
+          - both
+        status:
+          enum:
+          - proposed
+          - approved
+          - in_progress
+          - paused
+          - completed
         milestones:
           type: array
-          items: { $ref: "#/components/schemas/Milestone" }
-        rubric: { $ref: "#/components/schemas/Rubric" }
+          minItems: 1
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/PlanMilestone'
+        resources:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/SavedLearningResource'
+        rubric:
+          type: 'null'
+        assessment_available:
+          const: false
+      required:
+      - id
+      - workflow_id
+      - goal_id
+      - resource_search_id
+      - skill
+      - objective
+      - learning_outcome
+      - modality
+      - status
+      - milestones
+      - resources
+      - rubric
+      - assessment_available
 
     Resource:
       type: object
