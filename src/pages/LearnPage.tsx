@@ -7,6 +7,7 @@ import { CARD_ACCENT, GRADIENT_HEADING, LearnIconsBackground } from "../componen
 import { approvePath, completeMilestone, getPath, listPaths, type LearningPlan } from "../lib/api/paths";
 import { MilestoneMaterial } from "../components/features/learning/MilestoneMaterial";
 import { getMaterials, type MilestoneMaterial as Material } from "../lib/api/materials";
+import { LearningCheck } from "../components/features/learning/LearningCheck";
 import { priceLabels } from "../lib/api/resources";
 
 export function LearnPage() {
@@ -133,6 +134,7 @@ export function LearnPage() {
                 : <p className="mt-2 text-success-700">Learning plan complete. You can revisit any material below.</p>}
             </div>}
           </Card>
+          {plan.status !== "proposed" && <LearningCheck key={plan.id} pathId={plan.id} completed={plan.status === "completed"} />}
           <ol className="space-y-4">
             {plan.milestones.map((m, index) => (
               <li key={m.id} id={`milestone-${m.id}`} className="scroll-mt-20">

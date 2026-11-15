@@ -48,3 +48,5 @@ deployment/plan-model-routing.yaml
 *-check.private.json
 
 deployment/lesson-model-routing.yaml
+
+deployment/check-model-routing.yaml

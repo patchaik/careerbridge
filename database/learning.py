@@ -128,3 +128,41 @@ def save_session(path_id: str, milestone_id: str, mode: str, state: Optional[dic
 
 def get_session(session_id: str) -> Optional[dict]:
     return get_by_id("learning_sessions", session_id, "session")
+
+
+# ---- Formative learning checks (never mastery evidence) ---------------------
+def check_id_for(path_id: str) -> str:
+    from uuid import NAMESPACE_URL, uuid5
+    return str(uuid5(NAMESPACE_URL, f"careerbridge:learning-check:{path_id}"))
+
+
+def get_learning_check(check_id: str, user_id: str) -> Optional[dict]:
+    return first(run(table("workflow_runs").select("*").eq("id", check_id)
+        .eq("user_id", user_id).contains("state_json", {"kind": "learning_check"}), "Read learning check"))
+
+
+def create_learning_check(path_id: str, user_id: str, goal_id: str) -> dict:
+    check_id = check_id_for(path_id)
+    # Deterministic ID + ignore duplicates prevents parallel starts creating two checks.
+    row = {"id": check_id, "user_id": user_id, "goal_id": goal_id, "state": "ASSESSING",
+           "state_json": {"kind": "learning_check", "path_id": path_id, "status": "new", "revision": 0}}
+    run(table("workflow_runs").upsert(row, on_conflict="id", ignore_duplicates=True), "Create learning check")
+    return require(get_learning_check(check_id, user_id), "Learning check")
+
+
+def save_learning_check(before: dict, state: dict) -> Optional[dict]:
+    """Compare revision; commit the complete private check/submission/result atomically."""
+    updated = {**state, "revision": before["state_json"]["revision"] + 1}
+    try:
+        rows = run(table("workflow_runs").update({"state_json": updated})
+            .eq("id", before["id"]).eq("user_id", before["user_id"])
+            .eq("state_json->>revision", str(before["state_json"]["revision"])), "Save learning check")
+        return first(rows)
+    except DBError as exc:
+        if "Server disconnected" not in str(exc):
+            raise
+        # A lost response may still have committed. Never blindly repeat a model call.
+        current = get_learning_check(before["id"], before["user_id"])
+        if current and current["state_json"] == updated:
+            return current
+        raise
